@@ -211,9 +211,6 @@ carrier_start()
     fi
     echo "Starting carrier..."
     cd $SCRIPT_PATH/carrier
-    while [ -f $SCRIPT_PATH/carrier/run/ela-bootstrapd.pid ] || [ -f $SCRIPT_PATH/carrier/run/turnserver.pid ]; do
-        carrier_stop
-    done
     ./ela-bootstrapd --config=bootstrapd.conf
     sleep 1
     carrier_status
@@ -226,16 +223,15 @@ carrier_stop()
         killall ela-bootstrapd
         sleep 1
     done
-    cd $SCRIPT_PATH/carrier/run
-    rm *.pid
+    rm $SCRIPT_PATH/carrier/run/*.pid 2>/dev/null
     carrier_status
 }
 
 carrier_status()
 {
-    local COUNT=$(pgrep -x ela-bootstrapd | wc -l)
-    if [ $COUNT -gt 0 ]; then
-        echo "carrier: Running, $COUNT"
+    local PID=$(pgrep -x -d ', ' ela-bootstrapd)
+    if [ "$PID" != "" ]; then
+        echo "carrier: Running, $PID"
     else
         echo "carrier: Stopped"
     fi
