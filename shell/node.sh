@@ -183,12 +183,11 @@ carrier_status()
 
 usage()
 {
-    echo "Usage: $(basename $BASH_SOURCE) CHAIN COMMAND"
-    echo "ELA Management ($SCRIPT_PATH)"
+    echo "Usage: $(basename $BASH_SOURCE) [Module] Command"
+    echo "Elastos Node Management ($SCRIPT_PATH)"
     echo
-    echo "Avaliable Chain"
+    echo "Avaliable Modules:"
     echo
-    echo "  all"
     echo "  ela"
     echo "  did"
     echo "  token"
@@ -196,11 +195,14 @@ usage()
     echo
     echo "Avaliable Commands:"
     echo
+    echo "  init"
     echo "  start"
     echo "  stop"
     echo "  status"
     echo
+    echo "If no module is specified, all modules are operated."
 }
+
 
 init()
 {
@@ -230,35 +232,55 @@ SCRIPT_PATH=$(cd $(dirname $BASH_SOURCE); pwd)
 
 if [ "$1" == "" ]; then
     usage
-    exit
+
 elif [ "$1" == "init" ]; then
-    init
-    exit
+    all_$1
+elif [ "$1" == "all"     -a "$2" == "init" ]; then
+    $1_$2
+elif [ "$1" == "ela"     -a "$2" == "init" ]; then
+    $1_$2
+elif [ "$1" == "carrier" -a "$2" == "init" ]; then
+    $1_$2
+
 elif [ "$1" == "start" ]; then
-    all_start
-    exit
+    all_$1
+elif [ "$1" == "all"     -a "$2" == "start" ]; then
+    $1_$2
+elif [ "$1" == "ela"     -a "$2" == "start" ]; then
+    $1_$2
+elif [ "$1" == "did"     -a "$2" == "start" ]; then
+    $1_$2
+elif [ "$1" == "token"   -a "$2" == "start" ]; then
+    $1_$2
+elif [ "$1" == "carrier" -a "$2" == "start" ]; then
+    $1_$2
+
 elif [ "$1" == "stop" ]; then
-    all_stop
-    exit
+    all_$1
+elif [ "$1" == "all"     -a "$2" == "stop" ]; then
+    $1_$2
+elif [ "$1" == "ela"     -a "$2" == "stop" ]; then
+    $1_$2
+elif [ "$1" == "did"     -a "$2" == "stop" ]; then
+    $1_$2
+elif [ "$1" == "token"   -a "$2" == "stop" ]; then
+    $1_$2
+elif [ "$1" == "carrier" -a "$2" == "stop" ]; then
+    $1_$2
+
 elif [ "$1" == "status" ]; then
-    all_status
-    exit
-fi
+    all_$1
+elif [ "$1" == "all"     -a "$2" == "status" ]; then
+    $1_$2
+elif [ "$1" == "ela"     -a "$2" == "status" ]; then
+    $1_$2
+elif [ "$1" == "did"     -a "$2" == "status" ]; then
+    $1_$2
+elif [ "$1" == "token"   -a "$2" == "status" ]; then
+    $1_$2
+elif [ "$1" == "carrier" -a "$2" == "status" ]; then
+    $1_$2
 
-if [ "$1" != "all" -a \
-     "$1" != "ela" -a \
-     "$1" != "did" -a \
-     "$1" != "token" -a \
-     "$1" != "carrier" ]; then
-    echo "ERROR: do not support chain: $1"
-    exit
+else
+    echo "ERROR: do not support: $1 $2"
 fi
-
-if [ "$2" != "start" -a \
-     "$2" != "stop" -a \
-     "$2" != "status" ]; then
-    echo "ERROR: do not support command: $2"
-    exit
-fi
-
-$1_$2
