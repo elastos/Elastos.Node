@@ -24,6 +24,12 @@ check_env()
 #
 # all
 #
+all_init()
+{
+    ela_init
+    carrier_init
+}
+
 all_start()
 {
     ela_start
@@ -51,6 +57,21 @@ all_status()
 #
 # ela
 #
+ela_init()
+{
+    echo "=== 1. create keystore.dat ==="
+    cd ${SCRIPT_PATH}/ela/
+    echo -n "Please enter your password for keystore.dat:"
+    stty -echo
+    read password
+    stty echo
+
+    echo "create keystore.dat"
+    ./ela-cli wallet create -p $password
+    echo ${password} > ~/.node.conf
+    echo
+}
+
 ela_start()
 {
     if [ ! -d $SCRIPT_PATH/ela/ ]; then
@@ -164,6 +185,16 @@ token_status()
 #
 # carrier
 #
+carrier_init()
+{
+    echo "=== 2. modify the configuration file ==="
+    echo -n "Please enter your IP or domain name:"
+    read ip
+    sed -i -e "/IPAddress/ s/192.168.0.1/${ip}/" ${SCRIPT_PATH}/ela/config.json
+    sed -i -e "/external_ip/ s/X.X.X.X/${ip}/" ${SCRIPT_PATH}/carrier/bootstrapd.conf
+    echo "Initialization successful"
+}
+
 carrier_start()
 {
     if [ ! -d $SCRIPT_PATH/carrier/ ]; then
@@ -222,28 +253,6 @@ usage()
     echo "  status"
     echo
     echo "If no module is specified, all modules are operated."
-}
-
-
-init()
-{
-    echo "=== 1. create keystore.dat ==="
-    cd ${SCRIPT_PATH}/ela/
-    echo -n "Please enter your password for keystore.dat:"
-    stty -echo
-    read password
-    stty echo
-
-    echo "create keystore.dat"
-    ./ela-cli wallet create -p $password
-    echo ${password} > ~/.node.conf
-    echo
-    echo "=== 2. modify the configuration file ==="
-    echo -n "Please enter your IP or domain name:"
-    read ip
-    sed -i -e "/IPAddress/ s/192.168.0.1/${ip}/" ${SCRIPT_PATH}/ela/config.json
-    sed -i -e "/external_ip/ s/X.X.X.X/${ip}/" ${SCRIPT_PATH}/carrier/bootstrapd.conf
-    echo "Initialization successful"
 }
 
 #
