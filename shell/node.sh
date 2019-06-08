@@ -19,14 +19,6 @@ all_stop()
     carrier_stop
 }
 
-all_deploy()
-{
-    ela_deploy
-    did_deploy
-    token_deploy
-    carrier_deploy
-}
-
 all_status()
 {
     ela_status
@@ -66,20 +58,6 @@ ela_stop()
     ela_status
 }
 
-ela_deploy()
-{
-    if [ ! -d $SCRIPT_PATH/ela/ ]; then
-        echo "ERROR: $SCRIPT_PATH/ela/ is not exist"
-        return
-    fi
-    echo "Deploy ela..."
-    ela_stop
-    cd $SCRIPT_PATH/ela
-    cp ~/deploy/ela .
-    cp ~/deploy/ela-cli .
-    ela_start
-}
-
 ela_status()
 {
     local PID=$(pgrep -x ela)
@@ -116,19 +94,6 @@ did_stop()
     did_status
 }
 
-did_deploy()
-{
-    if [ ! -d $SCRIPT_PATH/did/ ]; then
-        echo "ERROR: $SCRIPT_PATH/did/ is not exist"
-        return
-    fi
-    echo "Deploy did..."
-    did_stop
-    cd $SCRIPT_PATH/did
-    cp ~/deploy/did .
-    did_start
-}
-
 did_status()
 {
     local PID=$(pgrep -x did)
@@ -163,19 +128,6 @@ token_stop()
         sleep 1
     done
     token_status
-}
-
-token_deploy()
-{
-    if [ ! -d $SCRIPT_PATH/token/ ]; then
-        echo "ERROR: $SCRIPT_PATH/token is not exist"
-        return
-    fi
-    echo "Deploy token..."
-    token_stop
-    cd $SCRIPT_PATH/token
-    cp ~/deploy/token .
-    token_start
 }
 
 token_status()
@@ -219,19 +171,6 @@ carrier_stop()
     carrier_status
 }
 
-carrier_deploy()
-{
-    if [ ! -d $SCRIPT_PATH/carrier/ ]; then
-        echo "ERROR: $SCRIPT_PATH/carrier is not exist"
-        return
-    fi
-    echo "Deploy carrier..."
-    carrier_stop
-    cd $SCRIPT_PATH/carrier
-    cp ~/deploy/carrier/ela-bootstrapd .
-    carrier_start
-}
-
 carrier_status()
 {
     local COUNT=$(pgrep -x ela-bootstrapd | wc -l)
@@ -259,7 +198,6 @@ usage()
     echo
     echo "  start"
     echo "  stop"
-    echo "  deploy"
     echo "  status"
     echo
 }
@@ -318,7 +256,6 @@ fi
 
 if [ "$2" != "start" -a \
      "$2" != "stop" -a \
-     "$2" != "deploy" -a \
      "$2" != "status" ]; then
     echo "ERROR: do not support command: $2"
     exit
