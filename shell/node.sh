@@ -21,6 +21,11 @@ check_env()
     echo
 }
 
+public_ip()
+{
+    curl -s whatismyip.akamai.com
+}
+
 #
 # all
 #
@@ -69,7 +74,12 @@ ela_init()
     echo "create keystore.dat"
     ./ela-cli wallet create -p $password
     echo ${password} > ~/.node.conf
-    echo
+    echo "Done"
+
+    echo "Updating ${SCRIPT_PATH}/ela/config.json..."
+    sed -i -e "s/\"IPAddress\":.*/\"IPAddress\": \"$(public_ip)\"/" \
+        ${SCRIPT_PATH}/ela/config.json
+    echo "Done"
 }
 
 ela_start()
@@ -187,12 +197,10 @@ token_status()
 #
 carrier_init()
 {
-    echo "=== 2. modify the configuration file ==="
-    echo -n "Please enter your IP or domain name:"
-    read ip
-    sed -i -e "/IPAddress/ s/192.168.0.1/${ip}/" ${SCRIPT_PATH}/ela/config.json
-    sed -i -e "/external_ip/ s/X.X.X.X/${ip}/" ${SCRIPT_PATH}/carrier/bootstrapd.conf
-    echo "Initialization successful"
+    echo "Updating ${SCRIPT_PATH}/carrier/bootstrapd.conf..."
+    sed -i -e "s/external_ip.*/external_ip = \"$(public_ip)\"/" \
+        ${SCRIPT_PATH}/carrier/bootstrapd.conf
+    echo "Done"
 }
 
 carrier_start()
