@@ -64,22 +64,24 @@ all_status()
 #
 ela_init()
 {
-    echo "=== 1. create keystore.dat ==="
+    local KEYSTORE_PASS=
+
     cd ${SCRIPT_PATH}/ela/
-    echo -n "Please enter your password for keystore.dat:"
+    echo -n "Please enter your password for keystore.dat: "
     stty -echo
-    read password
+    read KEYSTORE_PASS
     stty echo
 
-    echo "create keystore.dat"
-    ./ela-cli wallet create -p $password
-    echo ${password} > ~/.node.conf
+    echo "Creating keystore.dat..."
+    ./ela-cli wallet create -p $KEYSTORE_PASS
+    echo $KEYSTORE_PASS > ~/.node.conf
     echo "Done"
 
     echo "Updating ${SCRIPT_PATH}/ela/config.json..."
     sed -i -e "s/\"IPAddress\":.*/\"IPAddress\": \"$(public_ip)\"/" \
         ${SCRIPT_PATH}/ela/config.json
     echo "Done"
+    echo
 }
 
 ela_start()
