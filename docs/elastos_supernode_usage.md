@@ -1,6 +1,5 @@
 # Elastos Supernode Usage
 
-
 ## 1. Installation
 
 ### 1.1. Download tarball
@@ -8,14 +7,14 @@
 Download the nodes.tar.gz to the folder where you prepare to run supernode.
 
 ```bash
-$ wget node.tar.gz
+$ wget https://download.elastos.org/supernode/elastos-supernode-20190609-alpha.tgz
 ```
 
 ### 1.2. Verify checksum
 
 ```bash
-$ wget node.tar.gz.digest
-$ shasum -c node.tar.gz.digest
+$ wget https://download.elastos.org/supernode/elastos-supernode-20190609-alpha.tgz.digest
+$ shasum -c elastos-supernode-20190609-alpha.tgz.digest
 ```
 
 ### 1.3. Verify PGP signature
@@ -28,7 +27,7 @@ $ pgp -v node.tar.gz.asc
 ### 1.4. Unpack tarball
 
 ```bash
-$ tar xf node-*.tar.gz
+$ tar xf elastos-supernode-20190609-alpha.tgz
 ```
 
 The directory structure obtained after decompression should be consistent with the readme.txt file.
@@ -37,7 +36,7 @@ The directory structure obtained after decompression should be consistent with t
 
 ```bash
 $ cd ~/node
-$ shasum -a 256 -c checksum.txt
+$ shasum -c checksum.txt
 $ find node
 ```
 
