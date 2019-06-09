@@ -139,13 +139,9 @@ carrier: Running, 2493, 2495
 If the output is as follows, it means the node is closed.
 
 ```
-Stopping ela...
 ela: Stopped
-Stopping did...
 did: Stopped
-Stopping token...
 token: Stopped
-Stopping carrier...
 carrier: Stopped
 ```
 
