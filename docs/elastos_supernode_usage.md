@@ -28,36 +28,27 @@ $ pgp -v node.tar.gz.asc
 ### 1.4. Unpack tarball
 
 ```bash
-$ tar xf elastos-supernode-*.tgz
+$ tar xf node-*.tar.gz
 ```
 
-The following output indicates that the decompression is successful.
-
-```
-node/
-node/token/
-node/token/token
-node/token/config.json
-node/did/
-node/did/did
-node/did/config.json
-node/node.sh
-node/carrier/
-node/carrier/bootstrapd.conf
-node/carrier/ela-bootstrapd
-node/carrier/run/
-node/ela/
-node/ela/ela
-node/ela/ela-cli
-node/ela/config.json
-```
+The directory structure obtained after decompression should be consistent with the readme.txt file.
 
 ### 1.5. Verify the contents
 
 ```bash
 $ cd ~/node
-$ shasum -a 256 SHA256SUM
+$ shasum -a 256 -c checksum.txt
 $ find node
+```
+
+The following output indicates that the node was successfully verified.
+
+```
+node.sh: OK
+ela/ela: OK
+did/did: OK
+token/token: OK
+carrier/ela-bootstrapd: OK
 ```
 
 ## 2. Running
@@ -70,21 +61,22 @@ $ find node
 $ ~/node/node.sh init
 ```
 
-Enter the password to create the keystore.dat and the IP or domain name of the node as prompted.
+Enter the password to create the keystore.dat and `~/node/node.sh` will automatically obtain the public IP address and modify the configuration files.
 
 **You should record the `PUBLIC KEY` and use the public key when you update the Node Public Key on your `elastos wallet`**
 
 ```
-=== 1. create keystore.dat ===
-Please enter your password for keystore.dat:create keystore.dat
+Please enter your password for keystore.dat: Creating keystore.dat...
 ADDRESS                            PUBLIC KEY
 ---------------------------------- ------------------------------------------------------------------
 EfXimFfnNL8Cw5U2xkHYabvnJ5JDQYucA3 0312dba0fab6572d56b6f707866814924efd42354cb740fafc842d79d2c2bcd761
 ---------------------------------- ------------------------------------------------------------------
+Done
+Updating /node/ela/config.json...
+Done
 
-=== 2. modify the configuration file ===
-Please enter your IP or domain name:www.elastos.org
-Initialization successful
+Updating /node/carrier/bootstrapd.conf...
+Done
 ```
 
 ### 2.2. Start
@@ -104,7 +96,7 @@ Starting token...
 token: Running, 29736
 Starting carrier...
 Elastos bootstrap daemon, version 5.2(20190604)
-carrier: Running, 2
+carrier: Running, 2493, 2495
 ```
 
 ### 2.3. Stop
@@ -142,15 +134,19 @@ If it is an output similar to the following, it means the node is running normal
 ela: Running, 29709
 did: Running, 29723
 token: Running, 29736
-carrier: Running, 2
+carrier: Running, 2493, 2495
 ```
 
 If the output is as follows, it means the node is closed.
 
 ```
+Stopping ela...
 ela: Stopped
+Stopping did...
 did: Stopped
+Stopping token...
 token: Stopped
+Stopping carrier...
 carrier: Stopped
 ```
 
