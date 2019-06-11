@@ -225,7 +225,7 @@ carrier_stop()
         killall ela-bootstrapd
         sleep 1
     done
-    rm $SCRIPT_PATH/carrier/run/*.pid 2>/dev/null
+    rm $SCRIPT_PATH/carrier/var/run/ela-bootstrapd/*.pid 2>/dev/null
     carrier_status
 }
 
