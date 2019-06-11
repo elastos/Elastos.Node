@@ -2,13 +2,16 @@
 
 setenv()
 {
-    echo "Checking OS Version..."
     local OS_VER="$(lsb_release -s -i 2>/dev/null)"
     local OS_VER="${OS_VER}_$(lsb_release -s -r 2>/dev/null)"
 
-    # amd64
+    if [ "$(uname -sm)" != "Linux x86_64" ]; then
+        echo "ERROR: this script requires Ubuntu 16.04 (x86_64)"
+        exit
+    fi
+
     if [ "$OS_VER" != "Ubuntu_16.04" ]; then
-        echo "ERROR: this script requires Ubuntu 16.04"
+        echo "ERROR: this script requires Ubuntu 16.04 (x86_64)"
         exit
     fi
 
@@ -86,8 +89,6 @@ setenv()
 
     local GLIDE_VERSION=$(glide -v 2>/dev/null)
     if [ "$GLIDE_VERSION" == "glide version v0.13.1" ]; then
-        echo "INFO: found $GLIDE_VERSION"
-    elif [ "$GLIDE_VERSION" == "glide version 0.13.1" ]; then
         echo "INFO: found $GLIDE_VERSION"
     else
         echo "ERROR: no proper glide"
@@ -333,8 +334,20 @@ pack()
 
 usage()
 {
-    echo "Usage: $0"
+    echo "Usage: $0 ELA_VER DID_VER TOKEN_VER CARRIER_VER"
     echo "Build Elastos Supernode bundle package"
+    echo
+    echo "Arguments: branch or specific commit of the repositories:"
+    echo
+    echo "  https://github.com/elastos/Elastos.ELA"
+    echo "  https://github.com/elastos/Elastos.ELA.SideChain.ID"
+    echo "  https://github.com/elastos/Elastos.ELA.SideChain.Token"
+    echo "  https://github.com/elastos/Elastos.NET.Carrier.Bootstrap"
+    echo
+    echo "Examples:"
+    echo "  $0 master master master master"
+    echo "  $0 release_v0.3.2 release_v0.1.2 release_v0.1.2 release-v5.2.3"
+    echo
 }
 
 #
@@ -342,11 +355,16 @@ usage()
 #
 DEV_ROOT=$(cd $(dirname $BASH_SOURCE)/..; pwd)
 
+if [ "$4" == "" ]; then
+    usage
+    exit
+fi
+
 setenv
 
-build_ela master
-build_did master
-build_token master
-build_carrier master
+build_ela $1
+build_did $2
+build_token $3
+build_carrier $4
 
 pack
