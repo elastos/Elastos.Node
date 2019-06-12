@@ -64,24 +64,69 @@ all_status()
 #
 ela_init()
 {
-    local KEYSTORE_PASS=
-
-    cd ${SCRIPT_PATH}/ela/
-    echo -n "Please enter your password for keystore.dat: "
-    stty -echo
-    read KEYSTORE_PASS
-    stty echo
-
-    echo "Creating keystore.dat..."
-    ./ela-cli wallet create -p $KEYSTORE_PASS
-    echo $KEYSTORE_PASS > ~/.node.conf
-    echo "Done"
-
     echo "Updating ${SCRIPT_PATH}/ela/config.json..."
     sed -i -e "s/\"IPAddress\":.*/\"IPAddress\": \"$(public_ip)\"/" \
         ${SCRIPT_PATH}/ela/config.json
     echo "Done"
     echo
+
+    if [ -f ${SCRIPT_PATH}/ela/keystore.dat ]; then
+        echo "INFO: keystore exists"
+        return
+    else
+        local KEYSTORE_PASS=
+
+        cd ${SCRIPT_PATH}/ela/
+        echo "Please input a password for the keystore,"
+        echo "or empty one will result an random"
+        read -s -p 'Password: ' KEYSTORE_PASS
+        echo
+
+        if [ "$KEYSTORE_PASS" == "" ]; then
+            echo "Generating random password..."
+            KEYSTORE_PASS=$(openssl rand -base64 100 | head -c 32)
+        else
+            read -s -p 'Password (again): ' KEYSTORE_PASS_VERIFY
+            echo
+
+            if [ "$KEYSTORE_PASS" != "$KEYSTORE_PASS_VERIFY" ]; then
+                echo "ERROR: password mismatch"
+                return
+            fi
+
+            if [ "$KEYSTORE_PASS" == "$KEYSTORE_PASS_VERIFY" ]; then
+
+                if [[ "${#KEYSTORE_PASS}" -lt 16 ]]   || \
+                   [[ ! "$KEYSTORE_PASS" =~ [a-z] ]] || \
+                   [[ ! "$KEYSTORE_PASS" =~ [A-Z] ]] || \
+                   [[ ! "$KEYSTORE_PASS" =~ [0-9] ]]; then
+
+                    echo "ERROR: the password do not meet password policy"
+                    echo
+                    echo "  Minimum password length: 16"
+                    echo "  Require at least one uppercase letter (A-Z)"
+                    echo "  Require at least one lowercase letter (a-z)"
+                    echo "  Require at least one digit (0-9)"
+                    return
+                fi
+            fi
+        fi
+
+        echo "Creating keystore.dat..."
+        ./ela-cli wallet create -p "$KEYSTORE_PASS" >/dev/null
+        if [ "$?" != "0" ]; then
+            echo "ERROR: failed to create keystore"
+            return
+        fi
+        echo $KEYSTORE_PASS > ~/.node.conf
+
+        echo
+        ./ela-cli wallet account -p "$KEYSTORE_PASS"
+
+        echo
+        echo "Please check keystore password via command: cat ~/.node.conf"
+        echo "Done."
+    fi
 }
 
 ela_start()
