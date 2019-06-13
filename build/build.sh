@@ -259,25 +259,31 @@ build_carrier()
 
 pack()
 {
-    local BUILD_ID=$(TZ=Asia/Shanghai date '+%Y%m%d')
-    local RELEASE_DIR=$DEV_ROOT/release/$(uname -s)-$(uname -m)/$BUILD_ID
+    local BUILD_ID=$(TZ=Asia/Shanghai date '+%Y%m%d-%H%M%S')
 
+    local RELEASE_DATE=$(TZ=Asia/Shanghai date '+%Y%m%d')
+    local RELEASE_PLATFORM=$(uname -s)-$(uname -m)
     # alpha, beta, stable
     local RELEASE_TYPE=alpha
+    local RELEASE_VER=${RELEASE_DATE}-${RELEASE_PLATFORM}-${RELEASE_TYPE}
+    local RELEASE_DIR=$DEV_ROOT/release/$RELEASE_PLATFORM/$BUILD_ID
 
-    local TGZ=${RELEASE_DIR}/elastos-supernode-${BUILD_ID}-${RELEASE_TYPE}-$(uname -s)-$(uname -m).tgz
+    local TGZ=${RELEASE_DIR}/elastos-supernode-${RELEASE_VER}.tgz
     local TGZ_DIGEST=${TGZ}.digest
-    local TGZ_ASC=${TGZ}.asc
 
     if false; then
-        echo "DEV_ROOT:     $DEV_ROOT"
-        echo "BUILD_ID:     $BUILD_ID"
-        echo "RELEASE_DIR:  $RELEASE_DIR"
-        echo "TGZ:          $TGZ"
-        echo "TGZ_DIGEST:   $TGZ_DIGEST"
-    fi
+        echo "DEV_ROOT:         $DEV_ROOT"
+        echo "BUILD_ID:         $BUILD_ID"
 
-    #rm -rf $RELEASE_DIR
+        echo "RELEASE_DATE:     $RELEASE_DATE"
+        echo "RELEASE_PLATFORM: $RELEASE_PLATFORM"
+        echo "RELEASE_TYPE:     $RELEASE_TYPE"
+        echo "RELEASE_VER:      $RELEASE_VER"
+        echo "RELEASE_DIR:      $RELEASE_DIR"
+
+        echo "TGZ:              $TGZ"
+        echo "TGZ_DIGEST:       $TGZ_DIGEST"
+    fi
 
     if [ -d $RELEASE_DIR ]; then
         echo "ERROR: $RELEASE_DIR exist"
