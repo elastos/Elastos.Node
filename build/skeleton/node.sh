@@ -99,14 +99,16 @@ ela_init()
                 if [[ "${#KEYSTORE_PASS}" -lt 16 ]]   || \
                    [[ ! "$KEYSTORE_PASS" =~ [a-z] ]] || \
                    [[ ! "$KEYSTORE_PASS" =~ [A-Z] ]] || \
-                   [[ ! "$KEYSTORE_PASS" =~ [0-9] ]]; then
+                   [[ ! "$KEYSTORE_PASS" =~ [0-9] ]] || \
+                   [[ ! "$KEYSTORE_PASS" =~ [^[:alnum:]] ]]; then
 
-                    echo "ERROR: the password do not meet password policy"
+                    echo "ERROR: the password does not meet the password policy:"
                     echo
                     echo "  Minimum password length: 16"
                     echo "  Require at least one uppercase letter (A-Z)"
                     echo "  Require at least one lowercase letter (a-z)"
                     echo "  Require at least one digit (0-9)"
+                    echo "  Require at least one non-alphanumeric character"
                     return
                 fi
             fi
