@@ -18,7 +18,12 @@ check_env()
         echo "WARNING: recommend a user without sudo permission"
     fi
 
-    echo
+    jq --version >/dev/null
+    if [ "$?" == "0" ]; then
+        echo "ERROR: cannot find jq (https://github.com/stedolan/jq)"
+        echo "INFO: sudo apt-get install -y jq"
+        exit
+    fi
 }
 
 public_ip()
@@ -162,11 +167,41 @@ ela_stop()
 ela_status()
 {
     local PID=$(pgrep -x ela)
-    if [ $PID ]; then
-        echo "ela: Running, $PID"
-    else
+    if [ "$PID" == "" ]; then
         echo "ela: Stopped"
+        return
     fi
+
+    local ELA_RPC_USER=$(cat $SCRIPT_PATH/ela/config.json | \
+        jq '.Configuration.RpcConfiguration.User')
+    local ELA_RPC_PASS=$(cat $SCRIPT_PATH/ela/config.json | \
+        jq '.Configuration.RpcConfiguration.Pass')
+    local ELA_CLI="$SCRIPT_PATH/ela/ela-cli \
+        --rpcuser $ELA_RPC_USER --rpcpassword $ELA_RPC_PASS"
+
+    local ELA_RAM=$(pmap $PID | tail -1 | sed 's/.* //')
+    local ELA_UPTIME=$(ps --pid $PID -oetime:1=)
+    local ELA_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l)
+    local ELA_NUM_FILES=$(lsof -n -p $PID | wc -l)
+
+    local ELA_NUM_PEERS=$($ELA_CLI info getconnectioncount)
+    if [[ ! "$ELA_NUM_PEERS" =~ ^[0-9]+$ ]]; then
+        ELA_NUM_PEERS=0
+    fi
+    local ELA_HEIGHT=$($ELA_CLI info getcurrentheight)
+    if [[ ! "$ELA_HEIGHT" =~ ^[0-9]+$ ]]; then
+        ELA_HEIGHT=N/A
+    fi
+
+    echo "ela: Running"
+    echo "  PID:    $PID"
+    echo "  RAM:    $ELA_RAM"
+    echo "  Uptime: $ELA_UPTIME"
+    echo "  #TCP:   $ELA_NUM_TCPS"
+    echo "  #Files: $ELA_NUM_FILES"
+    echo "  #Peers: $ELA_NUM_PEERS"
+    echo "  Height: $ELA_HEIGHT"
+    echo
 }
 
 #
@@ -198,11 +233,41 @@ did_stop()
 did_status()
 {
     local PID=$(pgrep -x did)
-    if [ $PID ]; then
-        echo "did: Running, $PID"
-    else
+    if [ "$PID" == "" ]; then
         echo "did: Stopped"
+        return
     fi
+
+    local DID_RPC_USER=$(cat $SCRIPT_PATH/did/config.json | \
+        jq '.Configuration.RpcConfiguration.User')
+    local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
+        jq '.Configuration.RpcConfiguration.Pass')
+    local DID_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport 20606 \
+        --rpcuser $DID_RPC_USER --rpcpassword $DID_RPC_PASS"
+
+    local DID_RAM=$(pmap $PID | tail -1 | sed 's/.* //')
+    local DID_UPTIME=$(ps --pid $PID -oetime:1=)
+    local DID_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l)
+    local DID_NUM_FILES=$(lsof -n -p $PID | wc -l)
+
+    local DID_NUM_PEERS=$($DID_CLI info getconnectioncount)
+    if [[ ! "$DID_NUM_PEERS" =~ ^[0-9]+$ ]]; then
+        DID_NUM_PEERS=0
+    fi
+    local DID_HEIGHT=$($DID_CLI info getcurrentheight)
+    if [[ ! "$DID_HEIGHT" =~ ^[0-9]+$ ]]; then
+        DID_HEIGHT=N/A
+    fi
+
+    echo "did: Running"
+    echo "  PID:    $PID"
+    echo "  RAM:    $DID_RAM"
+    echo "  Uptime: $DID_UPTIME"
+    echo "  #TCP:   $DID_NUM_TCPS"
+    echo "  #Files: $DID_NUM_FILES"
+    echo "  #Peers: $DID_NUM_PEERS"
+    echo "  Height: $DID_HEIGHT"
+    echo
 }
 
 #
@@ -234,11 +299,41 @@ token_stop()
 token_status()
 {
     local PID=$(pgrep -x token)
-    if [ $PID ]; then
-        echo "token: Running, $PID"
-    else
+    if [ "$PID" == "" ]; then
         echo "token: Stopped"
+        return
     fi
+
+    local TOKEN_RPC_USER=$(cat $SCRIPT_PATH/token/config.json | \
+        jq '.Configuration.RpcConfiguration.User')
+    local TOKEN_RPC_PASS=$(cat $SCRIPT_PATH/token/config.json | \
+        jq '.Configuration.RpcConfiguration.Pass')
+    local TOKEN_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport 20616 \
+        --rpcuser $TOKEN_RPC_USER --rpcpassword $TOKEN_RPC_PASS"
+
+    local TOKEN_RAM=$(pmap $PID | tail -1 | sed 's/.* //')
+    local TOKEN_UPTIME=$(ps --pid $PID -oetime:1=)
+    local TOKEN_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l)
+    local TOKEN_NUM_FILES=$(lsof -n -p $PID | wc -l)
+
+    local TOKEN_NUM_PEERS=$($TOKEN_CLI info getconnectioncount)
+    if [[ ! "$TOKEN_NUM_PEERS" =~ ^[0-9]+$ ]]; then
+        TOKEN_NUM_PEERS=0
+    fi
+    local TOKEN_HEIGHT=$($TOKEN_CLI info getcurrentheight)
+    if [[ ! "$TOKEN_HEIGHT" =~ ^[0-9]+$ ]]; then
+        TOKEN_HEIGHT=N/A
+    fi
+
+    echo "token: Running"
+    echo "  PID:    $PID"
+    echo "  RAM:    $TOKEN_RAM"
+    echo "  Uptime: $TOKEN_UPTIME"
+    echo "  #TCP:   $TOKEN_NUM_TCPS"
+    echo "  #Files: $TOKEN_NUM_FILES"
+    echo "  #Peers: $TOKEN_NUM_PEERS"
+    echo "  Height: $TOKEN_HEIGHT"
+    echo
 }
 
 #
@@ -279,11 +374,25 @@ carrier_stop()
 carrier_status()
 {
     local PID=$(pgrep -x -d ', ' ela-bootstrapd)
-    if [ "$PID" != "" ]; then
-        echo "carrier: Running, $PID"
-    else
+    if [ "$PID" == "" ]; then
         echo "carrier: Stopped"
+        return
     fi
+
+    local CARRIER_PID=$(pgrep -x ela-bootstrapd | tail -1)
+
+    local TOKEN_RAM=$(pmap $CARRIER_PID | tail -1 | sed 's/.* //')
+    local TOKEN_UPTIME=$(ps --pid $CARRIER_PID -oetime:1=)
+    local TOKEN_NUM_TCPS=$(lsof -n -a -itcp -p $CARRIER_PID | wc -l)
+    local TOKEN_NUM_FILES=$(lsof -n -p $CARRIER_PID | wc -l)
+
+    echo "carrier: Running"
+    echo "  PID:    $PID"
+    echo "  RAM:    $TOKEN_RAM"
+    echo "  Uptime: $TOKEN_UPTIME"
+    echo "  #TCP:   $TOKEN_NUM_TCPS"
+    echo "  #Files: $TOKEN_NUM_FILES"
+    echo
 }
 
 usage()
