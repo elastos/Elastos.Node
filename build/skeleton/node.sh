@@ -19,7 +19,7 @@ check_env()
     fi
 
     jq --version >/dev/null
-    if [ "$?" == "0" ]; then
+    if [ "$?" != "0" ]; then
         echo "ERROR: cannot find jq (https://github.com/stedolan/jq)"
         echo "INFO: sudo apt-get install -y jq"
         exit
