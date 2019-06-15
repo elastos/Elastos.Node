@@ -83,7 +83,7 @@ ela_init()
 
         cd ${SCRIPT_PATH}/ela/
         echo "Please input a password for the keystore,"
-        echo "or empty one will result an random"
+        echo "or simply Enter will generate an random one."
         read -s -p 'Password: ' KEYSTORE_PASS
         echo
 
