@@ -4,8 +4,8 @@
     "localhost:20338"
   ],
   "EnableRPC": true,
-  "RPCUser": "User",
-  "RPCPass": "Password",
+  "RPCUser": "DID_RPC_USER",
+  "RPCPass": "DID_RPC_PASS",
   "RPCWhiteList": [
     "127.0.0.1"
   ]

@@ -2,12 +2,12 @@
   "Configuration": {
     "DPoSConfiguration": {
       "EnableArbiter": true,
-      "IPAddress": "192.168.0.1"
+      "IPAddress": "PUBLIC_IP"
     },
     "EnableRPC": true,
     "RpcConfiguration": {
-      "User": "User",
-      "Pass": "Password",
+      "User": "ELA_RPC_USER",
+      "Pass": "ELA_RPC_PASS",
       "WhiteIPList": [
         "127.0.0.1"
       ]
