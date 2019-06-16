@@ -185,9 +185,9 @@ ela_status()
     fi
 
     local ELA_RPC_USER=$(cat $SCRIPT_PATH/ela/config.json | \
-        jq '.Configuration.RpcConfiguration.User')
+        jq -r '.Configuration.RpcConfiguration.User')
     local ELA_RPC_PASS=$(cat $SCRIPT_PATH/ela/config.json | \
-        jq '.Configuration.RpcConfiguration.Pass')
+        jq -r '.Configuration.RpcConfiguration.Pass')
     local ELA_CLI="$SCRIPT_PATH/ela/ela-cli \
         --rpcuser $ELA_RPC_USER --rpcpassword $ELA_RPC_PASS"
 
@@ -214,6 +214,18 @@ ela_status()
     echo "  #Peers: $ELA_NUM_PEERS"
     echo "  Height: $ELA_HEIGHT"
     echo
+}
+
+ela_client()
+{
+    local ELA_RPC_USER=$(cat $SCRIPT_PATH/ela/config.json | \
+        jq -r '.Configuration.RpcConfiguration.User')
+    local ELA_RPC_PASS=$(cat $SCRIPT_PATH/ela/config.json | \
+        jq -r '.Configuration.RpcConfiguration.Pass')
+    local ELA_CLI="$SCRIPT_PATH/ela/ela-cli \
+        --rpcuser $ELA_RPC_USER --rpcpassword $ELA_RPC_PASS"
+
+    $ELA_CLI $*
 }
 
 #
@@ -266,9 +278,9 @@ did_status()
     fi
 
     local DID_RPC_USER=$(cat $SCRIPT_PATH/did/config.json | \
-        jq '.Configuration.RpcConfiguration.User')
+        jq -r '.RPCUser')
     local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
-        jq '.Configuration.RpcConfiguration.Pass')
+        jq -r '.RPCPass')
     local DID_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport 20606 \
         --rpcuser $DID_RPC_USER --rpcpassword $DID_RPC_PASS"
 
@@ -295,6 +307,18 @@ did_status()
     echo "  #Peers: $DID_NUM_PEERS"
     echo "  Height: $DID_HEIGHT"
     echo
+}
+
+did_client()
+{
+    local DID_RPC_USER=$(cat $SCRIPT_PATH/did/config.json | \
+        jq -r '.RPCUser')
+    local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
+        jq -r '.RPCPass')
+    local DID_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport 20606 \
+        --rpcuser $DID_RPC_USER --rpcpassword $DID_RPC_PASS"
+
+    $DID_CLI $*
 }
 
 #
@@ -347,9 +371,9 @@ token_status()
     fi
 
     local TOKEN_RPC_USER=$(cat $SCRIPT_PATH/token/config.json | \
-        jq '.Configuration.RpcConfiguration.User')
+        jq -r '.RPCUser')
     local TOKEN_RPC_PASS=$(cat $SCRIPT_PATH/token/config.json | \
-        jq '.Configuration.RpcConfiguration.Pass')
+        jq -r '.RPCPass')
     local TOKEN_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport 20616 \
         --rpcuser $TOKEN_RPC_USER --rpcpassword $TOKEN_RPC_PASS"
 
@@ -376,6 +400,18 @@ token_status()
     echo "  #Peers: $TOKEN_NUM_PEERS"
     echo "  Height: $TOKEN_HEIGHT"
     echo
+}
+
+token_client()
+{
+    local TOKEN_RPC_USER=$(cat $SCRIPT_PATH/token/config.json | \
+        jq -r '.RPCUser')
+    local TOKEN_RPC_PASS=$(cat $SCRIPT_PATH/token/config.json | \
+        jq -r '.RPCPass')
+    local TOKEN_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport 20616 \
+        --rpcuser $TOKEN_RPC_USER --rpcpassword $TOKEN_RPC_PASS"
+
+    $TOKEN_CLI $*
 }
 
 #
@@ -455,6 +491,7 @@ usage()
     echo "  start"
     echo "  stop"
     echo "  status"
+    echo "  client"
     echo
     echo "If no module is specified, all modules are operated."
 }
@@ -520,6 +557,13 @@ elif [ "$1" == "token"   -a "$2" == "status" ]; then
     $1_$2
 elif [ "$1" == "carrier" -a "$2" == "status" ]; then
     $1_$2
+
+elif [ "$1" == "ela"     -a "$2" == "client" ]; then
+    $1_$2 ${@:3}
+elif [ "$1" == "did"     -a "$2" == "client" ]; then
+    $1_$2 ${@:3}
+elif [ "$1" == "token"   -a "$2" == "client" ]; then
+    $1_$2 ${@:3}
 
 else
     echo "ERROR: do not support: $1 $2"
