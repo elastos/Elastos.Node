@@ -352,7 +352,7 @@ usage()
     echo
     echo "Examples:"
     echo "  $0 master master master master"
-    echo "  $0 release_v0.3.2 release_v0.1.2 release_v0.1.2 release-v5.2.3"
+    echo "  $0 v0.3.3 release_v0.1.2 release_v0.1.2 release-v5.2.3"
     echo
 }
 
