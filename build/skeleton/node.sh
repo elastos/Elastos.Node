@@ -37,6 +37,8 @@ public_ip()
 all_init()
 {
     ela_init
+    did_init
+    token_init
     carrier_init
 }
 
@@ -70,9 +72,19 @@ all_status()
 ela_init()
 {
     echo "Updating ${SCRIPT_PATH}/ela/config.json..."
+    local ELA_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
+    local ELA_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
+    jq ".Configuration.RpcConfiguration.User=\"$ELA_RPC_USER\" | \
+        .Configuration.RpcConfiguration.Pass=\"$ELA_RPC_PASS\"" \
+        ${SCRIPT_PATH}/ela/config.json \
+        >${SCRIPT_PATH}/ela/config.json.tmp
+    if [ "$?" == "0" ]; then
+        mv ${SCRIPT_PATH}/ela/config.json.tmp \
+           ${SCRIPT_PATH}/ela/config.json
+    fi
+
     sed -i -e "s/\"IPAddress\":.*/\"IPAddress\": \"$(public_ip)\"/" \
         ${SCRIPT_PATH}/ela/config.json
-    echo "Done"
     echo
 
     if [ -f ${SCRIPT_PATH}/ela/keystore.dat ]; then
@@ -132,7 +144,7 @@ ela_init()
 
         echo
         echo "Please check keystore password via command: cat ~/.node.conf"
-        echo "Done."
+        echo "Done"
     fi
 }
 
@@ -207,6 +219,21 @@ ela_status()
 #
 # did
 #
+did_init()
+{
+    echo "Updating ${SCRIPT_PATH}/did/config.json..."
+    local DID_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
+    local DID_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
+    jq ".RPCUser=\"$DID_RPC_USER\" | .RPCPass=\"$DID_RPC_PASS\"" \
+        ${SCRIPT_PATH}/did/config.json \
+        >${SCRIPT_PATH}/did/config.json.tmp
+    if [ "$?" == "0" ]; then
+        mv ${SCRIPT_PATH}/did/config.json.tmp \
+           ${SCRIPT_PATH}/did/config.json
+    fi
+    echo "Done"
+}
+
 did_start()
 {
     if [ ! -d $SCRIPT_PATH/did/ ]; then
@@ -273,6 +300,21 @@ did_status()
 #
 # token
 #
+token_init()
+{
+    echo "Updating ${SCRIPT_PATH}/token/config.json..."
+    local TOKEN_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
+    local TOKEN_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
+    jq ".RPCUser=\"$TOKEN_RPC_USER\" | .RPCPass=\"$TOKEN_RPC_PASS\"" \
+        ${SCRIPT_PATH}/token/config.json \
+        >${SCRIPT_PATH}/token/config.json.tmp
+    if [ "$?" == "0" ]; then
+        mv ${SCRIPT_PATH}/token/config.json.tmp \
+           ${SCRIPT_PATH}/token/config.json
+    fi
+    echo "Done"
+}
+
 token_start()
 {
     if [ ! -d $SCRIPT_PATH/token/ ]; then
@@ -432,6 +474,10 @@ elif [ "$1" == "init" ]; then
 elif [ "$1" == "all"     -a "$2" == "init" ]; then
     $1_$2
 elif [ "$1" == "ela"     -a "$2" == "init" ]; then
+    $1_$2
+elif [ "$1" == "did"     -a "$2" == "init" ]; then
+    $1_$2
+elif [ "$1" == "token"   -a "$2" == "init" ]; then
     $1_$2
 elif [ "$1" == "carrier" -a "$2" == "init" ]; then
     $1_$2
