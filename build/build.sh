@@ -133,7 +133,7 @@ build_ela()
     git checkout $BRANCH_NAME
     git pull
     git status --ignored
-    local COMMIT_ID=$(git describe --abbrev=6 --dirty --always)
+    local COMMIT_ID=$(git describe --abbrev=0 --dirty --always)
     echo "ela: $COMMIT_ID" >commit.txt
 
     echo "Installing dependencies..."
@@ -171,7 +171,7 @@ build_did()
     git checkout $BRANCH_NAME
     git pull
     git status --ignored
-    local COMMIT_ID=$(git describe --abbrev=6 --dirty --always)
+    local COMMIT_ID=$(git describe --abbrev=0 --dirty --always)
     echo "did: $COMMIT_ID" >commit.txt
 
     echo "Installing dependencies..."
@@ -209,7 +209,7 @@ build_token()
     git checkout $BRANCH_NAME
     git pull
     git status --ignored
-    local COMMIT_ID=$(git describe --abbrev=6 --dirty --always)
+    local COMMIT_ID=$(git describe --abbrev=0 --dirty --always)
     echo "token: $COMMIT_ID" >commit.txt
 
     echo "Installing dependencies..."
@@ -247,7 +247,7 @@ build_carrier()
     git checkout $BRANCH_NAME
     git pull
     git status --ignored
-    local COMMIT_ID=$(git describe --abbrev=6 --dirty --always)
+    local COMMIT_ID=$(git describe --abbrev=0 --dirty --always)
     echo "carrier: $COMMIT_ID" >commit.txt
 
     cd $DEV_ROOT/src/github.com/elastos/Elastos.NET.Carrier.Bootstrap/build
