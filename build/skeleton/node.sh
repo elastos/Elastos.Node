@@ -12,10 +12,10 @@ check_env()
         echo "WARNING: recommend a Ubuntu at least 16.04"
     fi
 
-    #echo "Checking sudo permission..."
     sudo -n true 2>/dev/null
     if [ "$?" == "0" ]; then
-        echo "WARNING: recommend a user without sudo permission"
+        echo "ERROR: requires a user without sudo permission"
+        exit
     fi
 
     jq --version >/dev/null
