@@ -315,14 +315,18 @@ pack()
     mkdir -p $RELEASE_DIR/node/carrier/var/lib/ela-bootstrapd/db
     mkdir -p $RELEASE_DIR/node/carrier/var/run/ela-bootstrapd
 
-    echo "Generating version list..."
+    echo "Generating version.txt..."
+    cd $RELEASE_DIR/node
+    echo $BUILD_ID >version.txt
+
+    echo "Generating commit.txt..."
     cd $DEV_ROOT/src/github.com/elastos
     cat Elastos.ELA/commit.txt                    >$RELEASE_DIR/node/commit.txt
     cat Elastos.ELA.SideChain.ID/commit.txt      >>$RELEASE_DIR/node/commit.txt
     cat Elastos.ELA.SideChain.Token/commit.txt   >>$RELEASE_DIR/node/commit.txt
     cat Elastos.NET.Carrier.Bootstrap/commit.txt >>$RELEASE_DIR/node/commit.txt
 
-    echo "Generating checksum for executables..."
+    echo "Generating checksum.txt..."
     cd $RELEASE_DIR/node
     shasum -a 256 $(find . -type f -executable) >checksum.txt
 
