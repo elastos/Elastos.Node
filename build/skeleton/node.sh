@@ -208,6 +208,7 @@ ela_init()
 
         echo
         echo "Please check keystore password via command: cat ~/.node.conf"
+        touch ${SCRIPT_PATH}/ela/.init
         echo "Done"
     fi
 }
@@ -216,6 +217,10 @@ ela_start()
 {
     if [ ! -d $SCRIPT_PATH/ela/ ]; then
         echo "ERROR: $SCRIPT_PATH/ela/ is not exist"
+        return
+    fi
+    if [ ! -f $SCRIPT_PATH/ela/.init ]; then
+        echo "ERROR: please run '$(basename $BASH_SOURCE) ela init' first"
         return
     fi
     echo "Starting ela..."
@@ -307,6 +312,7 @@ did_init()
         mv ${SCRIPT_PATH}/did/config.json.tmp \
            ${SCRIPT_PATH}/did/config.json
     fi
+    touch ${SCRIPT_PATH}/did/.init
     echo "Done"
 }
 
@@ -314,6 +320,10 @@ did_start()
 {
     if [ ! -d $SCRIPT_PATH/did/ ]; then
         echo "ERROR: $SCRIPT_PATH/did/ is not exist"
+        return
+    fi
+    if [ ! -f $SCRIPT_PATH/did/.init ]; then
+        echo "ERROR: please run '$(basename $BASH_SOURCE) did init' first"
         return
     fi
     echo "Starting did..."
@@ -400,6 +410,7 @@ token_init()
         mv ${SCRIPT_PATH}/token/config.json.tmp \
            ${SCRIPT_PATH}/token/config.json
     fi
+    touch ${SCRIPT_PATH}/token/.init
     echo "Done"
 }
 
@@ -407,6 +418,10 @@ token_start()
 {
     if [ ! -d $SCRIPT_PATH/token/ ]; then
         echo "ERROR: $SCRIPT_PATH/token/ is not exist"
+        return
+    fi
+    if [ ! -f $SCRIPT_PATH/token/.init ]; then
+        echo "ERROR: please run '$(basename $BASH_SOURCE) token init' first"
         return
     fi
     echo "Starting token..."
@@ -486,6 +501,7 @@ carrier_init()
     echo "Updating ${SCRIPT_PATH}/carrier/bootstrapd.conf..."
     sed -i -e "s/external_ip.*/external_ip = \"$(public_ip)\"/" \
         ${SCRIPT_PATH}/carrier/bootstrapd.conf
+    touch ${SCRIPT_PATH}/carrier/.init
     echo "Done"
 }
 
@@ -493,6 +509,10 @@ carrier_start()
 {
     if [ ! -d $SCRIPT_PATH/carrier/ ]; then
         echo "ERROR: $SCRIPT_PATH/carrier/ is not exist"
+        return
+    fi
+    if [ ! -f $SCRIPT_PATH/carrier/.init ]; then
+        echo "ERROR: please run '$(basename $BASH_SOURCE) carrier init' first"
         return
     fi
     echo "Starting carrier..."
