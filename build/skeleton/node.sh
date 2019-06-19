@@ -75,11 +75,11 @@ all_upgrade()
 
     local TGZ=$1
 
-    local VER_TGZ=$(tar xOf $1 node/commit.txt)
+    local VER_TGZ=$(tar xOf $1 node/version.txt)
     local VER=$(cat ${SCRIPT_PATH}/version.txt 2>/dev/null)
 
     if [ ! "$VER_TGZ" \> "$VER" ]; then
-        echo "ERROR: do not support downgrade"
+        echo "ERROR: support higher version only"
         return
     fi
 
