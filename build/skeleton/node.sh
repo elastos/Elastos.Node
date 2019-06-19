@@ -66,6 +66,70 @@ all_status()
     carrier_status
 }
 
+all_upgrade()
+{
+    if [ "$1" == "" ]; then
+        echo "ERROR: no package supplied"
+        return
+    fi
+
+    local TGZ=$1
+
+    local VER_TGZ=$(tar xOf $1 node/commit.txt)
+    local VER=$(cat ${SCRIPT_PATH}/version.txt 2>/dev/null)
+
+    if [ ! "$VER_TGZ" \> "$VER" ]; then
+        echo "ERROR: do not support downgrade"
+        return
+    fi
+
+    echo "Upgrading to $1..."
+    all_stop
+
+    echo "Upgrading ela..."
+    cd ${SCRIPT_PATH}/ela
+    mkdir -p ${SCRIPT_PATH}/ela
+    tar xvf $1 --strip=2 node/ela/ela
+
+    echo "Upgrading ela-cli..."
+    cd ${SCRIPT_PATH}/ela
+    mkdir -p ${SCRIPT_PATH}/ela
+    tar xvf $1 --strip=2 node/ela/ela-cli
+
+    echo "Upgrading did..."
+    mkdir -p ${SCRIPT_PATH}/did
+    cd ${SCRIPT_PATH}/did
+    tar xvf $1 --strip=2 node/did/did
+
+    echo "Upgrading token..."
+    mkdir -p ${SCRIPT_PATH}/token
+    cd ${SCRIPT_PATH}/token
+    tar xvf $1 --strip=2 node/token/token
+
+    echo "Upgrading carrier..."
+    mkdir -p ${SCRIPT_PATH}/carrier
+    cd ${SCRIPT_PATH}/carrier
+    tar xvf $1 --strip=2 node/carrier/ela-bootstrapd
+
+    echo "Upgrading checksum.txt..."
+    cd ${SCRIPT_PATH}
+    tar xvf $1 --strip=1 node/checksum.txt
+
+    echo "Upgrading commit.txt..."
+    cd ${SCRIPT_PATH}
+    tar xvf $1 --strip=1 node/commit.txt
+
+    echo "Upgrading node.sh..."
+    cd ${SCRIPT_PATH}
+    tar xvf $1 --strip=1 node/node.sh
+
+    echo "Upgrading version.txt..."
+    cd ${SCRIPT_PATH}
+    tar xvf $1 --strip=1 node/version.txt
+
+    all_start
+}
+
 #
 # ela
 #
@@ -492,6 +556,7 @@ usage()
     echo "  stop"
     echo "  status"
     echo "  client"
+    echo "  upgrade"
     echo
     echo "If no module is specified, all modules are operated."
 }
@@ -564,6 +629,11 @@ elif [ "$1" == "did"     -a "$2" == "client" ]; then
     $1_$2 ${@:3}
 elif [ "$1" == "token"   -a "$2" == "client" ]; then
     $1_$2 ${@:3}
+
+elif [ "$1" == "upgrade" ]; then
+    all_$1 $2
+elif [ "$1" == "all"     -a "$2" == "upgrade" ]; then
+    $1_$2 $3
 
 else
     echo "ERROR: do not support: $1 $2"
