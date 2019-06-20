@@ -18,7 +18,7 @@ check_env()
         echo "WARNING: recommend a user without sudo permission"
     fi
 
-    jq --version >/dev/null
+    jq --version 1>/dev/null 2>/dev/null
     if [ "$?" != "0" ]; then
         echo "ERROR: cannot find jq (https://github.com/stedolan/jq)"
         echo "INFO: sudo apt-get install -y jq"
