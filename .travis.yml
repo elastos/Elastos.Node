@@ -1,3 +1,3 @@
 dist: xenial
 language: c
-script: cd build && ./build.sh
+script: cd build && ./build.sh master master master master
