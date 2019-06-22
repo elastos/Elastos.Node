@@ -1,5 +1,7 @@
 # Elastos Supernode
 
+[![Build Status](https://travis-ci.org/elastos/Elastos.ELA.Supernode.svg?branch=master)](https://travis-ci.org/elastos/Elastos.ELA.Supernode)
+
 Hello, please refer the following docs to setup and know an Elastos Supernode:
 
 - [Elastos Supernode 123](./docs/elastos_supernode_123.md) - For the impatient user who wish to setup a supernode in 5 minutes
