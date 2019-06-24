@@ -201,6 +201,7 @@ ela_init()
             echo "ERROR: failed to create keystore"
             return
         fi
+        chmod 600 ${SCRIPT_PATH}/ela/keystore.dat
         echo $KEYSTORE_PASS > ~/.node.conf
 
         echo
