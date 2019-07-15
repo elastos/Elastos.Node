@@ -1,4 +1,4 @@
-# Elastos超级节点搭建指南_v1.0.1
+# Elastos超级节点搭建指南_v1.0.2
 
 本文档主要用于Elastos超级节点的搭建。
 
@@ -25,8 +25,8 @@
 
 #### 1.1 下载节点程序及默认配置文件
 
-- [ela](https://github.com/elastos/Elastos.ELA/releases/download/v0.3.2/ela)
-- [ela-cli](https://github.com/elastos/Elastos.ELA/releases/download/v0.3.2/ela-cli)
+- [ela](https://github.com/elastos/Elastos.ELA/releases/download/v0.3.3/ela)
+- [ela-cli](https://github.com/elastos/Elastos.ELA/releases/download/v0.3.3/ela-cli)
 - [dpos_config.json.sample](https://raw.githubusercontent.com/elastos/Elastos.ELA/master/docs/dpos_config.json.sample)
 
 #### 1.2 将节点及配置文件拷贝至ela节点运行目录
@@ -97,7 +97,7 @@ echo elastos | nohup ./ela > /dev/null 2>output &
 
 ```json
 {
-    "compile":"v0.3.2",
+    "compile":"v0.3.3",
     "height":230913,
     "neighbors":[
         {
