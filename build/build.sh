@@ -292,7 +292,7 @@ pack()
 
     mkdir -p $RELEASE_DIR
 
-    echo "Coping skeleton..."
+    echo "Copying skeleton..."
     cp -a $DEV_ROOT/build/skeleton $RELEASE_DIR/node
 
     echo "Copying binaries..."
