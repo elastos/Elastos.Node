@@ -1,6 +1,6 @@
 # Elastos Supernode
 
-[![Build Status](https://travis-ci.org/elastos/Elastos.ELA.Supernode.svg?branch=master)](https://travis-ci.org/elastos/Elastos.ELA.Supernode)
+[![Build Status](https://travis-ci.com/elastos/Elastos.ELA.Supernode.svg?branch=master)](https://travis-ci.com/elastos/Elastos.ELA.Supernode)
 
 Hello, please refer the following docs to setup and know an Elastos Supernode:
 
