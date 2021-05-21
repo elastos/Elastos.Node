@@ -3,3 +3,4 @@ build/glide*
 build/go*
 release/*
 src/*
+.idea/*
