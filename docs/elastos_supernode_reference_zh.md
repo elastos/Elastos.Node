@@ -14,7 +14,7 @@
 
 ## 环境要求
 
-- 系统: Ubuntu 16.04.7 LTS 64-bit
+- 操作系统: Ubuntu 18.04 LTS 64-bit、Ubuntu 20.04 LTS 64-bit
 - CPU: 4核或4核以上
 - 内存: 不小于16GB
 - 硬盘: 不少于50GB
@@ -39,14 +39,13 @@
     ``` wget https://download.elastos.org/elastos-ela/elastos-ela-v0.7.0/elastos-ela-v0.7.0-linux-x86_64.tgz```
     
 - dpos_config.json.sample
-    
+  
     ``` wget https://raw.githubusercontent.com/elastos/Elastos.ELA/master/docs/dpos_config.json.sample ```
 
 #### 1.2 将节点及配置文件拷贝至ela节点运行目录
 
 - 创建节点运行目录 `mkdir ~/node/ela/ `
 - 将ela节点程序、ela-cli、dpos_config.json.sample拷贝至ela节点目录，并将dpos_config.json.sample重命名为config.json
-    
 ```bash
     mv ela ~/node/ela/
     mv ela-cli ~/node/ela/
@@ -270,7 +269,7 @@ curl -X POST \
 cd ~/node/eth/data/keystore/
 
 # 如出现UTC--2019-08-03T08-08-42.293003000Z--72064cd776e12d7163d329cc0* 格式表示创建成功
-``` 
+```
 3. 将密码写入本地文件，命令: `echo password > ~/node/eth/eth.txt `
 
 #### 3.3 安装oracle依赖包
@@ -454,7 +453,7 @@ curl  -H  "Content-Type: application/json" -X POST -d '{"method":"getsidechainbl
 #### 5.1 下载节点安装包
 
 - carrier
-     
+  
      ``` https://github.com/elastos/Elastos.NET.Carrier.Bootstrap/releases/download/release-v5.2.3/elastos-carrier-bootstrap-5.2.623351-linux-x86_64-Debug.deb ```
 
 #### 5.2 将节点安装包拷贝至carrier节点运行目录

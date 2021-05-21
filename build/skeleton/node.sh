@@ -8,8 +8,8 @@ check_env()
     #echo "Checking OS Version..."
     local OS_VER="$(lsb_release -s -i 2>/dev/null)"
     local OS_VER="$OS_VER-$(lsb_release -s -r 2>/dev/null)"
-    if [ "$OS_VER" \< "Ubuntu-16.04" ]; then
-        echo "WARNING: recommend a Ubuntu at least 16.04"
+    if [ "$OS_VER" \< "Ubuntu-18.04" ]; then
+        echo "WARNING: recommend a Ubuntu at least 18.04"
     fi
 
     #echo "Checking sudo permission..."
