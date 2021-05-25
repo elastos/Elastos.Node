@@ -187,23 +187,23 @@ ela节点的log记录与elastos/logs/目录下，其中node目录中为节点同
 
 - mainnet_config.json.sample 
 
-    ``` wget https://raw.githubusercontent.com/elastos/Elastos.ELA.SideChain.ID/master/docs/mainnet_config.json.sample ```
+    ``` wget https://raw.githubusercontent.com/elastos/Elastos.ELA.SideChain.ID/master/docs/dpos_config.json.sample ```
 
 #### 2.2 将节点及配置文件拷贝至did侧链节点运行目录
 
 - 创建节点运行目录 ` mkdir ~/node/did/ `
-- 将did节点程序、mainnet_config.json.sample拷贝至did侧链节点目录，并将mainnet_config.json.sample重命名为config.json
+- 将did节点程序、dpos_config.json.sample 拷贝至did侧链节点目录，并将dpos_config.json.sample重命名为config.json
 
 ```bash
     mv did ~/node/did/
-    mv mainnet_config.json.sample config.json
+    mv dpos_config.json.sample config.json
     mv config.json ~/node/did/
 ```
 
 ##### 2.2.1 修改配置文件
 
 - 根据运维需要，修改RpcConfiguration中的"WhiteIPList"、"User"及"Pass"，访问规则与ela的RPC访问限制一致
-- "PayToAddr"为矿工地址，务必填写自己的账户
+- "PayToAddr"为矿工收益地址，务必填写自己保密的账户
 - "MinerInfo"为矿工名称，请使用注册CR委员的名称
 
 #### 2.3 运行did侧链节点
@@ -243,7 +243,7 @@ curl -X POST \
 
 - nodejs
 
-    ` wget https://npm.taobao.org/mirrors/node/v10.13.0/node-v10.13.0-linux-x64.tar.gz `
+    ` wget https://npm.taobao.org/mirrors/node/v14.17.0/node-v14.17.0-linux-x64.tar.gz `
 
 #### 3.2 将节点及配置文件拷贝至did侧链节点运行目录
 
@@ -361,11 +361,11 @@ pm2 status
 
 - 创建节点运行目录，建议节点路径: ~/node/arbiter/
 - 将arbiter节点、ela-cli、mainnet_config.json.sample拷贝至did侧链节点目录，并将mainnet_config.json.sample重命名为config.json
-- 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至arbiter节点目录，并充值大于10ELA,用来侧链出块
+- 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至arbiter节点目录，并充值主链账户大于10ELA,用来侧链出块
 
 #### 4.3 创建账户
 
-1. 在已有的keystore.dat主账户基础下，继续生成次账户，用来did出块使用 `./ela-cli wallet c -p Password`
+1. 在已有的keystore.dat主账户基础下，继续生成一个次账户，用来did出块使用 `./ela-cli wallet add -p Password`
 
 
 #### 4.4 修改arbiter配置文件
