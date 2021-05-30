@@ -80,8 +80,7 @@ gen_pass()
     KEYSTORE_PASS=
     local KEYSTORE_PASS_VERIFY=
 
-    echo
-    echo "Please input a password to generate the keystore (or ENTER to use a random one)"
+    echo "Please input a password (ENTER to use a random one)"
     while true; do
         read -s -p '? Password: ' KEYSTORE_PASS
         echo
@@ -151,13 +150,13 @@ chain_prepare_stage()
         return 2
     fi
 
-    echo "[Latest version: $VER_LATEST]"
+    echo_info "Latest version: $VER_LATEST"
 
     if [ "$YES_TO_ALL" == "" ]; then
         local ANSWER
         read -p "Proceed upgrade (No/Yes)? " ANSWER
         if [ "$ANSWER" != "Yes" ]; then
-            echo "Upgrading canceled."
+            echo "Upgrading canceled"
             return 3
         fi
     fi
@@ -173,7 +172,7 @@ chain_prepare_stage()
     cd $PATH_STAGE
 
     echo "Downloading $URL_LATEST..."
-    curl -o $TGZ_LATEST $URL_LATEST
+    curl -O -# $URL_LATEST
     if [ "$?" != "0" ]; then
         echo "ERROR: curl failed"
         return 4
@@ -188,7 +187,7 @@ chain_prepare_stage()
     echo "Extracting $TGZ_LATEST..."
     shift
     for i in $*; do
-        tar xvf $TGZ_LATEST $TAR_FLAGS --strip=1 \*/$i
+        tar xf $TGZ_LATEST $TAR_FLAGS --strip=1 \*/$i
         if [ "$?" != "0" ]; then
             echo "ERROR: failed to extract $TGZ_LATEST"
             return 5
@@ -422,7 +421,7 @@ ela_init()
     fi
 
     if [ -f ${SCRIPT_PATH}/ela/.init ]; then
-        echo_error "ela has already been initialized."
+        echo_error "ela has already been initialized"
         return
     fi
 
@@ -442,7 +441,7 @@ ela_init()
     fi
 
     if [ ! -f $ELA_CONFIG ]; then
-        echo "Creating $ELA_CONFIG..."
+        echo "Creating ela config file..."
         cat >$ELA_CONFIG <<EOF
 {
   "Configuration": {
@@ -462,13 +461,14 @@ ela_init()
 }
 EOF
 
-        echo "Setting random user and password for ela RPC interface..."
+        echo "Generating random userpass for ela RPC interface..."
         local ELA_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
         local ELA_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
+
+        echo "Updating ela config file..."
         jq ".Configuration.RpcConfiguration.User=\"$ELA_RPC_USER\" | \
             .Configuration.RpcConfiguration.Pass=\"$ELA_RPC_PASS\"" \
             $ELA_CONFIG >$ELA_CONFIG.tmp
-
         if [ "$?" == "0" ]; then
             mv $ELA_CONFIG.tmp $ELA_CONFIG
         fi
@@ -476,41 +476,40 @@ EOF
         sed -i -e "s/\"IPAddress\":.*/\"IPAddress\": \"$(extip)\"/" $ELA_CONFIG
     fi
 
+    echo "Creating ela keystore..."
     gen_pass
     if [ "$KEYSTORE_PASS" == "" ]; then
         echo_error "empty password"
         exit
     fi
-
-    echo "Creating $ELA_KEYSTORE..."
     cd ${SCRIPT_PATH}/ela/
     ./ela-cli wallet create -p "$KEYSTORE_PASS" >/dev/null
     if [ "$?" != "0" ]; then
-        echo_error "failed to create keystore"
+        echo_error "failed to create ela keystore"
         return
     fi
     chmod 600 $ELA_KEYSTORE
 
-    echo "Creating $ELA_KEYSTORE_PASS_FILE..."
+    echo "Saving ela keystore password..."
     mkdir -p $(dirname $ELA_KEYSTORE_PASS_FILE)
     chmod 700 $(dirname $ELA_KEYSTORE_PASS_FILE)
     echo $KEYSTORE_PASS > $ELA_KEYSTORE_PASS_FILE
     chmod 600 $ELA_KEYSTORE_PASS_FILE
 
-    echo "Checking $ELA_KEYSTORE..."
+    echo "Checking ela keystore..."
     ./ela-cli wallet account -p "$KEYSTORE_PASS"
     if [ "$?" != "0" ]; then
         echo_error "failed to dump public key"
         return
     fi
 
-    echo
     echo_info "ela config file: $ELA_CONFIG"
     echo_info "ela keystore file: $ELA_KEYSTORE"
     echo_info "ela keystore password file: $ELA_KEYSTORE_PASS_FILE"
 
     touch ${SCRIPT_PATH}/ela/.init
     echo_ok "ela initialzed"
+    echo
 }
 
 #
@@ -636,7 +635,7 @@ did_init()
     fi
 
     if [ -f ${SCRIPT_PATH}/did/.init ]; then
-        echo_error "did has already been initialized."
+        echo_error "did has already been initialized"
         return
     fi
 
@@ -645,7 +644,7 @@ did_init()
         return
     fi
 
-    echo "Creating $DID_CONFIG..."
+    echo "Creating did config file..."
     cat >$DID_CONFIG <<EOF
 {
   "SPVDisableDNS": false,
@@ -663,7 +662,7 @@ did_init()
 }
 EOF
 
-    echo "Generating random user and password for did RPC interface..."
+    echo "Generating random userpass for did RPC interface..."
     local DID_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
     local DID_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
 
@@ -673,9 +672,9 @@ EOF
 
     local MINER_INFO=
     # TODO: add description
-    read -p '? Miner Name: ' MINER_INFO
+    read -p '? MinerInfo: ' MINER_INFO
 
-    echo "Updating $DID_CONFIG..."
+    echo "Updating did config file..."
     jq ".RPCUser=\"$DID_RPC_USER\"  | \
         .RPCPass=\"$DID_RPC_PASS\"  | \
         .PayToAddr=\"$PAY_TO_ADDR\" | \
@@ -686,11 +685,11 @@ EOF
         mv $DID_CONFIG.tmp $DID_CONFIG
     fi
 
-    echo
     echo_info "did config file: $DID_CONFIG"
 
     touch ${SCRIPT_PATH}/did/.init
     echo_ok "did initialzed"
+    echo
 }
 
 #
@@ -891,7 +890,7 @@ eth_init()
     fi
 
     if [ -f $SCRIPT_PATH/eth/.init ]; then
-        echo_error "eth has already been initialized."
+        echo_error "eth has already been initialized"
         return
     fi
 
@@ -907,19 +906,19 @@ eth_init()
         return
     fi
 
+    echo "Creating eth keystore..."
     gen_pass
     if [ "$KEYSTORE_PASS" == "" ]; then
         echo_error "empty password"
         exit
     fi
 
-    echo "Creating $ETH_KEYSTORE_PASS_FILE..."
+    echo "Saving eth keystore password..."
     mkdir -p $(dirname $ETH_KEYSTORE_PASS_FILE)
     chmod 700 $(dirname $ETH_KEYSTORE_PASS_FILE)
     echo $KEYSTORE_PASS > $ETH_KEYSTORE_PASS_FILE
     chmod 600 $ETH_KEYSTORE_PASS_FILE
 
-    echo "Creating eth keystore..."
     cd ${SCRIPT_PATH}/eth
     ./geth --datadir "~/node/eth/data/" --verbosity 0 account new \
         --password "$ETH_KEYSTORE_PASS_FILE" >/dev/null
@@ -933,12 +932,12 @@ eth_init()
         --nousb --verbosity 0 account list | sed 's/.*keystore:\/\///')
     chmod 600 $ETH_KEYSTORE
 
-    echo
-    echo "INFO: eth keystore file: $ETH_KEYSTORE"
-    echo "INFO: eth keystore password file: $ETH_KEYSTORE_PASS_FILE"
+    echo_info "eth keystore file: $ETH_KEYSTORE"
+    echo_info "eth keystore password file: $ETH_KEYSTORE_PASS_FILE"
 
     touch ${SCRIPT_PATH}/eth/.init
     echo_ok "eth initialized"
+    echo
 }
 
 #
@@ -954,14 +953,17 @@ oracle_start()
         return
     fi
 
+    echo "Starting oracle..."
     cd $SCRIPT_PATH/eth/oracle
     mkdir -p $SCRIPT_PATH/eth/logs
 
     export env=mainnet
-
-    pm2 start $SCRIPT_PATH/eth/oracle/crosschain_oracle.js -i 1 \
+    pm2 -s start $SCRIPT_PATH/eth/oracle/crosschain_oracle.js -i 1 \
         -e $SCRIPT_PATH/eth/logs/oracle_err.log \
         -o $SCRIPT_PATH/eth/logs/oracle_out.log
+
+    sleep 1
+    oracle_status
 }
 
 oracle_stop()
@@ -974,10 +976,14 @@ oracle_stop()
         return
     fi
 
+    echo "Stopping oracle..."
     cd $SCRIPT_PATH/eth/oracle
     mkdir -p $SCRIPT_PATH/eth/logs
 
-    pm2 stop $SCRIPT_PATH/eth/oracle/crosschain_oracle.js
+    pm2 -s stop $SCRIPT_PATH/eth/oracle/crosschain_oracle.js
+
+    sleep 1
+    oracle_status
 }
 
 oracle_status()
@@ -985,15 +991,9 @@ oracle_status()
     export PATH=~/node/extern/node-v14.17.0-linux-x64/bin:$PATH
     export PATH=~/node/eth/oracle/node_modules/pm2/bin:$PATH
 
-    if [ ! -f $SCRIPT_PATH/eth/oracle/crosschain_oracle.js ]; then
-        echo "ERROR: $SCRIPT_PATH/eth/oracle/crosschain_oracle.js is not exist"
-        return
-    fi
-
     cd $SCRIPT_PATH/eth/oracle
-    mkdir -p $SCRIPT_PATH/eth/logs
-
-    pm2 -m status
+    echo "oracle:"
+    pm2 status
 }
 
 oracle_upgrade()
@@ -1023,7 +1023,6 @@ oracle_upgrade()
     cp -v $PATH_STAGE/*.sh $DIR_DEPLOY/
 
     if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
-        eth_start
         oracle_start
     fi
 }
@@ -1040,15 +1039,14 @@ oracle_init()
     fi
 
     if [ -f $SCRIPT_PATH/eth/oracle/.init ]; then
-        echo_error "oracle has already been initialized."
+        echo_error "oracle has already been initialized"
         return
     fi
 
     if [ ! -d ~/node/extern/node-v14.17.0-linux-x64 ]; then
         mkdir -p ~/node/extern
         cd ~/node/extern
-        curl -o node-v14.17.0-linux-x64.tar.xz \
-            https://nodejs.org/download/release/latest-v14.x/node-v14.17.0-linux-x64.tar.xz
+        curl -O -# https://nodejs.org/download/release/latest-v14.x/node-v14.17.0-linux-x64.tar.xz
         tar xf node-v14.17.0-linux-x64.tar.xz
     fi
 
@@ -1060,6 +1058,7 @@ oracle_init()
 
     touch ${SCRIPT_PATH}/eth/oracle/.init
     echo_ok "oracle initialized"
+    echo
 }
 
 #
@@ -1081,7 +1080,7 @@ arbiter_start()
         else
             nohup ./arbiter 1>/dev/null 2>output &
         fi
-        echo "Waiting ela, did..."
+        echo "Waiting ela, did, oracle..."
         sleep 5
     done
 
@@ -1210,7 +1209,7 @@ arbiter_init()
     fi
 
     if [ -f $SCRIPT_PATH/arbiter/.init ]; then
-        echo_error "arbiter has already been initialized."
+        echo_error "arbiter has already been initialized"
         return
     fi
 
@@ -1219,7 +1218,7 @@ arbiter_init()
         return
     fi
 
-    echo "Creating $ARBITER_CONFIG..."
+    echo "Creating arbiter config file..."
     cat >$ARBITER_CONFIG <<EOF
 {
   "Configuration": {
@@ -1274,14 +1273,14 @@ EOF
     cd ${SCRIPT_PATH}/arbiter/
     ln -s ../ela/ela-cli
 
-    echo "Copying keystore.dat..."
+    echo "Copying ela keystore..."
     cp -v ${SCRIPT_PATH}/ela/keystore.dat ${SCRIPT_PATH}/arbiter/
     #ln -s ../ela/keystore.dat
     local KEYSTORE_PASS=$(cat ~/.config/elastos/ela.txt)
 
     #./ela-cli wallet account -p "$KEYSTORE_PASS"
 
-    echo "Updating $ARBITER_CONFIG..."
+    echo "Updating arbiter config file..."
 
     # Arbiter Config: ELA
     local ELA_RPC_USER=$(cat $ELA_CONFIG | \
@@ -1300,16 +1299,15 @@ EOF
         sed -n '3p' | sed 's/ .*//')
 
     # Arbiter Config: Arbiter RPC
-    echo "Generating random user and password for arbiter RPC interface..."
+    echo "Generating random userpass for arbiter RPC interface..."
     local ARBITER_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
     local ARBITER_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
 
     local PAY_TO_ADDR=
     # TODO: add description
     read -p '? PayToAddr: ' PAY_TO_ADDR
-    echo
 
-    echo "Updating $ARBITER_CONFIG..."
+    echo "Updating arbiter config file..."
     jq ".Configuration.MainNode.Rpc.User=\"$ELA_RPC_USER\"              | \
         .Configuration.MainNode.Rpc.Pass=\"$ELA_RPC_PASS\"              | \
         .Configuration.SideNodeList[0].Rpc.User=\"$DID_RPC_USER\"       | \
@@ -1326,11 +1324,11 @@ EOF
         mv $ARBITER_CONFIG.tmp $ARBITER_CONFIG
     fi
 
-    echo
     echo_info "arbiter config file: $ARBITER_CONFIG"
 
     touch ${SCRIPT_PATH}/arbiter/.init
     echo_ok "arbiter initialzed"
+    echo
 }
 
 #
@@ -1406,7 +1404,6 @@ carrier_upgrade()
         esac
     done
 
-    # DEBUG
     chain_prepare_stage carrier usr/bin/ela-bootstrapd
 
     if [ "$?" != "0" ]; then
@@ -1445,7 +1442,7 @@ carrier_init()
     fi
 
     if [ -f ${SCRIPT_PATH}/carrier/.init ]; then
-        echo_error "carrier has already been initialized."
+        echo_error "carrier has already been initialized"
         return
     fi
 
@@ -1454,7 +1451,7 @@ carrier_init()
         return
     fi
 
-    echo "Creating $CARRIER_CONFIG..."
+    echo "Creating carrier config file..."
     cat >$CARRIER_CONFIG <<EOF
 // Elastos Carrier bootstrap daemon configuration file.
 
@@ -1540,11 +1537,11 @@ EOF
     mkdir -pv ${SCRIPT_PATH}/carrier/var/lib/ela-bootstrapd/db
     mkdir -pv ${SCRIPT_PATH}/carrier/var/run/ela-bootstrapd
 
-    echo
     echo_info "carrier config file: $CARRIER_CONFIG"
 
     touch ${SCRIPT_PATH}/carrier/.init
     echo_ok "carrier initialzed"
+    echo
 }
 
 usage()
@@ -1567,6 +1564,7 @@ usage()
     echo "  start"
     echo "  stop"
     echo "  status"
+    echo "  mon"
     echo "  upgrade [-b] [-y] [-n]"
     echo "  init"
     echo
@@ -1610,6 +1608,7 @@ else
     if [ "$2" != "start" -a \
          "$2" != "stop" -a \
          "$2" != "status" -a \
+         "$2" != "mon" -a \
          "$2" != "upgrade" -a \
          "$2" != "init" ]; then
         echo "ERROR: do not support command: $2"
