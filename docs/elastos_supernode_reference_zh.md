@@ -36,11 +36,19 @@
 
 - ela、ela-cli 
 
-    ``` wget https://download.elastos.org/elastos-ela/elastos-ela-v0.7.0/elastos-ela-v0.7.0-linux-x86_64.tgz```
+    ```
+    # 下载链接: 
+       $ wget https://download.elastos.org/elastos-ela/elastos-ela-v0.7.0/elastos-ela-v0.7.0-linux-x86_64.tgz
+    ```
     
 - dpos_config.json.sample
   
-    ``` wget https://raw.githubusercontent.com/elastos/Elastos.ELA/master/docs/dpos_config.json.sample ```
+    ```
+    # 下载链接: 
+        wget https://raw.githubusercontent.com/elastos/Elastos.ELA/master/docs/dpos_config.json.sample 
+    # 配置文件的参数说明，请参考:
+        https://github.com/elastos/Elastos.ELA/blob/master/docs/config.json.md
+    ```
 
 #### 1.2 将节点及配置文件拷贝至ela节点运行目录
 
@@ -183,11 +191,18 @@ ela节点的log记录与elastos/logs/目录下，其中node目录中为节点同
 
 - did
 
-    ``` wget  https://download.elastos.org/elastos-did/elastos-did-v0.2.1/elastos-did-v0.2.1-linux-x86_64.tgz ```
+    ```
+    # 下载链接:
+        $ wget  https://download.elastos.org/elastos-did/elastos-did-v0.2.1/elastos-did-v0.2.1-linux-x86_64.tgz ```
 
 - mainnet_config.json.sample 
 
-    ``` wget https://raw.githubusercontent.com/elastos/Elastos.ELA.SideChain.ID/master/docs/dpos_config.json.sample ```
+    ```
+    # 下载链接:
+        $ wget https://raw.githubusercontent.com/elastos/Elastos.ELA.SideChain.ID/master/docs/dpos_config.json.sample 
+    # 配置文件的参数说明，请参考:
+        https://github.com/elastos/Elastos.ELA.SideChain.ID/blob/master/docs/config.json.md  
+    ```
 
 #### 2.2 将节点及配置文件拷贝至did侧链节点运行目录
 
@@ -235,15 +250,24 @@ curl -X POST \
 
 - eth
 
-    ` wget https://download.elastos.org/elastos-eth/elastos-eth-v0.1.3.2/elastos-eth-v0.1.3.2-linux-x86_64.tgz `
+    ```
+    # 下载链接:
+        $ wget https://download.elastos.org/elastos-eth/elastos-eth-v0.1.3.2/elastos-eth-v0.1.3.2-linux-x86_64.tgz
+    ```
 
 - oracle
 
-    ` wget https://github.com/elastos/Elastos.ELA.SideChain.ETH/releases/download/v0.1.1/oracle.tar.gz `
+    ```
+    # 下载链接:
+        $ wget https://github.com/elastos/Elastos.ELA.SideChain.ETH/releases/download/v0.1.1/oracle.tar.gz
+    ```
 
 - nodejs
 
-    ` wget https://npm.taobao.org/mirrors/node/v14.17.0/node-v14.17.0-linux-x64.tar.gz `
+    ```
+    # 下载链接:
+        $ wget https://npm.taobao.org/mirrors/node/v14.17.0/node-v14.17.0-linux-x64.tar.gz
+    ```
 
 #### 3.2 将节点及配置文件拷贝至did侧链节点运行目录
 
@@ -352,10 +376,19 @@ pm2 status
 
 - arbiter
 
-    ``` wget https://download.elastos.org/elastos-arbiter/elastos-arbiter-v0.2.1/elastos-arbiter-v0.2.1-linux-x86_64.tgz ```
+    ```
+    # 下载链接:
+        $ wget https://download.elastos.org/elastos-arbiter/elastos-arbiter-v0.2.1/elastos-arbiter-v0.2.1-linux-x86_64.tgz 
+    ```
     
 - coinfig.json
-    ``` wget https://raw.githubusercontent.com/elastos/Elastos.ELA.Arbiter/master/docs/mainnet_config.json.sample ```
+    ``` 
+    # 下载链接:
+        $ wget https://raw.githubusercontent.com/elastos/Elastos.ELA.Arbiter/master/docs/mainnet_config.json.sample 
+    # 配置文件的参数说明，请参考:
+        https://github.com/elastos/Elastos.ELA.Arbiter/blob/master/docs/config.json.md
+    ```
+
 
 #### 4.2 将节点及配置文件拷贝至arbiter仲裁人节点运行目录
 
@@ -363,16 +396,17 @@ pm2 status
 - 将arbiter节点、ela-cli、mainnet_config.json.sample拷贝至did侧链节点目录，并将mainnet_config.json.sample重命名为config.json
 - 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至arbiter节点目录，并充值主链账户大于10ELA,用来侧链出块
 
-#### 4.3 创建账户
+#### 4.3 创建次账户
 
 1. 在已有的keystore.dat主账户基础下，继续生成一个次账户，用来did出块使用 `./ela-cli wallet add -p Password`
-
 
 #### 4.4 修改arbiter配置文件
 
 ```
 # "MainNode"的"User"和"Pass"参数需要和ELA节点配置文件参数一致
 # "SideNodeList"的"User"和"Pass"参数需要和侧链节点配置文件参数一致
+# "HttpJsonPort": 20606 为did侧链的rpc端口，表示连接did节点
+# "HttpJsonPort": 20632 为eth侧链的rpc端口，表示连接eth节点
 
 {
   "Configuration": {
@@ -380,48 +414,45 @@ pm2 status
       "Rpc": {
         "IpAddress": "127.0.0.1",
         "HttpJsonPort": 20336,
-        "User": "",
-        "Pass": ""
+        "User": "User",
+        "Pass": "Password"
       }
     },
     "SideNodeList": [{
         "Rpc": {
           "IpAddress": "127.0.0.1",
           "HttpJsonPort": 20606,
-          "User": "",
-          "Pass": ""
+          "User": "User",
+          "Pass": "Password"
         },
-        "SyncStartHeight": 401000,
+        "SyncStartHeight": 914300,
         "ExchangeRate": 1.0,
         "GenesisBlock": "56be936978c261b2e649d58dbfaf3f23d4a868274f5522cd2adb4308a955c4a3",
-        "MiningAddr": "arbiter新生成账户地址，用来did侧链出块",
+        "MiningAddr": "arbiter新生成次账户地址，用来did侧链出块",
         "PowChain": true,
-        "PayToAddr": "did侧链节点矿工地址"
+        "PayToAddr": "did侧链节点矿工地址, did配置文件PayToAddr的地址"
       },
       {
         "Rpc": {
           "IpAddress": "127.0.0.1",
-          "HttpJsonPort": 20632,
-          "User": "",
-          "Pass": ""
+          "HttpJsonPort": 20632
         },
-        "SyncStartHeight": 2515000,
+        "SyncStartHeight": 6551000,
         "ExchangeRate": 1.0,
         "GenesisBlock": "6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a",
-        "MiningAddr": "arbiter新生成账户地址",
-        "PowChain": false,
-        "PayToAddr": "did侧链节点矿工地址"
+        "PowChain": false
       }
     ],
     "RpcConfiguration": {
-      "User": "",
-      "Pass": "",
+      "User": "User",
+      "Pass": "Password",
       "WhiteIPList": [
-        ""
+        "127.0.0.1"
       ]
     }
   }
 }
+
 ```
 
 
