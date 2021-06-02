@@ -1,161 +1,290 @@
-# Elastos Supernode Usage
+# Elastos Supernode: Setup and Usage Guide
 
-## 1. Installation
+## 1. Requirements
 
-### 1.1. Download tarball
+Basically, a contemporary Linux operation system is required to run Elastos Supernode.
 
-Download the nodes.tar.gz to the folder where you prepare to run supernode.
+- **User**
+  - should feel **comfortable with Linux** or similar **POSIX shell environment**
+  - has access to the **cloud computing**: [Amazon EC2](https://aws.amazon.com/ec2/), [Microsoft Azure VM](https://azure.microsoft.com/en-us/services/virtual-machines/), [Google Cloud Compute Engine](https://cloud.google.com/compute/)
+  - or has permission to place a server in your **home** or **office** if the room or building has free space, cheap electric supply and good noise insulation.
+- **Network requirements**
+  - **TCP/IP**: the current Internet is required to bootstrap the new one
+  - **non-metered connection**: to prevent a high usage billing. It is not recommened to operate the supernode with your celluar hotspot.
+- **Server Hardware requirements**
+  - **CPU**: **2 cores** or more
+  - **RAM**: **16 GB** or more
+  - **HDD**: **64 GB** or more
+    - Solid-state drive (SSD) is a plus but not a must, a good old hard drive (HDD) should OK
+- **Server Software requirements**
+  - **OS**: **Ubuntu 18.04 LTS** 64 Bit or newer
+    - Use **Ubuntu** because currently the developer use macOS and Ubuntu to do the test harness. But its your freedom of choice of other distributions.
+    - **LTS** is better because LTS has a longer product life than **non-LTS** version. During the period of time, we can receive security updates until the **EOL**. (See [Ubuntu Releases](https://wiki.ubuntu.com/Releases))
+    - A **fresh installed** one is recommended because it reduce conflicts with the old setup. It is time consuming to debug such conflicts or do the related support works.
 
-```bash
-$ wget https://download.elastos.org/supernode/elastos-supernode-20190609-alpha.tgz
-```
+## 2. Install the script
 
-### 1.2. Verify checksum
+Login to your server remotely. Normally it is by using SSH client.
 
-```bash
-$ wget https://download.elastos.org/supernode/elastos-supernode-20190609-alpha.tgz.digest
-$ shasum -c elastos-supernode-20190609-alpha.tgz.digest
-```
-
-### 1.3. Verify PGP signature
-
-```bash
-$ wget node.tar.gz.asc
-$ pgp -v node.tar.gz.asc
-```
-
-### 1.4. Unpack tarball
-
-```bash
-$ tar xf elastos-supernode-20190609-alpha.tgz
-```
-
-The directory structure obtained after decompression should be consistent with the readme.txt file.
-
-### 1.5. Verify the contents
+To verify the Linux distribution, you may invoke:
 
 ```bash
-$ cd ~/node
-$ shasum -c checksum.txt
-$ find node
+$ lsb_release -a
+$ uname -a
 ```
 
-The following output indicates that the node was successfully verified.
+Create a folder in your $HOME to hold executable files, config files and data files.
 
-```
-node.sh: OK
-ela/ela: OK
-did/did: OK
-token/token: OK
-carrier/ela-bootstrapd: OK
+```bash
+$ mkdir ~/node && cd ~/node
 ```
 
-## 2. Running
+Download the current version of operating script and make it executable.
 
-`~/node/node.sh` is the main script for maintaining nodes. You can use this script to complete node initialization, startup, shutdown, and so on.
+```bash
+$ curl -O https://raw.githubusercontent.com/elastos/Elastos.ELA.Supernode/master/build/skeleton/node.sh
+$ chmod a+x node.sh
+```
 
-### 2.1. Configure
+Run the script without any arguments to display the usage.
+
+```bash
+$ ~/node/node.sh
+```
+
+If the output is similar with the following, then the installation is good.
+
+```bash
+Usage: node.sh [CHAIN] COMMAND [OPTIONS]
+ELA Management ($HOME/node)
+
+Avaliable Chains:   all, carrier, ela, did, eth, oracle, arbiter
+Avaliable Commands: start, stop, status, upgrade, init
+```
+
+The first argument CHAIN specifies chain (program) name, and the second one COMMAND the action to perform.
+
+Please be notified that the CHAIN argument is optional. If it is absent, all chains will issued COMMAND.
+
+## 3. Download and configure programs
+
+The init command will download the prebuilt binary package, extract and place the executables to the right place, and write the config files required.
+
+The following the programs (chains) need to be processed one by one.
+
+- Elastos Carrier Bootstrap
+- Elastos ELA Mainchain
+- Elastos DID Sidechain
+- Elastos ETH Sidechain (with Oracle)
+- Elastos Arbiter
 
 ```bash
 $ ~/node/node.sh init
 ```
 
-Enter the password to create the keystore.dat and `~/node/node.sh` will automatically obtain the public IP address and modify the configuration files.
+As an alternative, you can also run the initialized one by one.
 
-**You should record the `PUBLIC KEY` and use the public key when you update the Node Public Key on your `elastos wallet`**
+    $ ~/node/node.sh carrier init
+    $ ~/node/node.sh ela init
+    $ ~/node/node.sh did init
+    $ ~/node/node.sh eth init
+    $ ~/node/node.sh oracle init
+    $ ~/node/node.sh arbiter init
 
+### 3.1 Elastos Carrier Bootstrap
+
+```bash
+Finding the latest carrier release...
+INFO: Latest version: 6.0.1
+Downloading https://download.elastos.org/elastos-carrier/elastos-carrier-6.0.1/elastos-carrier-6.0.1-linux-x86_64.tgz...
+###################################################################### 100.0%
+Extracting elastos-carrier-6.0.1-linux-x86_64.tgz...
+'/home/ubuntu/node/.node-upload/carrier/usr/bin/ela-bootstrapd' -> '/home/ubuntu/node/carrier/ela-bootstrapd'
+Creating carrier config file...
+mkdir: created directory '/home/ubuntu/node/carrier/var'
+mkdir: created directory '/home/ubuntu/node/carrier/var/lib'
+mkdir: created directory '/home/ubuntu/node/carrier/var/lib/ela-bootstrapd'
+mkdir: created directory '/home/ubuntu/node/carrier/var/lib/ela-bootstrapd/db'
+mkdir: created directory '/home/ubuntu/node/carrier/var/run'
+mkdir: created directory '/home/ubuntu/node/carrier/var/run/ela-bootstrapd'
+INFO: carrier config file: /home/ubuntu/node/carrier/bootstrapd.conf
+OK: carrier initialzed
 ```
-Please enter your password for keystore.dat: Creating keystore.dat...
+
+### 3.2 Elastos ELA
+
+```bash
+Finding the latest ela release...
+INFO: Latest version: v0.7.0
+Downloading https://download.elastos.org/elastos-ela/elastos-ela-v0.7.0/elastos-ela-v0.7.0-linux-x86_64.tgz...
+###################################################################### 100.0%
+Extracting elastos-ela-v0.7.0-linux-x86_64.tgz...
+'/home/ubuntu/node/.node-upload/ela/ela' -> '/home/ubuntu/node/ela/ela'
+'/home/ubuntu/node/.node-upload/ela/ela-cli' -> '/home/ubuntu/node/ela/ela-cli'
+Creating ela config file...
+Generating random userpass for ela RPC interface...
+Updating ela config file...
+Creating ela keystore...
+Please input a password (ENTER to use a random one)
+? Password:
+```
+A relative strong password is required to generate the keystore file (the wallet).
+```bash
+Generating random password...
+Saving ela keystore password...
+Checking ela keystore...
 ADDRESS                            PUBLIC KEY
----------------------------------- ------------------------------------------------------------------
-EfXimFfnNL8Cw5U2xkHYabvnJ5JDQYucA3 0312dba0fab6572d56b6f707866814924efd42354cb740fafc842d79d2c2bcd761
----------------------------------- ------------------------------------------------------------------
-Done
-Updating /node/ela/config.json...
-Done
-
-Updating /node/carrier/bootstrapd.conf...
-Done
+---------------------------------- ---------------------------------------------------------
+EUX2Zz1r9bc6GtCHCD1qWfGEKzuY...... 03af7417cfef028a8138394c5fecb708b40b7dd512381a56a96......
+---------------------------------- ---------------------------------------------------------
+INFO: ela config file: /home/ubuntu/node/ela/config.json
+INFO: ela keystore file: /home/ubuntu/node/ela/keystore.dat
+INFO: ela keystore password file: /home/ubuntu/.config/elastos/ela.txt
+OK: ela initialzed
 ```
 
-### 2.2. Start
+### 3.3 Elastos DID Sidechain
+
+```bash
+Finding the latest did release...
+INFO: Latest version: v0.2.1
+Downloading https://download.elastos.org/elastos-did/elastos-did-v0.2.1/elastos-did-v0.2.1-linux-x86_64.tgz...
+###################################################################### 100.0%
+Extracting elastos-did-v0.2.1-linux-x86_64.tgz...
+'/home/ubuntu/node/.node-upload/did/did' -> '/home/ubuntu/node/did/did'
+Creating did config file...
+Generating random userpass for did RPC interface...
+? PayToAddr:
+? MinerInfo:
+Updating did config file...
+INFO: did config file: /home/ubuntu/node/did/config.json
+OK: did initialzed
+```
+
+### 3.4 Elastos ETH Sidechain
+
+```bash
+Finding the latest eth release...
+INFO: Latest version: v0.1.3.2
+Downloading https://download.elastos.org/elastos-eth/elastos-eth-v0.1.3.2/elastos-eth-v0.1.3.2-linux-x86_64.tgz...
+###################################################################### 100.0%
+Extracting elastos-eth-v0.1.3.2-linux-x86_64.tgz...
+'/home/ubuntu/node/.node-upload/eth/geth' -> '/home/ubuntu/node/eth/geth'
+Creating eth keystore...
+Please input a password (ENTER to use a random one)
+? Password: 
+Generating random password...
+Saving eth keystore password...
+Checking eth keystore...
+INFO: eth keystore file: /home/ubuntu/node/eth/data/keystore/UTC--2021-06-02T01-40-32.704318848Z--21bc5264b191a1277d72710db2bc1c3a9b......
+INFO: eth keystore password file: /home/ubuntu/.config/elastos/eth.txt
+OK: eth initialized
+```
+
+### 3.5 Elastos ETH Sidechain (Oracle Module)
+
+```bash
+Finding the latest oracle release...
+INFO: Latest version: v0.1.1
+Downloading https://download.elastos.org/elastos-oracle/elastos-oracle-v0.1.1/elastos-oracle-v0.1.1.tgz...
+###################################################################### 100.0%
+Extracting elastos-oracle-v0.1.1.tgz...
+'/home/ubuntu/node/.node-upload/oracle/checkillegalevidence.js' -> '/home/ubuntu/node/eth/oracle/checkillegalevidence.js'
+'/home/ubuntu/node/.node-upload/oracle/common.js' -> '/home/ubuntu/node/eth/oracle/common.js'
+'/home/ubuntu/node/.node-upload/oracle/crosschain_oracle.js' -> '/home/ubuntu/node/eth/oracle/crosschain_oracle.js'
+'/home/ubuntu/node/.node-upload/oracle/ctrt.js' -> '/home/ubuntu/node/eth/oracle/ctrt.js'
+'/home/ubuntu/node/.node-upload/oracle/getblklogs.js' -> '/home/ubuntu/node/eth/oracle/getblklogs.js'
+'/home/ubuntu/node/.node-upload/oracle/getblknum.js' -> '/home/ubuntu/node/eth/oracle/getblknum.js'
+'/home/ubuntu/node/.node-upload/oracle/getexisttxs.js' -> '/home/ubuntu/node/eth/oracle/getexisttxs.js'
+'/home/ubuntu/node/.node-upload/oracle/getillegalevidencebyheight.js' -> '/home/ubuntu/node/eth/oracle/getillegalevidencebyheight.js'
+'/home/ubuntu/node/.node-upload/oracle/gettxinfo.js' -> '/home/ubuntu/node/eth/oracle/gettxinfo.js'
+'/home/ubuntu/node/.node-upload/oracle/sendrechargetransaction.js' -> '/home/ubuntu/node/eth/oracle/sendrechargetransaction.js'
+'/home/ubuntu/node/.node-upload/oracle/deployctrt.sh' -> '/home/ubuntu/node/eth/oracle/deployctrt.sh'
+
++ web3@1.3.6
++ pm2@4.5.6
++ express@4.17.1
+
+OK: oracle initialized
+```
+
+### 3.6 Elastos Arbiter
+
+```bash
+Finding the latest arbiter release...
+INFO: Latest version: v0.2.1
+Downloading https://download.elastos.org/elastos-arbiter/elastos-arbiter-v0.2.1/elastos-arbiter-v0.2.1-linux-x86_64.tgz...
+###################################################################### 100.0%
+Extracting elastos-arbiter-v0.2.1-linux-x86_64.tgz...
+'/home/ubuntu/node/.node-upload/arbiter/arbiter' -> '/home/ubuntu/node/arbiter/arbiter'
+Creating arbiter config file...
+Copying ela keystore...
+'/home/ubuntu/node/ela/keystore.dat' -> '/home/ubuntu/node/arbiter/keystore.dat'
+Updating arbiter config file...
+Generating random userpass for arbiter RPC interface...
+? PayToAddr: 
+Updating arbiter config file...
+INFO: arbiter config file: /home/ubuntu/node/arbiter/config.json
+OK: arbiter initialzed
+```
+
+### 3.7 Directory Layout
+
+Currently, if all things works well, we have a working directory.
+
+```
+$ tree -L 2 ~/node
+~/node                              # root
+├── arbiter                         # arbiter folder
+│   ├── arbiter                     # arbiter program
+│   ├── config.json                 # arbiter config file
+│   ├── ela-cli -> ../ela/ela-cli   # link to ela client program
+│   ├── elastos_arbiter             # arbiter running data and logs
+│   └── keystore.dat                # keystore file, copied from ela
+│
+├── carrier                         # carrier bootstrap folder
+│   ├── bootstrapd.conf             # config file
+│   ├── ela-bootstrapd              # program
+│   ├── public-key                  #
+│   └── var                         # carrier bootstrap running data
+│
+├── did                             # did folder
+│   ├── config.json                 # did config file
+│   ├── did                         # did program
+│   └── elastos_did                 # did chain data and log
+│
+├── ela                             # ela folder
+│   ├── config.json                 # ela config file
+│   ├── ela                         # ela program
+│   ├── ela-cli                     # ela client program, to send commands to ela chain
+│   ├── elastos                     # ela chain data and log
+│   └── keystore.dat                # ela keystore file, the wallet
+│
+├── eth                             # eth folder
+│   ├── data                        # eth running data and logs
+│   ├── geth                        # eth program
+│   ├── logs                        # eth and oracle log files
+│   └── oracle                      # oracle scripts
+│
+├── extern
+│   └── node-v14.17.0-linux-x64     # nodejs required by oracle script
+└── node.sh                         # the operating script
+```
+
+## 4. Start programs
+
+This will start all the chains one by one.
 
 ```bash
 $ ~/node/node.sh start
 ```
 
-The following output indicates that the nodes have successfully started
-
-```
-Starting ela...
-ela: Running, 29709
-Starting did...
-did: Running, 29723
-Starting token...
-token: Running, 29736
-Starting carrier...
-Elastos bootstrap daemon, version 5.2(20190604)
-carrier: Running, 2493, 2495
-```
-
-### 2.3. Stop
-
-Stop ela, did, token and carrier nodes.
-
-```bash
-$ ~/node/node.sh stop
-```
-
-If the nodes end successfully, you will see output similar to the following.
-
-```
-Stopping ela...
-ela: Stopped
-Stopping did...
-did: Stopped
-Stopping token...
-token: Stopped
-Stopping carrier...
-carrier: Stopped
-```
-
-### 2.4. Status
-
-Check node status
-
 ```bash
 $ ~/node/node.sh status
 ```
 
-If it is an output similar to the following, it means the node is running normally.
+## A. FAQ
 
-```
-ela: Running, 29709
-did: Running, 29723
-token: Running, 29736
-carrier: Running, 2493, 2495
-```
-
-If the output is as follows, it means the node is closed.
-
-```
-ela: Stopped
-did: Stopped
-token: Stopped
-carrier: Stopped
-```
-
-## 3. Maintanence
-
-### 3.1. Monitoring
-
-TODO
-
-### 3.2. Upgrading
-
-TODO
-
-### 3.3. Diagnostic
-
-TODO
+1. Q: node.sh complains: "cannot find jq"
+   - A: jq is required to parse json config files. Install it by running the command: "sudo apt-get install -y jq"
 
