@@ -2,8 +2,9 @@
 
 [![Build Status](https://travis-ci.com/elastos/Elastos.ELA.Supernode.svg?branch=master)](https://travis-ci.com/elastos/Elastos.ELA.Supernode)
 
-Hello, please refer the following docs to setup and know an Elastos Supernode:
+Hello, please refer the following docs to setup and run an **Elastos Supernode**.
 
+- [Elastos Supernode Requirements](/docs/elastos_supernode_usage.md#1-requirements) - People and resource required, please check it first before the deployment
 - [Elastos Supernode 123](./docs/elastos_supernode_123.md) - For the impatient user who wish to setup a supernode in 5 minutes
 - [Elastos Supernode Guide](./docs/elastos_supernode_usage.md) - For the system administrator who wish to operate a supernode
 - [Elastos Supernode Reference](./docs/elastos_supernode_reference_zh.md) - For the advance user who wish to know the very detail of supernode
