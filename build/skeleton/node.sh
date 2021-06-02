@@ -994,6 +994,7 @@ oracle_status()
     cd $SCRIPT_PATH/eth/oracle
     echo "oracle:"
     pm2 status
+    echo
 }
 
 oracle_upgrade()
@@ -1564,7 +1565,6 @@ usage()
     echo "  start"
     echo "  stop"
     echo "  status"
-    echo "  mon"
     echo "  upgrade [-b] [-y] [-n]"
     echo "  init"
     echo
@@ -1605,12 +1605,14 @@ else
     fi
     CHAIN_NAME=$1
 
-    if [ "$2" != "start" -a \
-         "$2" != "stop" -a \
-         "$2" != "status" -a \
-         "$2" != "mon" -a \
-         "$2" != "upgrade" -a \
-         "$2" != "init" ]; then
+    if [ "$2" == "" ]; then
+        echo "ERROR: no command specified"
+        exit
+    elif [ "$2" != "start" -a \
+           "$2" != "stop" -a \
+           "$2" != "status" -a \
+           "$2" != "upgrade" -a \
+           "$2" != "init" ]; then
         echo "ERROR: do not support command: $2"
         exit
     fi
