@@ -528,7 +528,7 @@ EOF
     echo_info "ela keystore password file: $ELA_KEYSTORE_PASS_FILE"
 
     touch ${SCRIPT_PATH}/ela/.init
-    echo_ok "ela initialzed"
+    echo_ok "ela initialized"
     echo
 }
 
@@ -708,7 +708,7 @@ EOF
     echo_info "did config file: $DID_CONFIG"
 
     touch ${SCRIPT_PATH}/did/.init
-    echo_ok "did initialzed"
+    echo_ok "did initialized"
     echo
 }
 
@@ -1561,7 +1561,7 @@ EOF
     echo_info "carrier config file: $CARRIER_CONFIG"
 
     touch ${SCRIPT_PATH}/carrier/.init
-    echo_ok "carrier initialzed"
+    echo_ok "carrier initialized"
     echo
 }
 
@@ -1570,7 +1570,7 @@ usage()
     echo "Usage: $(basename $BASH_SOURCE) [CHAIN] COMMAND [OPTIONS]"
     echo "ELA Management ($SCRIPT_PATH)"
     echo
-    echo "Avaliable Chains:"
+    echo "Available Chains:"
     echo
     echo "  all"
     echo "  ela"
@@ -1580,7 +1580,7 @@ usage()
     echo "  arbiter"
     echo "  carrier"
     echo
-    echo "Avaliable Commands:"
+    echo "Available Commands:"
     echo
     echo "  start"
     echo "  stop"
