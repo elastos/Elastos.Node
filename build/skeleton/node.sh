@@ -1348,7 +1348,7 @@ EOF
     echo_info "arbiter config file: $ARBITER_CONFIG"
 
     touch ${SCRIPT_PATH}/arbiter/.init
-    echo_ok "arbiter initialzed"
+    echo_ok "arbiter initialized"
     echo
 }
 
