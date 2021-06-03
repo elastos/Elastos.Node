@@ -2,9 +2,9 @@
 
 ## Summary
 
-Generally, software build will consumes much more time, but will give you confident that you have the right and precise mapping between your desired code logic and your final product.
+Generally, software build gives you confidence that you have the right and precise mapping between your code and your desired product. It will take 5 to 10 minutes in the [cloud build service](https://travis-ci.com/github/elastos/Elastos.ELA.Supernode/builds).
 
-## Requirements
+## System requirements
 
 - **RAM**: 1 GB
 - **HDD**: 8 GB
@@ -15,14 +15,64 @@ Generally, software build will consumes much more time, but will give you confid
 ```bash
 $ cd $HOME
 $ git clone https://github.com/elastos/Elastos.ELA.Supernode
-
 $ cd $HOME/Elastos.ELA.Supernode/build
 $ ./build.sh
-
-$ ls -l ~/Elastos.ELA.Supernode/release
 ```
 
-## Use build result
+## Build result
 
-The generated package will contains all the programs and the automatic script. Copy (rsync) it to the target server, extract it to the $HOME folder to use.
+The generated package contains all the programs and the automatic script to run a supernode. Copy (rsync) it to the target server, extract it to the $HOME folder. 
+
+**List** the build results.
+
+```bash
+$ ls -1 ~/Elastos.ELA.Supernode/release/Linux-x86_64
+20210602-182454
+```
+
+Dive into the build result **folder**.
+
+```bash
+$ cd ~/Elastos.ELA.Supernode/release/Linux-x86_64/20210602-182454
+```
+
+**Transfer** the tarball to the target server.
+
+```bash
+$ rsync -avzP elastos-supernode-20210602-Linux-x86_64-alpha.tgz.* target-server:
+```
+
+Remote **login** to the target server.
+
+```bash
+$ ssh target-server
+```
+
+Now we are on the target server. **Verify** the checksum.
+
+```bash
+user@target-server $ shasum -c elastos-supernode-20210602-Linux-x86_64-alpha.tgz.digest
+elastos-supernode-20210602-Linux-x86_64-alpha.tgz: OK
+```
+
+**Unpack** the tarball.
+
+```bash
+user@target-server $ tar xf elastos-supernode-20210602-Linux-x86_64-alpha.tgz
+```
+
+**Check** the return code
+
+```bash
+user@target-server $ echo $?
+0
+```
+
+**Run** the script.
+
+```bash
+user@target-server $ ~/node/node.sh
+```
+
+For a more detailed setup and usage, please refer to [Elastos Supernode Guide](https://github.com/elastos/Elastos.ELA.Supernode/blob/master/docs/elastos_supernode_usage.md).
 
