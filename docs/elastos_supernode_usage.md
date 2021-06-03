@@ -2,29 +2,29 @@
 
 ## 1. Requirements
 
-Basically, a contemporary Linux operation system is required to run Elastos Supernode.
+A new Linux operation system is required to run Elastos Supernode.
 
 - **User**
   - should feel **comfortable with Linux** or similar **POSIX shell environment**
   - has access to the **cloud computing**: [Amazon EC2](https://aws.amazon.com/ec2/), [Microsoft Azure VM](https://azure.microsoft.com/en-us/services/virtual-machines/), [Google Cloud Compute Engine](https://cloud.google.com/compute/)
-  - or has permission to place a server in your **home** or **office** if the room or building has free space, cheap electric supply and good noise insulation.
+  - Or has permission to place a server in your **home** or **office** if the room or building has free space, cheap electric supply, and good noise insulation.
 - **Network requirements**
-  - **TCP/IP**: the current Internet is required to bootstrap the new one
-  - **non-metered connection**: to prevent a high usage billing. It is not recommened to operate the supernode with your celluar hotspot.
+  - **TCP/IP** the current Internet is required to bootstrap the new one
+  - Use the **non-metered connection** to prevent a high usage billing.
 - **Server Hardware requirements**
   - **CPU**: **2 cores** or more
   - **RAM**: **16 GB** or more
   - **HDD**: **64 GB** or more
-    - Solid-state drive (SSD) is a plus but not a must, a good old hard drive (HDD) should OK
+    - A solid-state drive (SSD) is a plus but not a must. A hard drive (HDD) should OK.
 - **Server Software requirements**
   - **OS**: **Ubuntu 18.04 LTS** 64 Bit or newer
-    - Use **Ubuntu** because currently the developer use macOS and Ubuntu to do the test harness. But its your freedom of choice of other distributions.
-    - **LTS** is better because LTS has a longer product life than **non-LTS** version. During the period of time, we can receive security updates until the **EOL**. (See [Ubuntu Releases](https://wiki.ubuntu.com/Releases))
-    - A **fresh installed** one is recommended because it reduce conflicts with the old setup. It is time consuming to debug such conflicts or do the related support works.
+    - Use **Ubuntu** because the developer uses macOS and Ubuntu to do the test harness. But it is your freedom of choice of other distributions.
+    - **LTS** is better because LTS has a longer product life than the **non-LTS** version. (See [Ubuntu Releases](https://wiki.ubuntu.com/Releases))
+    - The script prefers a **freshly installed** OS because it reduces conflicts with the old setup. It is time-consuming to debug such conflicts and do the related support works.
 
 ## 2. Install the script
 
-Login to your server remotely. Normally it is by using SSH client.
+Login to your server remotely. Normally it is by using an SSH client.
 
 To verify the Linux distribution, you may invoke:
 
@@ -33,13 +33,13 @@ $ lsb_release -a
 $ uname -a
 ```
 
-Create a folder in your $HOME to hold executable files, config files and data files.
+Create a folder in your $HOME to hold executable files, config files, and data files.
 
 ```bash
 $ mkdir ~/node && cd ~/node
 ```
 
-Download the current version of operating script and make it executable.
+Download the current version of the script and make it executable.
 
 ```bash
 $ curl -O https://raw.githubusercontent.com/elastos/Elastos.ELA.Supernode/master/build/skeleton/node.sh
@@ -52,7 +52,7 @@ Run the script without any arguments to display the usage.
 $ ~/node/node.sh
 ```
 
-If the output is similar with the following, then the installation is good.
+If the output is similar to the following, then the installation is good.
 
 ```bash
 Usage: node.sh [CHAIN] COMMAND [OPTIONS]
@@ -62,15 +62,15 @@ Avaliable Chains:   all, carrier, ela, did, eth, oracle, arbiter
 Avaliable Commands: start, stop, status, upgrade, init
 ```
 
-The first argument CHAIN specifies chain (program) name, and the second one COMMAND the action to perform.
+The first argument CHAIN specifies chain (program) name, and the second one, COMMAND specifies the action to perform.
 
-Please be notified that the CHAIN argument is optional. If it is absent, all chains will issued COMMAND.
+Please be notified that the CHAIN argument is optional. If it is absent, all chains will be issued COMMAND.
 
 ## 3. Download and configure programs
 
-The init command will download the prebuilt binary package, extract and place the executables to the right place, and write the config files required.
+The init command will download the prebuilt binary package, extract and place the executables in the right place, and write the config files required.
 
-The following the programs (chains) need to be processed one by one.
+The init command will process the following programs (chains) in one go.
 
 - Elastos Carrier Bootstrap
 - Elastos ELA Mainchain
@@ -82,7 +82,7 @@ The following the programs (chains) need to be processed one by one.
 $ ~/node/node.sh init
 ```
 
-As an alternative, you can also run the initialized one by one.
+As an alternative, you can also run the init command one by one.
 
     $ ~/node/node.sh carrier init
     $ ~/node/node.sh ela init
@@ -128,7 +128,7 @@ Creating ela keystore...
 Please input a password (ENTER to use a random one)
 ? Password:
 ```
-A relative strong password is required to generate the keystore file (the wallet).
+A relatively strong password is required to generate the keystore file (the wallet).
 ```bash
 Generating random password...
 Saving ela keystore password...
@@ -230,7 +230,7 @@ OK: arbiter initialzed
 
 ### 3.7 Directory Layout
 
-Currently, if all things works well, we have a working directory.
+Currently, if all things work well, we have the following directory.
 
 ```
 $ tree -L 2 ~/node
@@ -273,18 +273,92 @@ $ tree -L 2 ~/node
 
 ## 4. Start programs
 
-This will start all the chains one by one.
+The **start** command will start all programs (chains).
 
 ```bash
 $ ~/node/node.sh start
 ```
 
+The **status** command will summarize the resources occupied and the current chain state.
+
 ```bash
 $ ~/node/node.sh status
 ```
 
+## 5. Future upgrade
+
+### 5.1 Update the script
+
+If you had already installed the script several weeks ago, it is better to update to get the latest fixes or features.
+
+```bash
+$ ~/node/node.sh script_update
+```
+
+It will fetch the latest script from the repository and make it executable.
+
+```bash
+Downloading https://raw.githubusercontent.com/elastos/Elastos.ELA.Supernode/master/build/skeleton/node.sh...
+###################################################################### 100.0%
+OK: $HOME/node/node.sh updated
+```
+
+### 5.2 Upgrade programs
+
+We can **upgrade a single program** (chain). For example, to upgrade Elastos ELA, please run the following command.
+
+```bash
+$ ~/node/node.sh ela upgrade
+```
+
+The script will list all releases from the download server and find the **latest version**.
+
+```bash
+Finding the latest ela release...
+INFO: Latest version: v0.7.0
+```
+
+If you wish to continue, please answer the case-sensitive **Yes**. Any other answers will cancel the operation.
+
+```bash
+Proceed upgrade (No/Yes)? Yes
+Downloading https://download.elastos.org/elastos-ela/elastos-ela-v0.7.0/elastos-ela-v0.7.0-linux-x86_64.tgz...
+###################################################################### 100.0%
+Extracting elastos-ela-v0.7.0-linux-x86_64.tgz...
+```
+
+Then the script will **stop a running program** automatically.
+
+```bash
+Stopping ela...
+ela v0.7.0: Stopped
+```
+
+And replace the files with the updated versions.
+
+```bash
+'/home/ubuntu/node/.node-upload/ela/ela' -> '/home/ubuntu/node/ela/ela'
+'/home/ubuntu/node/.node-upload/ela/ela-cli' -> '/home/ubuntu/node/ela/ela-cli'
+```
+
+If the script has stopped the program before the file replacement, it will **start the program** automatically.
+
+```
+Starting ela...
+ela v0.7.0: Running
+  PID:  405139
+  RAM:  857284K
+  Uptime: 00:01
+  #TCP:  14
+  #Files: 35
+  #Peers: 3
+  Height: 5330
+```
+
+Please **check the version** to make sure of a successful program upgrade.
+
 ## A. FAQ
 
-1. Q: node.sh complains: "cannot find jq"
+1. Q: The script complains: cannot find jq.
    - A: jq is required to parse json config files. Install it by running the command: "sudo apt-get install -y jq"
 
