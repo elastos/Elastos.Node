@@ -23,6 +23,26 @@ echo_ok()
     echo -e "\033[1;32mOK:\033[0m $1"
 }
 
+script_update()
+{
+    local SCRIPT_URL=https://raw.githubusercontent.com/elastos/Elastos.ELA.Supernode/master/build/skeleton/node.sh
+
+    local SCRIPT=$SCRIPT_PATH/$(basename $BASH_SOURCE)
+    local SCRIPT_TMP=$SCRIPT.tmp
+
+    echo "Downloading $SCRIPT_URL..."
+    curl -# -o $SCRIPT_TMP $SCRIPT_URL
+    if [ "$?" != "0" ]; then
+        echo_error "curl failed"
+        return
+    fi
+
+    mv $SCRIPT_TMP $SCRIPT
+    chmod a+x $SCRIPT
+
+    echo_ok "$SCRIPT updated"
+}
+
 check_env()
 {
     #echo "Checking OS Version..."
@@ -1579,6 +1599,11 @@ check_env
 
 if [ "$1" == "" ]; then
     usage
+    exit
+fi
+
+if [ "$1" == "script_update" ]; then
+    script_update
     exit
 fi
 
