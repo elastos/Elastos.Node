@@ -1618,8 +1618,7 @@ if [ "$1" == "init"    ] || \
 else
     # operate on a single chain
 
-    if [ "$1" != "all" -a \
-         "$1" != "ela" -a \
+    if [ "$1" != "ela" -a \
          "$1" != "did" -a \
          "$1" != "eth" -a \
          "$1" != "oracle" -a \
