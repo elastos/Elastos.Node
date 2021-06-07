@@ -914,7 +914,7 @@ eth_init()
         return
     fi
 
-    local ETH_NUM_ACCOUNTS=$(./geth --datadir "~/node/eth/data/" \
+    local ETH_NUM_ACCOUNTS=$(./geth --datadir "$SCRIPT_PATH/eth/data/" \
         --nousb --verbosity 0 account list | wc -l)
     if [ $ETH_NUM_ACCOUNTS -ge 1 ]; then
         echo_error "eth keystore file exist"
@@ -940,7 +940,7 @@ eth_init()
     chmod 600 $ETH_KEYSTORE_PASS_FILE
 
     cd ${SCRIPT_PATH}/eth
-    ./geth --datadir "~/node/eth/data/" --verbosity 0 account new \
+    ./geth --datadir "$SCRIPT_PATH/eth/data/" --verbosity 0 account new \
         --password "$ETH_KEYSTORE_PASS_FILE" >/dev/null
     if [ "$?" != "0" ]; then
         echo "ERROR: failed to create eth keystore"
@@ -948,7 +948,7 @@ eth_init()
     fi
 
     echo "Checking eth keystore..."
-    local ETH_KEYSTORE=$(./geth --datadir "~/node/eth/data/" \
+    local ETH_KEYSTORE=$(./geth --datadir "$SCRIPT_PATH/eth/data/" \
         --nousb --verbosity 0 account list | sed 's/.*keystore:\/\///')
     chmod 600 $ETH_KEYSTORE
 
@@ -965,8 +965,8 @@ eth_init()
 #
 oracle_start()
 {
-    export PATH=~/node/extern/node-v14.17.0-linux-x64/bin:$PATH
-    export PATH=~/node/eth/oracle/node_modules/pm2/bin:$PATH
+    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
+    export PATH=$SCRIPT_PATH/eth/oracle/node_modules/pm2/bin:$PATH
 
     if [ ! -f $SCRIPT_PATH/eth/oracle/crosschain_oracle.js ]; then
         echo "ERROR: $SCRIPT_PATH/eth/oracle/crosschain_oracle.js is not exist"
@@ -988,8 +988,8 @@ oracle_start()
 
 oracle_stop()
 {
-    export PATH=~/node/extern/node-v14.17.0-linux-x64/bin:$PATH
-    export PATH=~/node/eth/oracle/node_modules/pm2/bin:$PATH
+    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
+    export PATH=$SCRIPT_PATH/eth/oracle/node_modules/pm2/bin:$PATH
 
     if [ ! -f $SCRIPT_PATH/eth/oracle/crosschain_oracle.js ]; then
         echo "ERROR: $SCRIPT_PATH/eth/oracle/crosschain_oracle.js is not exist"
@@ -1008,8 +1008,8 @@ oracle_stop()
 
 oracle_status()
 {
-    export PATH=~/node/extern/node-v14.17.0-linux-x64/bin:$PATH
-    export PATH=~/node/eth/oracle/node_modules/pm2/bin:$PATH
+    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
+    export PATH=$SCRIPT_PATH/eth/oracle/node_modules/pm2/bin:$PATH
 
     cd $SCRIPT_PATH/eth/oracle
     echo "oracle:"
@@ -1064,14 +1064,15 @@ oracle_init()
         return
     fi
 
-    if [ ! -d ~/node/extern/node-v14.17.0-linux-x64 ]; then
-        mkdir -p ~/node/extern
-        cd ~/node/extern
+    if [ ! -d $SCRIPT_PATH/extern/node-v14.17.0-linux-x64 ]; then
+        mkdir -p $SCRIPT_PATH/extern
+        cd $SCRIPT_PATH/extern
+        echo "Downloading https://nodejs.org/download/release/latest-v14.x/node-v14.17.0-linux-x64.tar.xz..."
         curl -O -# https://nodejs.org/download/release/latest-v14.x/node-v14.17.0-linux-x64.tar.xz
         tar xf node-v14.17.0-linux-x64.tar.xz
     fi
 
-    export PATH=~/node/extern/node-v14.17.0-linux-x64/bin:$PATH
+    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
 
     mkdir -p $SCRIPT_PATH/eth/oracle
     cd $SCRIPT_PATH/eth/oracle
@@ -1121,8 +1122,8 @@ arbiter_stop()
 # issue: peers 0, height 0
 arbiter_status()
 {
-    local ARBITER_VER="arbiter"
-    # TODO: did support -v; dump version
+    local ARBITER_VER="arbiter $($SCRIPT_PATH/arbiter/arbiter -v 2>&1 | sed 's/.* //')"
+
     local PID=$(pgrep -x arbiter)
     if [ "$PID" == "" ]; then
         echo "$ARBITER_VER: Stopped"
@@ -1141,23 +1142,41 @@ arbiter_status()
     local ARBITER_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
     local ARBITER_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
-    local ARBITER_NUM_PEERS=$($ARBITER_CLI info getconnectioncount)
-    if [[ ! "$ARBITER_NUM_PEERS" =~ ^[0-9]+$ ]]; then
-        ARBITER_NUM_PEERS=0
+    local ARBITER_SPV_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
+        -X POST --data '{"method":"getspvheight"}' \
+        -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
+        http://127.0.0.1:20536 | jq -r '.result')
+    if [[ ! "$ARBITER_SPV_HEIGHT" =~ ^[0-9]+$ ]]; then
+        ARBITER_SPV_HEIGHT=N/A
     fi
-    local ARBITER_HEIGHT=$($ARBITER_CLI info getcurrentheight)
-    if [[ ! "$ARBITER_HEIGHT" =~ ^[0-9]+$ ]]; then
-        ARBITER_HEIGHT=N/A
+
+    local DID_GENESIS=56be936978c261b2e649d58dbfaf3f23d4a868274f5522cd2adb4308a955c4a3
+    local ARBITER_DID_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
+        -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$DID_GENESIS\"}}" \
+        -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
+        http://127.0.0.1:20536 | jq -r '.result')
+    if [[ ! "$ARBITER_DID_HEIGHT" =~ ^[0-9]+$ ]]; then
+        ARBITER_DID_HEIGHT=N/A
+    fi
+
+    local ETH_GENESIS=6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a
+    local ARBITER_ETH_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
+        -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$ETH_GENESIS\"}}" \
+        -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
+        http://127.0.0.1:20536 | jq -r '.result')
+    if [[ ! "$ARBITER_ETH_HEIGHT" =~ ^[0-9]+$ ]]; then
+        ARBITER_ETH_HEIGHT=N/A
     fi
 
     echo "$ARBITER_VER: Running"
-    echo "  PID:    $PID"
-    echo "  RAM:    $ARBITER_RAM"
-    echo "  Uptime: $ARBITER_UPTIME"
-    echo "  #TCP:   $ARBITER_NUM_TCPS"
-    echo "  #Files: $ARBITER_NUM_FILES"
-    echo "  #Peers: $ARBITER_NUM_PEERS"
-    echo "  Height: $ARBITER_HEIGHT"
+    echo "  PID:        $PID"
+    echo "  RAM:        $ARBITER_RAM"
+    echo "  Uptime:     $ARBITER_UPTIME"
+    echo "  #TCP:       $ARBITER_NUM_TCPS"
+    echo "  #Files:     $ARBITER_NUM_FILES"
+    echo "  SPV Height: $ARBITER_SPV_HEIGHT"
+    echo "  DID Height: $ARBITER_DID_HEIGHT"
+    echo "  ETH Height: $ARBITER_ETH_HEIGHT"
     echo
 }
 
@@ -1258,7 +1277,7 @@ arbiter_init()
           "User": "",
           "Pass": ""
         },
-        "SyncStartHeight": 401000,
+        "SyncStartHeight": 512990,
         "ExchangeRate": 1.0,
         "GenesisBlock": "56be936978c261b2e649d58dbfaf3f23d4a868274f5522cd2adb4308a955c4a3",
         "MiningAddr": "",
@@ -1268,16 +1287,12 @@ arbiter_init()
       {
         "Rpc": {
           "IpAddress": "127.0.0.1",
-          "HttpJsonPort": 20632,
-          "User": "",
-          "Pass": ""
+          "HttpJsonPort": 20632
         },
-        "SyncStartHeight": 2515000,
+        "SyncStartHeight": 6551000,
         "ExchangeRate": 1.0,
         "GenesisBlock": "6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a",
-        "MiningAddr": "",
-        "PowChain": false,
-        "PayToAddr": ""
+        "PowChain": false
       }
     ],
     "RpcConfiguration": {
