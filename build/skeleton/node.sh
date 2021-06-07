@@ -966,7 +966,6 @@ eth_init()
 oracle_start()
 {
     export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
-    export PATH=$SCRIPT_PATH/eth/oracle/node_modules/pm2/bin:$PATH
 
     if [ ! -f $SCRIPT_PATH/eth/oracle/crosschain_oracle.js ]; then
         echo "ERROR: $SCRIPT_PATH/eth/oracle/crosschain_oracle.js is not exist"
@@ -978,9 +977,10 @@ oracle_start()
     mkdir -p $SCRIPT_PATH/eth/logs
 
     export env=mainnet
-    pm2 -s start $SCRIPT_PATH/eth/oracle/crosschain_oracle.js -i 1 \
-        -e $SCRIPT_PATH/eth/logs/oracle_err.log \
-        -o $SCRIPT_PATH/eth/logs/oracle_out.log
+
+    nohup node crosschain_oracle.js \
+        1>$SCRIPT_PATH/eth/logs/oracle_out.log \
+        2>$SCRIPT_PATH/eth/logs/oracle_err.log &
 
     sleep 1
     oracle_status
@@ -988,32 +988,33 @@ oracle_start()
 
 oracle_stop()
 {
-    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
-    export PATH=$SCRIPT_PATH/eth/oracle/node_modules/pm2/bin:$PATH
-
-    if [ ! -f $SCRIPT_PATH/eth/oracle/crosschain_oracle.js ]; then
-        echo "ERROR: $SCRIPT_PATH/eth/oracle/crosschain_oracle.js is not exist"
-        return
-    fi
-
     echo "Stopping oracle..."
-    cd $SCRIPT_PATH/eth/oracle
-    mkdir -p $SCRIPT_PATH/eth/logs
-
-    pm2 -s stop $SCRIPT_PATH/eth/oracle/crosschain_oracle.js
-
-    sleep 1
+    while pgrep -f 'node crosschain_oracle.js' 1>/dev/null; do
+        pkill -f 'node crosschain_oracle.js'
+        sleep 1
+    done
     oracle_status
 }
 
 oracle_status()
 {
-    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
-    export PATH=$SCRIPT_PATH/eth/oracle/node_modules/pm2/bin:$PATH
+    local PID=$(pgrep -f 'node crosschain_oracle.js')
+    if [ "$PID" == "" ]; then
+        echo "oracle: Stopped"
+        return
+    fi
 
-    cd $SCRIPT_PATH/eth/oracle
-    echo "oracle:"
-    pm2 status
+    local ORACLE_RAM=$(mem_usage $PID)
+    local ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
+    local ORACLE_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local ORACLE_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+
+    echo "oracle: Running"
+    echo "  PID:    $PID"
+    echo "  RAM:    $ORACLE_RAM"
+    echo "  Uptime: $ORACLE_UPTIME"
+    echo "  #TCP:   $ORACLE_NUM_TCPS"
+    echo "  #Files: $ORACLE_NUM_FILES"
     echo
 }
 
@@ -1038,6 +1039,11 @@ oracle_upgrade()
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/oracle
     local DIR_DEPLOY=$SCRIPT_PATH/eth/oracle
+
+    local PID=$(pgrep -f 'node crosschain_oracle.js')
+    if [ $PID ]; then
+        oracle_stop
+    fi
 
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/*.js $DIR_DEPLOY/
@@ -1076,7 +1082,7 @@ oracle_init()
 
     mkdir -p $SCRIPT_PATH/eth/oracle
     cd $SCRIPT_PATH/eth/oracle
-    npm install pm2 web3 express
+    npm install web3 express
 
     touch ${SCRIPT_PATH}/eth/oracle/.init
     echo_ok "oracle initialized"
