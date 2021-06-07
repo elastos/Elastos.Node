@@ -1587,7 +1587,6 @@ usage()
     echo
     echo "Available Chains:"
     echo
-    echo "  all"
     echo "  ela"
     echo "  did"
     echo "  eth"
