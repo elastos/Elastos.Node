@@ -560,8 +560,7 @@ did_stop()
 
 did_status()
 {
-    # TODO: did support -v; dump version
-    local DID_VER="did"
+    local DID_VER="did $($SCRIPT_PATH/did/did -v 2>&1 | sed 's/.* //')"
 
     local PID=$(pgrep -x did)
     if [ "$PID" == "" ]; then
