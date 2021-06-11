@@ -685,13 +685,23 @@ EOF
     local DID_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
     local DID_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
 
+    echo "Please input an ELA address to receive awards."
     local PAY_TO_ADDR=
-    # TODO: add description
-    read -p '? PayToAddr: ' PAY_TO_ADDR
+    while true; do
+        read -p '? PayToAddr: ' PAY_TO_ADDR
+        if [ "$PAY_TO_ADDR" != "" ]; then
+            break
+        fi
+    done
 
     local MINER_INFO=
-    # TODO: add description
-    read -p '? MinerInfo: ' MINER_INFO
+    echo "Please input a miner name that will be persisted in the blockchain."
+    while true; do
+        read -p '? MinerInfo: ' MINER_INFO
+        if [ "$MINER_INFO" != "" ]; then
+            break
+        fi
+    done
 
     echo "Updating did config file..."
     jq ".RPCUser=\"$DID_RPC_USER\"  | \
@@ -1124,7 +1134,6 @@ arbiter_stop()
     arbiter_status
 }
 
-# issue: peers 0, height 0
 arbiter_status()
 {
     local ARBITER_VER="arbiter $($SCRIPT_PATH/arbiter/arbiter -v 2>&1 | sed 's/.* //')"
@@ -1344,9 +1353,14 @@ EOF
     local ARBITER_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
     local ARBITER_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
 
+    echo "Please input an ELA address to receive awards."
     local PAY_TO_ADDR=
-    # TODO: add description
-    read -p '? PayToAddr: ' PAY_TO_ADDR
+    while true; do
+        read -p '? PayToAddr: ' PAY_TO_ADDR
+        if [ "$PAY_TO_ADDR" != "" ]; then
+            break
+        fi
+    done
 
     echo "Updating arbiter config file..."
     jq ".Configuration.MainNode.Rpc.User=\"$ELA_RPC_USER\"              | \
