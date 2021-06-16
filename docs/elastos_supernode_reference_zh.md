@@ -259,7 +259,7 @@ curl -X POST \
 
     ```
     # 下载链接:
-        $ wget https://github.com/elastos/Elastos.ELA.SideChain.ETH/releases/download/v0.1.1/oracle.tar.gz
+        $ wget https://download.elastos.org/elastos-oracle/elastos-oracle-v0.1.3.3/
     ```
 
 - nodejs
@@ -274,15 +274,15 @@ curl -X POST \
 1. 创建节点运行目录 ` mkdir ~/node/eth/ `
 2. 创建节点数据目录 ` mkdir -p ~/node/eth/data/ `
 3. 创建日志目录 `mkdir -p  ~/node/eth/logs/ `
-4. 将geth节点程序、oracle目录拷贝至eth侧链节点目录 
+4. 将geth节点程序拷贝至eth侧链节点目录 ` mv geth ~/node/eth/ `
+5. 将oracle解压重命名至eth侧链节点目录 
 
-```bash
-    mv geth ~/node/eth/
-    mv oracle ~/node/eth/
 ```
-
-5. 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至eth侧链节点目录 ` cp ~/node/ela/keystore.dat ~/node/eth/ `
-6. 并将keystore.dat 密码存入到文件中 ` echo Password > ~/node/eth/ela.txt `
+ mv elastos-oracle-v0.1.3.3 oracle  
+ mv oracle/ ~/node/eth/
+```
+6. 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至eth侧链节点目录 ` cp ~/node/ela/keystore.dat ~/node/eth/ `
+7. 并将keystore.dat 密码存入到文件中 ` echo Password > ~/node/eth/ela.txt `
 
 ##### 3.2.1 创建矿工账户
 
