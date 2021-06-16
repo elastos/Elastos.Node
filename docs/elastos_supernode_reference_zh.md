@@ -193,7 +193,7 @@ ela节点的log记录与elastos/logs/目录下，其中node目录中为节点同
 
     ```
     # 下载链接:
-        $ wget  https://download.elastos.org/elastos-did/elastos-did-v0.2.1/elastos-did-v0.2.1-linux-x86_64.tgz ```
+        $ wget  https://download.elastos.org/elastos-did/elastos-did-v0.3.1/elastos-did-v0.3.1-linux-x86_64.tgz ```
 
 - mainnet_config.json.sample 
 
@@ -218,7 +218,7 @@ ela节点的log记录与elastos/logs/目录下，其中node目录中为节点同
 ##### 2.2.1 修改配置文件
 
 - 根据运维需要，修改RpcConfiguration中的"WhiteIPList"、"User"及"Pass"，访问规则与ela的RPC访问限制一致
-- "PayToAddr"为矿工收益地址，务必填写自己保密的账户
+- "PayToAddr"为矿工收益地址，务必填写自己保密的账户,不能使用交易所地址
 - "MinerInfo"为矿工名称，请使用注册CR委员的名称
 
 #### 2.3 运行did侧链节点
@@ -378,7 +378,7 @@ pm2 status
 
     ```
     # 下载链接:
-        $ wget https://download.elastos.org/elastos-arbiter/elastos-arbiter-v0.2.1/elastos-arbiter-v0.2.1-linux-x86_64.tgz 
+        $ wget https://download.elastos.org/elastos-arbiter/elastos-arbiter-v0.2.3/elastos-arbiter-v0.2.3-linux-x86_64.tgz 
     ```
     
 - coinfig.json
