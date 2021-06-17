@@ -135,6 +135,21 @@ gen_pass()
     done
 }
 
+compress_log()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    if [ -d $1 ]; then
+        echo "Compressing log files in $1..."
+        cd $1
+        for i in $(ls -1 *.log | sort -r | sed 1d); do
+            gzip -v $i
+        done
+    fi
+}
+
 #
 # common chain functions
 #
@@ -308,6 +323,14 @@ all_init()
     carrier_init
 }
 
+all_compress_log()
+{
+    ela_compress_log
+    did_compress_log
+    eth_compress_log
+    arbiter_compress_log
+}
+
 #
 # ela
 #
@@ -317,6 +340,13 @@ ela_start()
         echo "ERROR: $SCRIPT_PATH/ela/ela is not exist"
         return
     fi
+
+    local PID=$(pgrep -x ela)
+    if [ "$PID" != "" ]; then
+        ela_status
+        return
+    fi
+
     echo "Starting ela..."
     cd $SCRIPT_PATH/ela
     if [ -f ~/.config/elastos/ela.txt ]; then
@@ -378,6 +408,12 @@ ela_status()
     echo "  #Peers: $ELA_NUM_PEERS"
     echo "  Height: $ELA_HEIGHT"
     echo
+}
+
+ela_compress_log()
+{
+    compress_log $SCRIPT_PATH/ela/elastos/logs/dpos
+    compress_log $SCRIPT_PATH/ela/elastos/logs/node
 }
 
 ela_upgrade()
@@ -541,6 +577,13 @@ did_start()
         echo "ERROR: $SCRIPT_PATH/did/did is not exist"
         return
     fi
+
+    local PID=$(pgrep -x did)
+    if [ "$PID" != "" ]; then
+        did_status
+        return
+    fi
+
     echo "Starting did..."
     cd $SCRIPT_PATH/did
     nohup ./did 1>/dev/null 2>output &
@@ -598,6 +641,11 @@ did_status()
     echo "  #Peers: $DID_NUM_PEERS"
     echo "  Height: $DID_HEIGHT"
     echo
+}
+
+did_compress_log()
+{
+    compress_log $SCRIPT_PATH/did/elastos_did/logs
 }
 
 did_upgrade()
@@ -743,6 +791,12 @@ eth_start()
         shift
     done
 
+    local PID=$(pgrep -x geth)
+    if [ "$PID" != "" ]; then
+        eth_status
+        return
+    fi
+
     echo "Starting eth..."
     cd $SCRIPT_PATH/eth
     mkdir -p $SCRIPT_PATH/eth/logs/
@@ -855,6 +909,13 @@ eth_status()
     echo "  #Peers: $ETH_NUM_PEERS"
     echo "  Height: $ETH_HEIGHT"
     echo
+}
+
+eth_compress_log()
+{
+    compress_log $SCRIPT_PATH/eth/data/geth/logs/dpos
+    compress_log $SCRIPT_PATH/eth/data/logs-spv
+    compress_log $SCRIPT_PATH/eth/logs
 }
 
 eth_upgrade()
@@ -981,15 +1042,21 @@ oracle_start()
         return
     fi
 
+    local PID=$(pgrep -f 'node crosschain_oracle.js')
+    if [ "$PID" != "" ]; then
+        oracle_status
+        return
+    fi
+
     echo "Starting oracle..."
     cd $SCRIPT_PATH/eth/oracle
-    mkdir -p $SCRIPT_PATH/eth/logs
+    mkdir -p $SCRIPT_PATH/eth/oracle/logs
 
     export env=mainnet
 
     nohup node crosschain_oracle.js \
-        1>$SCRIPT_PATH/eth/logs/oracle_out.log \
-        2>$SCRIPT_PATH/eth/logs/oracle_err.log &
+        1>$SCRIPT_PATH/eth/oracle/logs/oracle_out.log \
+        2>$SCRIPT_PATH/eth/oracle/logs/oracle_err.log &
 
     sleep 1
     oracle_status
@@ -1108,6 +1175,12 @@ arbiter_start()
         return
     fi
 
+    local PID=$(pgrep -x arbiter)
+    if [ "$PID" != "" ]; then
+        arbiter_status
+        return
+    fi
+
     echo "Starting arbiter..."
     cd $SCRIPT_PATH/arbiter
 
@@ -1117,7 +1190,7 @@ arbiter_start()
         else
             nohup ./arbiter 1>/dev/null 2>output &
         fi
-        echo "Waiting ela, did, oracle..."
+        echo "Waiting for ela, did, oracle to start..."
         sleep 5
     done
 
@@ -1192,6 +1265,12 @@ arbiter_status()
     echo "  DID Height: $ARBITER_DID_HEIGHT"
     echo "  ETH Height: $ARBITER_ETH_HEIGHT"
     echo
+}
+
+arbiter_compress_log()
+{
+    compress_log $SCRIPT_PATH/arbiter/elastos_arbiter/logs/arbiter
+    compress_log $SCRIPT_PATH/arbiter/elastos_arbiter/logs/spv
 }
 
 arbiter_upgrade()
@@ -1399,6 +1478,13 @@ carrier_start()
         echo "ERROR: please run '$(basename $BASH_SOURCE) carrier init' first"
         return
     fi
+
+    local PID=$(pgrep -x ela-bootstrapd)
+    if [ $PID ]; then
+        carrier_status
+        return
+    fi
+
     echo "Starting carrier..."
     cd $SCRIPT_PATH/carrier
     ./ela-bootstrapd --config=bootstrapd.conf
@@ -1620,6 +1706,7 @@ usage()
     echo "  status"
     echo "  upgrade [-b] [-y] [-n]"
     echo "  init"
+    echo "  compress_log"
     echo
 }
 
@@ -1644,8 +1731,8 @@ if [ "$1" == "init"    ] || \
    [ "$1" == "start"   ] || \
    [ "$1" == "stop"    ] || \
    [ "$1" == "status"  ] || \
-   [ "$1" == "upgrade" ]; then
-
+   [ "$1" == "upgrade" ] || \
+   [ "$1" == "compress_log" ]; then
     # operate on all chains
     all_$1
 else
@@ -1669,7 +1756,8 @@ else
            "$2" != "stop" -a \
            "$2" != "status" -a \
            "$2" != "upgrade" -a \
-           "$2" != "init" ]; then
+           "$2" != "init" -a \
+           "$2" != "compress_log" ]; then
         echo "ERROR: do not support command: $2"
         exit
     fi
