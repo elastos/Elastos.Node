@@ -265,7 +265,7 @@ $ tree -L 2 ~/node
 ├── eth                             # eth folder
 │   ├── data                        # eth running data and logs
 │   ├── geth                        # eth program
-│   ├── logs                        # eth and oracle log files
+│   ├── logs                        # eth log files
 │   └── oracle                      # oracle scripts
 │
 ├── extern
