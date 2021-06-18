@@ -6,7 +6,7 @@ Generally, software build gives you confidence that you have the right and preci
 
 ## System requirements
 
-- **RAM**: 1 GB
+- **RAM**: 2 GB
 - **HDD**: 8 GB
 - **OS**: Ubuntu 16.04 x86_64
 
