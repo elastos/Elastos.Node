@@ -405,7 +405,7 @@ usage()
 #
 DEV_ROOT=$(cd $(dirname $BASH_SOURCE)/..; pwd)
 
-if [ "$5" == "" ]; then
+if [ "$6" == "" ]; then
     usage
     exit
 fi
