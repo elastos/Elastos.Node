@@ -160,6 +160,8 @@ chain_prepare_stage()
     if [ "$CHAIN_NAME" != "ela" -a \
          "$CHAIN_NAME" != "did" -a \
          "$CHAIN_NAME" != "eth" -a \
+         "$CHAIN_NAME" != "eid" -a \
+         "$CHAIN_NAME" != "eid-oracle" -a \
          "$CHAIN_NAME" != "arbiter" -a \
          "$CHAIN_NAME" != "carrier" -a \
          "$CHAIN_NAME" != "oracle" ]; then
@@ -242,12 +244,16 @@ all_start()
     did_start
     eth_start
     oracle_start
+    eid_start
+    eid-oracle_start
     arbiter_start
 }
 
 all_stop()
 {
     arbiter_stop
+    eid-oracle_stop
+    eid_stop
     oracle_stop
     eth_stop
     did_stop
@@ -261,6 +267,8 @@ all_status()
     did_status
     eth_status
     oracle_status
+    eid_status
+    eid-oracle_status
     arbiter_status
     carrier_status
 }
@@ -271,6 +279,8 @@ all_upgrade()
     did_upgrade
     eth_upgrade
     oracle_upgrade
+    eid_upgrade
+    eid-oracle_upgrade
     arbiter_upgrade
     carrier_upgrade
 }
@@ -281,6 +291,8 @@ all_init()
     did_init
     eth_init
     oracle_init
+    eid_init
+    eid-oracle_init
     arbiter_init
     carrier_init
 }
@@ -290,6 +302,7 @@ all_compress_log()
     ela_compress_log
     did_compress_log
     eth_compress_log
+    eid_compress_log
     arbiter_compress_log
 }
 
@@ -916,6 +929,7 @@ eth_init()
         return
     fi
 
+    cd $SCRIPT_PATH/eth
     local ETH_NUM_ACCOUNTS=$(./geth --datadir "$SCRIPT_PATH/eth/data/" \
         --nousb --verbosity 0 account list | wc -l)
     if [ $ETH_NUM_ACCOUNTS -ge 1 ]; then
@@ -1040,7 +1054,7 @@ oracle_upgrade()
         esac
     done
 
-    chain_prepare_stage oracle '*.js' '*.sh'
+    chain_prepare_stage oracle '*.js'
     if [ "$?" != "0" ]; then
         return
     fi
@@ -1055,7 +1069,6 @@ oracle_upgrade()
 
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/*.js $DIR_DEPLOY/
-    cp -v $PATH_STAGE/*.sh $DIR_DEPLOY/
 
     if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
         oracle_start
@@ -1094,6 +1107,376 @@ oracle_init()
 
     touch ${SCRIPT_PATH}/eth/oracle/.init
     echo_ok "oracle initialized"
+    echo
+}
+
+#
+# eid
+#
+eid_start()
+{
+    if [ ! -f $SCRIPT_PATH/eid/eid ]; then
+        echo "ERROR: $SCRIPT_PATH/eid/eid is not exist"
+        return
+    fi
+
+    while [ "$1" ]; do
+        if [ "$1" == "testnet" ]; then
+            local EID_OPTS=--testnet
+        else
+            echo "ERROR: do not support $1"
+            return
+        fi
+        shift
+    done
+
+    local PID=$(pgrep -x eid)
+    if [ "$PID" != "" ]; then
+        eid_status
+        return
+    fi
+
+    echo "Starting eid..."
+    cd $SCRIPT_PATH/eid
+    mkdir -p $SCRIPT_PATH/eid/logs/
+
+    if [ -f ~/.config/elastos/eid.txt ]; then
+        nohup $SHELL -c "./eid \
+            $EID_OPTS \
+            --allow-insecure-unlock \
+            --datadir $SCRIPT_PATH/eid/data \
+            --mine \
+            --miner.threads 1 \
+            --password ~/.config/elastos/eid.txt \
+            --pbft.keystore ${SCRIPT_PATH}/ela/keystore.dat \
+            --pbft.keystore.password ~/.config/elastos/ela.txt \
+            --pbft.net.address '$(extip)' \
+            --pbft.net.port 20649 \
+            --rpc \
+            --rpcaddr '0.0.0.0' \
+            --rpcapi 'personal,db,eth,net,web3,txpool,miner' \
+            --rpcvhosts '*' \
+            --syncmode full \
+            --unlock '0x$(cat $SCRIPT_PATH/eid/data/keystore/UTC* | jq -r .address)' \
+            2>&1 \
+            | rotatelogs $SCRIPT_PATH/eid/logs/eid-%Y-%m-%d-%H_%M_%S.log 20M" &
+    else
+        nohup $SHELL -c "./eid \
+            $EID_OPTS \
+            --datadir $SCRIPT_PATH/eid/data \
+            --lightserv 10 \
+            --rpc \
+            --rpcaddr '0.0.0.0' \
+            --rpcapi 'admin,eth,txpool,web3' \
+            --rpcvhosts '*' \
+            --syncmode full \
+            2>&1 \
+            | rotatelogs $SCRIPT_PATH/eid/logs/eid-%Y-%m-%d-%H_%M_%S.log 20M" &
+    fi
+
+    sleep 3
+    eid_status
+}
+
+eid_stop()
+{
+    echo "Stopping eid..."
+    while pgrep -x eid 1>/dev/null; do
+        local PID=$(pgrep -x eid)
+        kill -s SIGINT $PID
+        sleep 1
+    done
+    eid_status
+}
+
+eid_status()
+{
+    # TODO: dump version
+    local PID=$(pgrep -x eid)
+    if [ "$PID" == "" ]; then
+        echo "eid: Stopped"
+        return
+    fi
+
+    local EID_CLI=
+
+    local EID_RAM=$(mem_usage $PID)
+    local EID_UPTIME=$(ps -oetime= -p $PID | trim)
+    local EID_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local EID_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+
+    local EID_NUM_PEERS=$(curl -s -H 'Content-Type: application/json' \
+        -X POST --data '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
+        http://127.0.0.1:20646 | jq -r '.result')
+    EID_NUM_PEERS=$(($EID_NUM_PEERS))
+    if [[ ! "$EID_NUM_PEERS" =~ ^[0-9]+$ ]]; then
+        EID_NUM_PEERS=0
+    fi
+    local EID_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
+        -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+        http://127.0.0.1:20646 | jq -r '.result')
+    EID_HEIGHT=$(($EID_HEIGHT))
+    if [[ ! "$EID_HEIGHT" =~ ^[0-9]+$ ]]; then
+        EID_HEIGHT=N/A
+    fi
+
+    echo "eid: Running"
+    echo "  PID:    $PID"
+    echo "  RAM:    $EID_RAM"
+    echo "  Uptime: $EID_UPTIME"
+    echo "  #TCP:   $EID_NUM_TCPS"
+    echo "  #Files: $EID_NUM_FILES"
+    echo "  #Peers: $EID_NUM_PEERS"
+    echo "  Height: $EID_HEIGHT"
+    echo
+}
+
+eid_compress_log()
+{
+    compress_log $SCRIPT_PATH/eid/data/geth/logs/dpos
+    compress_log $SCRIPT_PATH/eid/data/logs-spv
+    compress_log $SCRIPT_PATH/eid/logs
+}
+
+eid_mon()
+{
+    chain_mon eid 120
+}
+
+eid_upgrade()
+{
+    unset OPTIND
+    while getopts "ny" OPTION; do
+        case $OPTION in
+            n)
+                local NO_START_AFTER_UPGRADE=1
+                ;;
+            y)
+                local YES_TO_ALL=1
+                ;;
+        esac
+    done
+
+    chain_prepare_stage eid eid
+    if [ "$?" != "0" ]; then
+        return
+    fi
+
+    local PATH_STAGE=$SCRIPT_PATH/.node-upload/eid
+    local DIR_DEPLOY=$SCRIPT_PATH/eid
+
+    local PID=$(pgrep -x eid)
+    if [ $PID ]; then
+        eid-oracle_stop
+        eid_stop
+    fi
+
+    mkdir -p $DIR_DEPLOY
+    cp -v $PATH_STAGE/eid $DIR_DEPLOY/
+
+    if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+        eid_start
+        eid-oracle_start
+    fi
+}
+
+eid_init()
+{
+    if [ ! -f ${SCRIPT_PATH}/ela/.init ]; then
+        echo_error "ela not initialzed"
+        return
+    fi
+
+    local EID_KEYSTORE=
+    local EID_KEYSTORE_PASS_FILE=~/.config/elastos/eid.txt
+
+    if [ ! -f ${SCRIPT_PATH}/eid/eid ]; then
+        eid_upgrade -y
+    fi
+
+    if [ -f $SCRIPT_PATH/eid/.init ]; then
+        echo_error "eid has already been initialized"
+        return
+    fi
+
+    cd ${SCRIPT_PATH}/eid
+    local EID_NUM_ACCOUNTS=$(./eid --datadir "$SCRIPT_PATH/eid/data/" \
+        --nousb --verbosity 0 account list | wc -l)
+    if [ $EID_NUM_ACCOUNTS -ge 1 ]; then
+        echo_error "eid keystore file exist"
+        return
+    fi
+
+    if [ -f "$EID_KEYSTORE_PASS_FILE" ]; then
+        echo_error "$EID_KEYSTORE_PASS_FILE exist"
+        return
+    fi
+
+    echo "Creating eid keystore..."
+    gen_pass
+    if [ "$KEYSTORE_PASS" == "" ]; then
+        echo_error "empty password"
+        exit
+    fi
+
+    echo "Saving eid keystore password..."
+    mkdir -p $(dirname $EID_KEYSTORE_PASS_FILE)
+    chmod 700 $(dirname $EID_KEYSTORE_PASS_FILE)
+    echo $KEYSTORE_PASS > $EID_KEYSTORE_PASS_FILE
+    chmod 600 $EID_KEYSTORE_PASS_FILE
+
+    cd ${SCRIPT_PATH}/eid
+    ./eid --datadir "$SCRIPT_PATH/eid/data/" --verbosity 0 account new \
+        --password "$EID_KEYSTORE_PASS_FILE" >/dev/null
+    if [ "$?" != "0" ]; then
+        echo "ERROR: failed to create eid keystore"
+        return
+    fi
+
+    echo "Checking eid keystore..."
+    local EID_KEYSTORE=$(./eid --datadir "$SCRIPT_PATH/eid/data/" \
+        --nousb --verbosity 0 account list | sed 's/.*keystore:\/\///')
+    chmod 600 $EID_KEYSTORE
+
+    echo_info "eid keystore file: $EID_KEYSTORE"
+    echo_info "eid keystore password file: $EID_KEYSTORE_PASS_FILE"
+
+    touch ${SCRIPT_PATH}/eid/.init
+    echo_ok "eid initialized"
+    echo
+}
+
+#
+# eid-oracle
+#
+eid-oracle_start()
+{
+    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
+
+    if [ ! -f $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js ]; then
+        echo "ERROR: $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js is not exist"
+        return
+    fi
+
+    local PID=$(pgrep -f 'node crosschain_eid.js')
+    if [ "$PID" != "" ]; then
+        eid-oracle_status
+        return
+    fi
+
+    echo "Starting eid-oracle..."
+    cd $SCRIPT_PATH/eid/eid-oracle
+    mkdir -p $SCRIPT_PATH/eid/eid-oracle/logs
+
+    export env=mainnet
+
+    nohup node crosschain_eid.js \
+        1>$SCRIPT_PATH/eid/eid-oracle/logs/eid-oracle_out.log \
+        2>$SCRIPT_PATH/eid/eid-oracle/logs/eid-oracle_err.log &
+
+    sleep 1
+    eid-oracle_status
+}
+
+eid-oracle_stop()
+{
+    echo "Stopping eid-oracle..."
+    while pgrep -f 'node crosschain_eid.js' 1>/dev/null; do
+        pkill -f 'node crosschain_eid.js'
+        sleep 1
+    done
+    eid-oracle_status
+}
+
+eid-oracle_status()
+{
+    local PID=$(pgrep -f 'node crosschain_eid.js')
+    if [ "$PID" == "" ]; then
+        echo "eid-oracle: Stopped"
+        return
+    fi
+
+    local EID_ORACLE_RAM=$(mem_usage $PID)
+    local EID_ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
+    local EID_ORACLE_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local EID_ORACLE_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+
+    echo "eid-oracle: Running"
+    echo "  PID:    $PID"
+    echo "  RAM:    $EID_ORACLE_RAM"
+    echo "  Uptime: $EID_ORACLE_UPTIME"
+    echo "  #TCP:   $EID_ORACLE_NUM_TCPS"
+    echo "  #Files: $EID_ORACLE_NUM_FILES"
+    echo
+}
+
+eid-oracle_upgrade()
+{
+    unset OPTIND
+    while getopts "ny" OPTION; do
+        case $OPTION in
+            n)
+                local NO_START_AFTER_UPGRADE=1
+                ;;
+            y)
+                local YES_TO_ALL=1
+                ;;
+        esac
+    done
+
+    chain_prepare_stage eid-oracle '*.js'
+    if [ "$?" != "0" ]; then
+        return
+    fi
+
+    local PATH_STAGE=$SCRIPT_PATH/.node-upload/eid-oracle
+    local DIR_DEPLOY=$SCRIPT_PATH/eid/eid-oracle
+
+    local PID=$(pgrep -f 'node crosschain_eid.js')
+    if [ $PID ]; then
+        eid-oracle_stop
+    fi
+
+    mkdir -p $DIR_DEPLOY
+    cp -v $PATH_STAGE/*.js $DIR_DEPLOY/
+
+    if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+        eid-oracle_start
+    fi
+}
+
+eid-oracle_init()
+{
+    if [ ! -f ${SCRIPT_PATH}/eid/.init ]; then
+        echo_error "eid not initialzed"
+        return
+    fi
+
+    if [ ! -f $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js ]; then
+        eid-oracle_upgrade -y
+    fi
+
+    if [ -f $SCRIPT_PATH/eid/eid-oracle/.init ]; then
+        echo_error "eid-oracle has already been initialized"
+        return
+    fi
+
+    if [ ! -d $SCRIPT_PATH/extern/node-v14.17.0-linux-x64 ]; then
+        mkdir -p $SCRIPT_PATH/extern
+        cd $SCRIPT_PATH/extern
+        echo "Downloading https://nodejs.org/download/release/latest-v14.x/node-v14.17.0-linux-x64.tar.xz..."
+        curl -O -# https://nodejs.org/download/release/latest-v14.x/node-v14.17.0-linux-x64.tar.xz
+        tar xf node-v14.17.0-linux-x64.tar.xz
+    fi
+
+    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
+
+    mkdir -p $SCRIPT_PATH/eid/eid-oracle
+    cd $SCRIPT_PATH/eid/eid-oracle
+    npm install web3 express
+
+    touch ${SCRIPT_PATH}/eid/eid-oracle/.init
+    echo_ok "eid-oracle initialized"
     echo
 }
 
@@ -1307,6 +1690,15 @@ arbiter_init()
         "SyncStartHeight": 6551000,
         "ExchangeRate": 1.0,
         "GenesisBlock": "6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a",
+        "PowChain": false
+      },
+      {
+        "Rpc": {
+          "IpAddress": "127.0.0.1",
+          "HttpJsonPort": 20642
+        },
+        "ExchangeRate": 1.0,
+        "GenesisBlock": "7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567",
         "PowChain": false
       }
     ],
@@ -1608,6 +2000,8 @@ usage()
     echo "  did"
     echo "  eth"
     echo "  oracle"
+    echo "  eid"
+    echo "  eid-oracle"
     echo "  arbiter"
     echo "  carrier"
     echo
@@ -1616,7 +2010,7 @@ usage()
     echo "  start"
     echo "  stop"
     echo "  status"
-    echo "  upgrade [-b] [-y] [-n]"
+    echo "  upgrade [-y] [-n]"
     echo "  init"
     echo "  compress_log"
     echo
@@ -1654,6 +2048,8 @@ else
          "$1" != "did" -a \
          "$1" != "eth" -a \
          "$1" != "oracle" -a \
+         "$1" != "eid" -a \
+         "$1" != "eid-oracle" -a \
          "$1" != "arbiter" -a \
          "$1" != "carrier" ]; then
         echo "ERROR: do not support chain: $1"

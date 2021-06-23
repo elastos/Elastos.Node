@@ -215,6 +215,43 @@ build_eth()
     #go build ./cmd/bootnode
 }
 
+build_eid()
+{
+    if [ "$1" == "" ]; then
+        echo "Usage: ${FUNCNAME[0]} Branch|Commit|Tag"
+        return
+    fi
+
+    local BRANCH_NAME=$1
+
+    echo "Building eid..."
+
+    rm -rf $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID
+    if [ ! -d $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID ]; then
+        mkdir -p $DEV_ROOT/src/github.com/elastos
+        cd $DEV_ROOT/src/github.com/elastos
+        git clone https://github.com/elastos/Elastos.ELA.SideChain.EID.git
+    fi
+
+    echo "Syncing..."
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID
+    git clean -fdx
+    git checkout .
+    git checkout master
+    git pull
+    git checkout $BRANCH_NAME
+    git pull
+    git status --ignored
+    echo "eid: $(commit_id)" >commit.txt
+
+    echo "Compiling..."
+    make all
+
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID/build/bin
+    cp -v geth eid
+    cp -v bootnode eid-bootnode
+}
+
 build_arbiter()
 {
     if [ "$1" == "" ]; then
@@ -288,6 +325,7 @@ pack()
     mkdir -p $RELEASE_DIR/node/ela/
     mkdir -p $RELEASE_DIR/node/did/
     mkdir -p $RELEASE_DIR/node/eth/
+    mkdir -p $RELEASE_DIR/node/eid/
     mkdir -p $RELEASE_DIR/node/arbiter/
 
     echo "Copying binaries..."
@@ -306,6 +344,9 @@ pack()
     cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ETH/build/bin/geth \
         $RELEASE_DIR/node/eth/
 
+    cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID/build/bin/eid \
+        $RELEASE_DIR/node/eid/
+
     cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.Arbiter/arbiter \
         $RELEASE_DIR/node/arbiter/
 
@@ -319,6 +360,7 @@ pack()
     cat Elastos.ELA/commit.txt                   >>$RELEASE_DIR/node/commit.txt
     cat Elastos.ELA.SideChain.ID/commit.txt      >>$RELEASE_DIR/node/commit.txt
     cat Elastos.ELA.SideChain.ETH/commit.txt     >>$RELEASE_DIR/node/commit.txt
+    cat Elastos.ELA.SideChain.EID/commit.txt     >>$RELEASE_DIR/node/commit.txt
     cat Elastos.ELA.Arbiter/commit.txt           >>$RELEASE_DIR/node/commit.txt
 
     echo "Generating checksum.txt..."
@@ -339,7 +381,7 @@ pack()
 
 usage()
 {
-    echo "Usage: $0 CARRIER_VER ELA_VER DID_VER ETH_VER ARBITER_VER"
+    echo "Usage: $0 CARRIER_VER ELA_VER DID_VER ETH_VER EID_VER ARBITER_VER"
     echo "Build Elastos Supernode bundle package"
     echo
     echo "Arguments: branch or specific commit of the repositories:"
@@ -348,12 +390,13 @@ usage()
     echo "  https://github.com/elastos/Elastos.ELA"
     echo "  https://github.com/elastos/Elastos.ELA.SideChain.ID"
     echo "  https://github.com/elastos/Elastos.ELA.SideChain.ETH"
+    echo "  https://github.com/elastos/Elastos.ELA.SideChain.EID"
     echo "  https://github.com/elastos/Elastos.ELA.Arbiter"
     echo
     echo "Examples:"
     echo
-    echo "  $0 master master master master master"
-    echo "  $0 release-v6.0.1 v0.7.0 v0.3.1 v0.1.3.2 v0.2.3"
+    echo "  $0 master master master master master master"
+    echo "  $0 release-v6.0.1 v0.7.0 v0.3.1 v0.1.3.2 v0.1.0 v0.2.3"
     echo
 }
 
@@ -373,6 +416,7 @@ build_carrier $1
 build_ela $2
 build_did $3
 build_eth $4
-build_arbiter $5
+build_eid $5
+build_arbiter $6
 
 pack
