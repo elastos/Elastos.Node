@@ -198,10 +198,11 @@ chain_prepare_stage()
         fi
     fi
 
-    if [ "$CHAIN_NAME" != "oracle" ]; then
-        local TGZ_LATEST=elastos-${CHAIN_NAME}-${VER_LATEST}-${RELEASE_PLATFORM}.tgz
-    else
+    if [ "$CHAIN_NAME" == "oracle" ] || \
+       [ "$CHAIN_NAME" == "eid-oracle" ] ; then
         local TGZ_LATEST=elastos-${CHAIN_NAME}-${VER_LATEST}.tgz
+    else
+        local TGZ_LATEST=elastos-${CHAIN_NAME}-${VER_LATEST}-${RELEASE_PLATFORM}.tgz
     fi
     local URL_LATEST=$URL_PREFIX/elastos-${CHAIN_NAME}-${VER_LATEST}/${TGZ_LATEST}
 
