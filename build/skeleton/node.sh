@@ -232,44 +232,6 @@ chain_prepare_stage()
     return 0
 }
 
-chain_backup()
-{
-    local CHAIN_NAME=$1
-
-    if [ "$CHAIN_NAME" != "ela" -a \
-         "$CHAIN_NAME" != "did" -a \
-         "$CHAIN_NAME" != "eth" -a \
-         "$CHAIN_NAME" != "arbiter" ]; then
-        echo "ERROR: do not support chain: $CHAIN_NAME"
-        return 1
-    fi
-
-    local DIR_BACKUP=$SCRIPT_PATH/.node-backup/$CHAIN_NAME
-    local DIR_DEPLOY=$SCRIPT_PATH/$CHAIN_NAME
-
-    if [ -d $DIR_BACKUP ]; then
-        echo "Removing $DIR_BACKUP..."
-        rm -rf $DIR_BACKUP
-    fi
-
-    if [ -d $DIR_DEPLOY ]; then
-        echo "Backing up $DIR_DEPLOY to $DIR_BACKUP..."
-        mkdir -p $DIR_BACKUP
-        rsync -a $DIR_DEPLOY/ $DIR_BACKUP/
-        if [ "$?" != "0" ]; then
-            echo "ERROR: rsync failed"
-            return 2
-        fi
-
-        echo "Verifying the backup..."
-        diff -r $DIR_DEPLOY $DIR_BACKUP
-        if [ "$?" != "0" ]; then
-            echo "ERROR: diff failed"
-            return 3
-        fi
-    fi
-}
-
 #
 # all
 #
@@ -419,11 +381,8 @@ ela_compress_log()
 ela_upgrade()
 {
     unset OPTIND
-    while getopts "bny" OPTION; do
+    while getopts "ny" OPTION; do
         case $OPTION in
-            b)
-                local BACKUP_BEFORE_UPGRADE=1
-                ;;
             n)
                 local NO_START_AFTER_UPGRADE=1
                 ;;
@@ -444,13 +403,6 @@ ela_upgrade()
     local PID=$(pgrep -x ela)
     if [ $PID ]; then
         ela_stop
-    fi
-
-    if [ $BACKUP_BEFORE_UPGRADE ]; then
-        chain_backup ela
-        if [ "$?" != "0" ]; then
-            return
-        fi
     fi
 
     mkdir -p $DIR_DEPLOY
@@ -651,11 +603,8 @@ did_compress_log()
 did_upgrade()
 {
     unset OPTIND
-    while getopts "bny" OPTION; do
+    while getopts "ny" OPTION; do
         case $OPTION in
-            b)
-                local BACKUP_BEFORE_UPGRADE=1
-                ;;
             n)
                 local NO_START_AFTER_UPGRADE=1
                 ;;
@@ -676,13 +625,6 @@ did_upgrade()
     local PID=$(pgrep -x did)
     if [ $PID ]; then
         did_stop
-    fi
-
-    if [ $BACKUP_BEFORE_UPGRADE ]; then
-        chain_backup did
-        if [ "$?" != "0" ]; then
-            return
-        fi
     fi
 
     mkdir -p $DIR_DEPLOY
@@ -921,11 +863,8 @@ eth_compress_log()
 eth_upgrade()
 {
     unset OPTIND
-    while getopts "bny" OPTION; do
+    while getopts "ny" OPTION; do
         case $OPTION in
-            b)
-                local BACKUP_BEFORE_UPGRADE=1
-                ;;
             n)
                 local NO_START_AFTER_UPGRADE=1
                 ;;
@@ -947,13 +886,6 @@ eth_upgrade()
     if [ $PID ]; then
         oracle_stop
         eth_stop
-    fi
-
-    if [ $BACKUP_BEFORE_UPGRADE ]; then
-        chain_backup eth
-        if [ "$?" != "0" ]; then
-            return
-        fi
     fi
 
     mkdir -p $DIR_DEPLOY
@@ -1276,11 +1208,8 @@ arbiter_compress_log()
 arbiter_upgrade()
 {
     unset OPTIND
-    while getopts "bny" OPTION; do
+    while getopts "ny" OPTION; do
         case $OPTION in
-            b)
-                local BACKUP_BEFORE_UPGRADE=1
-                ;;
             n)
                 local NO_START_AFTER_UPGRADE=1
                 ;;
@@ -1301,13 +1230,6 @@ arbiter_upgrade()
     local PID=$(pgrep -x arbiter)
     if [ $PID ]; then
         arbiter_stop
-    fi
-
-    if [ $BACKUP_BEFORE_UPGRADE ]; then
-        chain_backup arbiter
-        if [ "$?" != "0" ]; then
-            return
-        fi
     fi
 
     mkdir -p $DIR_DEPLOY
@@ -1531,11 +1453,8 @@ carrier_status()
 carrier_upgrade()
 {
     unset OPTIND
-    while getopts "bny" OPTION; do
+    while getopts "ny" OPTION; do
         case $OPTION in
-            b)
-                local BACKUP_BEFORE_UPGRADE=1
-                ;;
             n)
                 local NO_START_AFTER_UPGRADE=1
                 ;;
@@ -1557,13 +1476,6 @@ carrier_upgrade()
     local PID=$(pgrep -x -d ', ' ela-bootstrapd)
     if [ $PID ]; then
         carrier_stop
-    fi
-
-    if [ $BACKUP_BEFORE_UPGRADE ]; then
-        chain_backup carrier
-        if [ "$?" != "0" ]; then
-            return
-        fi
     fi
 
     mkdir -p $DIR_DEPLOY
