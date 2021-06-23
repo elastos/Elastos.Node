@@ -1094,8 +1094,8 @@ oracle_init()
     if [ ! -d $SCRIPT_PATH/extern/node-v14.17.0-linux-x64 ]; then
         mkdir -p $SCRIPT_PATH/extern
         cd $SCRIPT_PATH/extern
-        echo "Downloading https://nodejs.org/download/release/latest-v14.x/node-v14.17.0-linux-x64.tar.xz..."
-        curl -O -# https://nodejs.org/download/release/latest-v14.x/node-v14.17.0-linux-x64.tar.xz
+        echo "Downloading https://nodejs.org/download/release/v14.17.0/node-v14.17.0-linux-x64.tar.xz..."
+        curl -O -# https://nodejs.org/download/release/v14.17.0/node-v14.17.0-linux-x64.tar.xz
         tar xf node-v14.17.0-linux-x64.tar.xz
     fi
 
