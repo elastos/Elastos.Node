@@ -1506,7 +1506,7 @@ arbiter_start()
         else
             nohup ./arbiter 1>/dev/null 2>output &
         fi
-        echo "Waiting for ela, did, oracle to start..."
+        echo "Waiting for ela, did, oracle, eid-oracle to start..."
         sleep 5
     done
 
