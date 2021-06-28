@@ -1,4 +1,4 @@
-# CR委员认领超级节点搭建指南_v1.0.3
+# CR委员认领超级节点搭建指南
 
 ## 认领节点方式
 1. EF代运营节点
@@ -9,17 +9,18 @@
 1. ela主链节点
 2. did侧链节点
 3. eth侧链节点
-4. arbiter侧链节点
-5. carrier节点
+4. eid侧链节点
+5. arbiter侧链节点
+6. carrier节点
 
 ## 环境要求
 
 - 操作系统: Ubuntu 18.04 LTS 64-bit、Ubuntu 20.04 LTS 64-bit
-- CPU: 4核或4核以上
+- CPU: 不小于2核
 - 内存: 不小于16GB
 - 硬盘: 不少于50GB
 - 网络: aws标准网络，具有可访问的公网IP或域名
-- 防火墙需要将ELAPort[TCP：20338、20339]、DIDPort[TCP：20608]、ETHPort[TCP：20639、20638,UDP：20638]、ArbiterPort[TCP：20538]和CarrierPort[UDP：3478、33445，TCP：33445]端口端口设置为全网开放
+- 防火墙需要将ELAPort[TCP：20338、20339]、DIDPort[TCP：20608]、ETHPort[TCP：20639、20638,UDP：20638]、EIDPort[TCP：20649、20648,UDP：20648]、ArbiterPort[TCP：20538]和CarrierPort[UDP：3478、33445，TCP：33445]端口端口设置为全网开放
 - 系统权限: 具有sudo权限
 
 ## EF代运营节点
@@ -259,7 +260,7 @@ curl -X POST \
 
     ```
     # 下载链接:
-        $ wget https://download.elastos.org/elastos-oracle/elastos-oracle-v0.1.3.3/
+        $ wget https://download.elastos.org/elastos-oracle/elastos-oracle-v0.1.3.4/elastos-oracle-v0.1.3.4.tgz
     ```
 
 - nodejs
@@ -269,7 +270,7 @@ curl -X POST \
         $ wget https://npm.taobao.org/mirrors/node/v14.17.0/node-v14.17.0-linux-x64.tar.gz
     ```
 
-#### 3.2 将节点及配置文件拷贝至did侧链节点运行目录
+#### 3.2 将节点及配置文件拷贝至eth侧链节点运行目录
 
 1. 创建节点运行目录 ` mkdir ~/node/eth/ `
 2. 创建节点数据目录 ` mkdir -p ~/node/eth/data/ `
@@ -278,7 +279,7 @@ curl -X POST \
 5. 将oracle解压重命名至eth侧链节点目录 
 
 ```
- mv elastos-oracle-v0.1.3.3 oracle  
+ mv elastos-oracle-v0.1.3.4 oracle  
  mv oracle/ ~/node/eth/
 ```
 6. 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至eth侧链节点目录 ` cp ~/node/ela/keystore.dat ~/node/eth/ `
@@ -304,7 +305,7 @@ cd ~/node/eth/data/keystore/
 4. 安装web3: `npm install web3@1.2.1 --save -g`
 5. 安装pm2: `npm install pm2@3.0.0 -g`
 6. 安装express: `sudo npm install express@4.16.0`
-7. 将node_modules依赖包目录拷贝至eth侧链节点目录 ` mv node_modules  ~/node/eth/ `
+7. 将node_modules依赖包目录拷贝至eth侧链节点目录 ` mv node_modules  ~/node/extern/ `
 
 #### 3.4 运行eth侧链节点
 
@@ -339,40 +340,139 @@ curl -H "Content-Type: application/json" -X POST -d '{"method":"eth_blockNumber"
 #### 启动oracle服务
 
 1. 启动关闭oracle服务
-oracle服务启动命令:
 
 ```bash
 # 启动命令
-export PATH=~/node/eth/node-v10.13.0-linux-x64/bin:$PATH
-export PATH=~/node/eth/node_modules/pm2/bin:$PATH
+export PATH=~/node/extern/node-v10.13.0-linux-x64/bin:$PATH
+$ nohup node ~/node/eth/oracle/crosschain_oracle.js \
+    1>～/node/eth/oracle/logs/oracle_out.log \
+    2>～/node/eth/oracle/logs/oracle_err.log &
 
-pm2 start ～/node/eth/oracle/crosschain_oracle.js -i 1 \
-    -e ～/node/eth/logs/oracle_err.log \
-    -o ～/node/eth/logs/oracle_out.log
 ```
 
-2. 查看oracle服务状态
+2. 查看oracle进程
 
 ```bash
-# 启动命令
-export PATH=~/node/eth/node-v10.13.0-linux-x64/bin:$PATH 
-export PATH=~/node/eth/node_modules/pm2/bin:$PATH
-pm2 status 
+$ ps aux |grep crosschain_oracle
 ```
 
-```
-# status显示 online 表示oracle启动成功
-┌─────┬──────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
-│ id  │ name                 │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
-├─────┼──────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
-│ 0   │ crosschain_oracle    │ default     │ 1.0.0   │ cluster │ 22473    │ 21D    │ 0    │ online    │ 0.5%     │ 52.1mb   │ dev      │ disabled │
-└─────┴──────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
 
-```
-
-### 4. 搭建arbiter仲裁人节点
+### 4. 搭建EID侧链节点
 
 #### 4.1 下载节点程序及默认配置文件
+
+- eid
+
+    ```
+    # 下载链接:
+        $ wget https://download.elastos.org/elastos-eid/elastos-eid-v0.1.0/elastos-eid-v0.1.0-linux-x86_64.tgz
+    ```
+
+- oracle
+
+    ```
+    # 下载链接:
+        $ wget https://download.elastos.org/elastos-eid-oracle/elastos-eid-oracle-v0.1.0/elastos-eid-oracle-v0.1.0.tgz
+    ```
+
+- nodejs
+
+    ```
+    # 下载链接:
+        $ wget https://npm.taobao.org/mirrors/node/v14.17.0/node-v14.17.0-linux-x64.tar.gz
+    ```
+
+#### 4.2 将节点及配置文件拷贝至eid侧链节点运行目录
+
+1. 创建节点运行目录 ` mkdir ~/node/eid/ `
+2. 创建节点数据目录 ` mkdir -p ~/node/eid/data/ `
+3. 创建日志目录 `mkdir -p  ~/node/eid/logs/ `
+4. 将geth节点程序拷贝至eid侧链节点目录 ` mv geth ~/node/eid/ `
+5. 将oracle解压重命名至eid侧链节点目录 
+
+```
+ mv elastos-eid-oracle-v0.1.0 oracle  
+ mv oracle/ ~/node/eid/
+```
+6. 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至eid侧链节点目录 ` cp ~/node/ela/keystore.dat ~/node/eid/ `
+7. 并将keystore.dat 密码存入到文件中 ` echo Password > ~/node/eid/ela.txt `
+
+##### 4.2.1 创建矿工账户
+
+1. eid侧链节点目录下生成矿工账户，命令: ` ./geth --datadir "~/node/eid/data/" account new `
+2. 查看账户生成是否成功
+
+```bash
+cd ~/node/eid/data/keystore/
+
+# 如出现UTC--2019-08-03T08-08-42.293003000Z--72064cd776e12d7163d329cc0* 格式表示创建成功
+```
+3. 将密码写入本地文件，命令: `echo password > ~/node/eid/eid.txt `
+
+#### 4.3 安装oracle依赖包,ETH节点已安装oracle依赖包eid节点则无需安装
+
+1. 没有python2.7,安装python2.7: `sudo apt-get install -yq python-minimal python-dev make g++`
+2. 安装nodejs,下载链接: `wget https://npm.taobao.org/mirrors/node/v10.13.0/node-v10.13.0-linux-x64.tar.gz`
+3. 解压文件拷贝至eth侧链目录， 路径: ~/node/eth/
+4. 安装web3: `npm install web3@1.2.1 --save -g`
+5. 安装pm2: `npm install pm2@3.0.0 -g`
+6. 安装express: `sudo npm install express@4.16.0`
+7. 将node_modules依赖包目录拷贝至eth侧链节点目录 ` mv node_modules  ~/node/extern/ `
+
+#### 4.4 运行eid侧链节点
+
+1. 启动eid节点
+eid节点启动命令:
+
+```bash
+# 启动命令
+# --password "密码存放的文件路径" , 4.2.1中第3步骤的文件路径
+# --pbft.keystore.password "密码存放的文件路径", ela节点启动密码(dpos节点账户密码), 3.2 中第6步骤的文件路径
+nohup ./eid --datadir ~/node/eid/data \
+    --mine --miner.threads 1 \
+    --rpc --rpcvhosts '*' --rpcaddr "0.0.0.0" \
+    --rpcapi "personal,db,eth,net,web3,txpool,miner" \
+    --unlock "0x$(cat ~/node/eid/data/keystore/UTC* | jq -r .address)" \
+    --password "密码存放的文件路径" \
+    --pbft.keystore.password "密码存放的文件路径" \
+    --pbft.net.address "$(curl ifconfig.me)" \
+    --pbft.net.port 20649 \
+    --syncmode "full" \
+    --allow-insecure-unlock \
+    >>~/node/eid/logs/geth.log 2>&1 &
+```
+
+2. 查看eid节点高度
+
+```bash
+curl -H "Content-Type: application/json" -X POST -d '{"method":"eth_blockNumber", "id":1}'  http://127.0.0.1:20646  
+```
+
+其他RPC接口请查阅ETH-RPC文档:https://eth.wiki/json-rpc/API
+
+
+#### 启动eid-oracle服务
+
+1. 启动eid-oracle服务
+
+```bash
+# 启动命令
+export PATH=~/node/extern/node-v10.13.0-linux-x64/bin:$PATH
+$ nohup node crosschain_eid.js \
+    1>～/node/eid/eid-oracle/logs/eid-oracle_out.log \
+    2>～/node/eid/eid-oracle/logs/eid-oracle_err.log &
+
+```
+
+2. 查看eid-oracle进程
+
+```bash
+$ ps aux |grep crosschain_eid
+```
+
+### 5. 搭建arbiter仲裁人节点
+
+#### 5.1 下载节点程序及默认配置文件
 
 - arbiter
 
@@ -390,17 +490,17 @@ pm2 status
     ```
 
 
-#### 4.2 将节点及配置文件拷贝至arbiter仲裁人节点运行目录
+#### 5.2 将节点及配置文件拷贝至arbiter仲裁人节点运行目录
 
 - 创建节点运行目录，建议节点路径: ~/node/arbiter/
 - 将arbiter节点、ela-cli、mainnet_config.json.sample拷贝至did侧链节点目录，并将mainnet_config.json.sample重命名为config.json
 - 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至arbiter节点目录，并充值主链账户大于10ELA,用来侧链出块
 
-#### 4.3 创建次账户
+#### 5.3 创建次账户
 
 1. 在已有的keystore.dat主账户基础下，继续生成一个次账户，用来did出块使用 `./ela-cli wallet add -p Password`
 
-#### 4.4 修改arbiter配置文件
+#### 5.4 修改arbiter配置文件
 
 ```
 # "MainNode"的"User"和"Pass"参数需要和ELA节点配置文件参数一致
@@ -441,6 +541,15 @@ pm2 status
         "ExchangeRate": 1.0,
         "GenesisBlock": "6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a",
         "PowChain": false
+      },
+      {
+        "Rpc": {
+          "IpAddress": "127.0.0.1",
+          "HttpJsonPort": 20642
+        },
+        "ExchangeRate": 1.0,
+        "GenesisBlock": "7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567",
+        "PowChain": false
       }
     ],
     "RpcConfiguration": {
@@ -456,7 +565,7 @@ pm2 status
 ```
 
 
-#### 4.5 运行arbiter节点
+#### 5.5 运行arbiter节点
 
 1. 启动arbiter节点
 arbiter节点启动命令:
@@ -479,28 +588,28 @@ curl  -H  "Content-Type: application/json" -X POST -d '{"method":"getsidechainbl
 
 其他RPC接口请查阅Arbiter-RPC文档:https://github.com/elastos/Elastos.ELA.Arbiter/blob/master/docs/jsonrpc_apis.md
 
-### 5. 搭建carrier节点
+### 6. 搭建carrier节点
 
-#### 5.1 下载节点安装包
+#### 6.1 下载节点安装包
 
 - carrier
   
      ``` https://github.com/elastos/Elastos.NET.Carrier.Bootstrap/releases/download/release-v5.2.3/elastos-carrier-bootstrap-5.2.623351-linux-x86_64-Debug.deb ```
 
-#### 5.2 将节点安装包拷贝至carrier节点运行目录
+#### 6.2 将节点安装包拷贝至carrier节点运行目录
 
 - 创建节点运行目录，建议节点路径: ~/node/carrier/
 - 将carrier节点安装包拷贝至carrier节点目录
 
-#### 5.3 运行carrier节点
+#### 6.3 运行carrier节点
 
-##### 5.3.1 启动carrier节点
+##### 6.3.1 启动carrier节点
 
 ```bash
 $ sudo dpkg -i ~/node/carrier/elastos-carrier-bootstrap-5.2.623351-linux-x86_64-Debug.deb
 ```
 
-##### 5.3.2 查看carrier节点状态
+##### 6.3.2 查看carrier节点状态
 
 ```bash
 $ sudo systemctl status ela-bootstrapd
@@ -510,7 +619,7 @@ $ sudo systemctl status ela-bootstrapd
 
  **active (running)**.
 
-##### 5.3.3 配置文件
+##### 6.3.3 配置文件
 
 配置文件: /etc/elastos/bootstrapd.conf
 
