@@ -362,5 +362,10 @@ Please **check the version** to make sure of a successful program upgrade.
 ## A. FAQ
 
 1. Q: The script complains: cannot find jq.
-   - A: jq is required to parse json config files. Install it by running the command: "sudo apt-get install -y jq"
+   - A: jq is required to parse json config files. Install it by running the following commands:
+
+```bash
+$ sudo apt-get update -y
+$ sudo apt-get install -y jq
+```
 
