@@ -180,7 +180,7 @@ build_carrier()
     make install
 }
 
-build_eth()
+build_esc()
 {
     if [ "$1" == "" ]; then
         echo "Usage: ${FUNCNAME[0]} Branch|Commit|Tag"
@@ -189,17 +189,17 @@ build_eth()
 
     local BRANCH_NAME=$1
 
-    echo "Building eth..."
+    echo "Building esc..."
 
-    rm -rf $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ETH
-    if [ ! -d $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ETH ]; then
+    rm -rf $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC
+    if [ ! -d $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC ]; then
         mkdir -p $DEV_ROOT/src/github.com/elastos
         cd $DEV_ROOT/src/github.com/elastos
-        git clone https://github.com/elastos/Elastos.ELA.SideChain.ETH.git
+        git clone https://github.com/elastos/Elastos.ELA.SideChain.ESC.git
     fi
 
     echo "Syncing..."
-    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ETH
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC
     git clean -fdx
     git checkout .
     git checkout master
@@ -207,12 +207,14 @@ build_eth()
     git checkout $BRANCH_NAME
     git pull
     git status --ignored
-    echo "eth: $(commit_id)" >commit.txt
+    echo "esc: $(commit_id)" >commit.txt
 
     echo "Compiling..."
     make all
-    #go build ./cmd/geth
-    #go build ./cmd/bootnode
+
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC/build/bin
+    cp -v geth esc
+    cp -v bootnode esc-bootnode
 }
 
 build_eid()
@@ -324,7 +326,7 @@ pack()
     mkdir -p $RELEASE_DIR/node/carrier/
     mkdir -p $RELEASE_DIR/node/ela/
     mkdir -p $RELEASE_DIR/node/did/
-    mkdir -p $RELEASE_DIR/node/eth/
+    mkdir -p $RELEASE_DIR/node/esc/
     mkdir -p $RELEASE_DIR/node/eid/
     mkdir -p $RELEASE_DIR/node/arbiter/
 
@@ -341,8 +343,8 @@ pack()
     cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ID/did \
         $RELEASE_DIR/node/did/
 
-    cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ETH/build/bin/geth \
-        $RELEASE_DIR/node/eth/
+    cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC/build/bin/esc \
+        $RELEASE_DIR/node/esc/
 
     cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID/build/bin/eid \
         $RELEASE_DIR/node/eid/
@@ -359,7 +361,7 @@ pack()
     cat Elastos.NET.Carrier.Bootstrap/commit.txt  >$RELEASE_DIR/node/commit.txt
     cat Elastos.ELA/commit.txt                   >>$RELEASE_DIR/node/commit.txt
     cat Elastos.ELA.SideChain.ID/commit.txt      >>$RELEASE_DIR/node/commit.txt
-    cat Elastos.ELA.SideChain.ETH/commit.txt     >>$RELEASE_DIR/node/commit.txt
+    cat Elastos.ELA.SideChain.ESC/commit.txt     >>$RELEASE_DIR/node/commit.txt
     cat Elastos.ELA.SideChain.EID/commit.txt     >>$RELEASE_DIR/node/commit.txt
     cat Elastos.ELA.Arbiter/commit.txt           >>$RELEASE_DIR/node/commit.txt
 
@@ -381,7 +383,7 @@ pack()
 
 usage()
 {
-    echo "Usage: $0 CARRIER_VER ELA_VER DID_VER ETH_VER EID_VER ARBITER_VER"
+    echo "Usage: $0 CARRIER_VER ELA_VER DID_VER ESC_VER EID_VER ARBITER_VER"
     echo "Build Elastos Supernode bundle package"
     echo
     echo "Arguments: branch or specific commit of the repositories:"
@@ -389,7 +391,7 @@ usage()
     echo "  https://github.com/elastos/Elastos.NET.Carrier.Bootstrap"
     echo "  https://github.com/elastos/Elastos.ELA"
     echo "  https://github.com/elastos/Elastos.ELA.SideChain.ID"
-    echo "  https://github.com/elastos/Elastos.ELA.SideChain.ETH"
+    echo "  https://github.com/elastos/Elastos.ELA.SideChain.ESC"
     echo "  https://github.com/elastos/Elastos.ELA.SideChain.EID"
     echo "  https://github.com/elastos/Elastos.ELA.Arbiter"
     echo
@@ -415,7 +417,7 @@ setenv
 build_carrier $1
 build_ela $2
 build_did $3
-build_eth $4
+build_esc $4
 build_eid $5
 build_arbiter $6
 
