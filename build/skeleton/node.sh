@@ -159,12 +159,12 @@ chain_prepare_stage()
 
     if [ "$CHAIN_NAME" != "ela" -a \
          "$CHAIN_NAME" != "did" -a \
-         "$CHAIN_NAME" != "eth" -a \
+         "$CHAIN_NAME" != "esc" -a \
          "$CHAIN_NAME" != "eid" -a \
          "$CHAIN_NAME" != "eid-oracle" -a \
          "$CHAIN_NAME" != "arbiter" -a \
          "$CHAIN_NAME" != "carrier" -a \
-         "$CHAIN_NAME" != "oracle" ]; then
+         "$CHAIN_NAME" != "esc-oracle" ]; then
         echo "ERROR: do not support chain: $1"
         return 1
     fi
@@ -198,7 +198,7 @@ chain_prepare_stage()
         fi
     fi
 
-    if [ "$CHAIN_NAME" == "oracle" ] || \
+    if [ "$CHAIN_NAME" == "esc-oracle" ] || \
        [ "$CHAIN_NAME" == "eid-oracle" ] ; then
         local TGZ_LATEST=elastos-${CHAIN_NAME}-${VER_LATEST}.tgz
     else
@@ -243,8 +243,8 @@ all_start()
     carrier_start
     ela_start
     did_start
-    eth_start
-    oracle_start
+    esc_start
+    esc-oracle_start
     eid_start
     eid-oracle_start
     arbiter_start
@@ -255,8 +255,8 @@ all_stop()
     arbiter_stop
     eid-oracle_stop
     eid_stop
-    oracle_stop
-    eth_stop
+    esc-oracle_stop
+    esc_stop
     did_stop
     ela_stop
     carrier_stop
@@ -266,8 +266,8 @@ all_status()
 {
     ela_status
     did_status
-    eth_status
-    oracle_status
+    esc_status
+    esc-oracle_status
     eid_status
     eid-oracle_status
     arbiter_status
@@ -278,8 +278,8 @@ all_upgrade()
 {
     ela_upgrade
     did_upgrade
-    eth_upgrade
-    oracle_upgrade
+    esc_upgrade
+    esc-oracle_upgrade
     eid_upgrade
     eid-oracle_upgrade
     arbiter_upgrade
@@ -290,8 +290,8 @@ all_init()
 {
     ela_init
     did_init
-    eth_init
-    oracle_init
+    esc_init
+    esc-oracle_init
     eid_init
     eid-oracle_init
     arbiter_init
@@ -302,7 +302,7 @@ all_compress_log()
 {
     ela_compress_log
     did_compress_log
-    eth_compress_log
+    esc_compress_log
     eid_compress_log
     arbiter_compress_log
 }
@@ -726,18 +726,18 @@ EOF
 }
 
 #
-# eth
+# esc
 #
-eth_start()
+esc_start()
 {
-    if [ ! -f $SCRIPT_PATH/eth/geth ]; then
-        echo "ERROR: $SCRIPT_PATH/eth/geth is not exist"
+    if [ ! -f $SCRIPT_PATH/esc/esc ]; then
+        echo "ERROR: $SCRIPT_PATH/esc/esc is not exist"
         return
     fi
 
     while [ "$1" ]; do
         if [ "$1" == "testnet" ]; then
-            local GETH_OPTS=--testnet
+            local ESC_OPTS=--testnet
         elif [ "$1" == "blockscout" ]; then
             local FOR_BLOCKSCOUT=1
         else
@@ -747,29 +747,24 @@ eth_start()
         shift
     done
 
-    local PID=$(pgrep -x geth)
+    local PID=$(pgrep -x esc)
     if [ "$PID" != "" ]; then
-        eth_status
+        esc_status
         return
     fi
 
-    echo "Starting eth..."
-    cd $SCRIPT_PATH/eth
-    mkdir -p $SCRIPT_PATH/eth/logs/
+    echo "Starting esc..."
+    cd $SCRIPT_PATH/esc
+    mkdir -p $SCRIPT_PATH/esc/logs/
 
-    #rm -rf $SCRIPT_PATH/eth/data/geth
-    #rm -rf $SCRIPT_PATH/eth/data/header
-    #rm -rf $SCRIPT_PATH/eth/data/store
-    #rm -rf $SCRIPT_PATH/eth/data/spv_transaction_info.db
-
-    if [ -f ~/.config/elastos/eth.txt ]; then
-        nohup $SHELL -c "./geth \
-            $GETH_OPTS \
+    if [ -f ~/.config/elastos/esc.txt ]; then
+        nohup $SHELL -c "./esc \
+            $ESC_OPTS \
             --allow-insecure-unlock \
-            --datadir $SCRIPT_PATH/eth/data \
+            --datadir $SCRIPT_PATH/esc/data \
             --mine \
             --miner.threads 1 \
-            --password ~/.config/elastos/eth.txt \
+            --password ~/.config/elastos/esc.txt \
             --pbft.keystore ${SCRIPT_PATH}/ela/keystore.dat \
             --pbft.keystore.password ~/.config/elastos/ela.txt \
             --pbft.net.address '$(extip)' \
@@ -778,13 +773,13 @@ eth_start()
             --rpcaddr '0.0.0.0' \
             --rpcapi 'personal,db,eth,net,web3,txpool,miner' \
             --rpcvhosts '*' \
-            --unlock '0x$(cat $SCRIPT_PATH/eth/data/keystore/UTC* | jq -r .address)' \
+            --unlock '0x$(cat $SCRIPT_PATH/esc/data/keystore/UTC* | jq -r .address)' \
             2>&1 \
-            | rotatelogs $SCRIPT_PATH/eth/logs/geth-%Y-%m-%d-%H_%M_%S.log 20M" &
+            | rotatelogs $SCRIPT_PATH/esc/logs/geth-%Y-%m-%d-%H_%M_%S.log 20M" &
     elif [ "$FOR_BLOCKSCOUT" ]; then
-        nohup $SHELL -c "./geth \
-            $GETH_OPTS \
-            --datadir $SCRIPT_PATH/eth/data \
+        nohup $SHELL -c "./esc \
+            $ESC_OPTS \
+            --datadir $SCRIPT_PATH/esc/data \
             --gcmode archive \
             --nousb \
             --rpc \
@@ -796,85 +791,84 @@ eth_start()
             --wsaddr '0.0.0.0' \
             --wsorigins '*' \
             2>&1 \
-            | rotatelogs $SCRIPT_PATH/eth/logs/geth-%Y-%m-%d-%H_%M_%S.log 20M" &
+            | rotatelogs $SCRIPT_PATH/esc/logs/geth-%Y-%m-%d-%H_%M_%S.log 20M" &
     else
-        nohup $SHELL -c "./geth \
-            $GETH_OPTS \
-            --datadir $SCRIPT_PATH/eth/data \
+        nohup $SHELL -c "./esc \
+            $ESC_OPTS \
+            --datadir $SCRIPT_PATH/esc/data \
             --lightserv 10 \
             --rpc \
             --rpcaddr '0.0.0.0' \
             --rpcapi 'eth,web3,admin,txpool' \
             --rpcvhosts '*' \
             2>&1 \
-            | rotatelogs $SCRIPT_PATH/eth/logs/geth-%Y-%m-%d-%H_%M_%S.log 20M" &
+            | rotatelogs $SCRIPT_PATH/esc/logs/geth-%Y-%m-%d-%H_%M_%S.log 20M" &
     fi
 
     sleep 3
-    eth_status
+    esc_status
 }
 
-eth_stop()
+esc_stop()
 {
-    echo "Stopping eth..."
-    while pgrep -x geth 1>/dev/null; do
-        local PID=$(pgrep -x geth)
+    echo "Stopping esc..."
+    while pgrep -x esc 1>/dev/null; do
+        local PID=$(pgrep -x esc)
         kill -s SIGINT $PID
         sleep 1
     done
-    eth_status
+    esc_status
 }
 
-eth_status()
+esc_status()
 {
-    # TODO: dump version
-    local PID=$(pgrep -x geth)
+    local ESC_VER="esc $($SCRIPT_PATH/esc/esc version | grep 'Git Commit:' | sed 's/.* //')"
+
+    local PID=$(pgrep -x esc)
     if [ "$PID" == "" ]; then
-        echo "eth: Stopped"
+        echo "$ESC_VER: Stopped"
         return
     fi
 
-    local ETH_CLI=
+    local ESC_RAM=$(mem_usage $PID)
+    local ESC_UPTIME=$(ps -oetime= -p $PID | trim)
+    local ESC_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local ESC_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
-    local ETH_RAM=$(mem_usage $PID)
-    local ETH_UPTIME=$(ps -oetime= -p $PID | trim)
-    local ETH_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
-    local ETH_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
-
-    local ETH_NUM_PEERS=$(curl -s -H 'Content-Type: application/json' \
+    local ESC_NUM_PEERS=$(curl -s -H 'Content-Type: application/json' \
         -X POST --data '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
         http://127.0.0.1:20636 | jq -r '.result')
-    ETH_NUM_PEERS=$(($ETH_NUM_PEERS))
-    if [[ ! "$ETH_NUM_PEERS" =~ ^[0-9]+$ ]]; then
-        ETH_NUM_PEERS=0
+    ESC_NUM_PEERS=$(($ESC_NUM_PEERS))
+    if [[ ! "$ESC_NUM_PEERS" =~ ^[0-9]+$ ]]; then
+        ESC_NUM_PEERS=0
     fi
-    local ETH_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
+    local ESC_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
         -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
         http://127.0.0.1:20636 | jq -r '.result')
-    ETH_HEIGHT=$(($ETH_HEIGHT))
-    if [[ ! "$ETH_HEIGHT" =~ ^[0-9]+$ ]]; then
-        ETH_HEIGHT=N/A
+    ESC_HEIGHT=$(($ESC_HEIGHT))
+    if [[ ! "$ESC_HEIGHT" =~ ^[0-9]+$ ]]; then
+        ESC_HEIGHT=N/A
     fi
 
-    echo "eth: Running"
+    echo "$ESC_VER: Running"
     echo "  PID:    $PID"
-    echo "  RAM:    $ETH_RAM"
-    echo "  Uptime: $ETH_UPTIME"
-    echo "  #TCP:   $ETH_NUM_TCPS"
-    echo "  #Files: $ETH_NUM_FILES"
-    echo "  #Peers: $ETH_NUM_PEERS"
-    echo "  Height: $ETH_HEIGHT"
+    echo "  RAM:    $ESC_RAM"
+    echo "  Uptime: $ESC_UPTIME"
+    echo "  #TCP:   $ESC_NUM_TCPS"
+    echo "  #Files: $ESC_NUM_FILES"
+    echo "  #Peers: $ESC_NUM_PEERS"
+    echo "  Height: $ESC_HEIGHT"
     echo
 }
 
-eth_compress_log()
+esc_compress_log()
 {
-    compress_log $SCRIPT_PATH/eth/data/geth/logs/dpos
-    compress_log $SCRIPT_PATH/eth/data/logs-spv
-    compress_log $SCRIPT_PATH/eth/logs
+    compress_log $SCRIPT_PATH/esc/data/geth/logs/dpos
+    compress_log $SCRIPT_PATH/esc/data/logs-spv
+    compress_log $SCRIPT_PATH/esc/logs
 }
 
-eth_upgrade()
+esc_upgrade()
 {
     unset OPTIND
     while getopts "ny" OPTION; do
@@ -888,160 +882,160 @@ eth_upgrade()
         esac
     done
 
-    chain_prepare_stage eth geth
+    chain_prepare_stage esc esc
     if [ "$?" != "0" ]; then
         return
     fi
 
-    local PATH_STAGE=$SCRIPT_PATH/.node-upload/eth
-    local DIR_DEPLOY=$SCRIPT_PATH/eth
+    local PATH_STAGE=$SCRIPT_PATH/.node-upload/esc
+    local DIR_DEPLOY=$SCRIPT_PATH/esc
 
-    local PID=$(pgrep -x geth)
+    local PID=$(pgrep -x esc)
     if [ $PID ]; then
-        oracle_stop
-        eth_stop
+        esc-oracle_stop
+        esc_stop
     fi
 
     mkdir -p $DIR_DEPLOY
-    cp -v $PATH_STAGE/geth $DIR_DEPLOY/
+    cp -v $PATH_STAGE/esc $DIR_DEPLOY/
 
     if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
-        eth_start
-        oracle_start
+        esc_start
+        esc-oracle_start
     fi
 }
 
-eth_init()
+esc_init()
 {
     if [ ! -f ${SCRIPT_PATH}/ela/.init ]; then
         echo_error "ela not initialzed"
         return
     fi
 
-    local ETH_KEYSTORE=
-    local ETH_KEYSTORE_PASS_FILE=~/.config/elastos/eth.txt
+    local ESC_KEYSTORE=
+    local ESC_KEYSTORE_PASS_FILE=~/.config/elastos/esc.txt
 
-    if [ ! -f ${SCRIPT_PATH}/eth/geth ]; then
-        eth_upgrade -y
+    if [ ! -f ${SCRIPT_PATH}/esc/esc ]; then
+        esc_upgrade -y
     fi
 
-    if [ -f $SCRIPT_PATH/eth/.init ]; then
-        echo_error "eth has already been initialized"
+    if [ -f $SCRIPT_PATH/esc/.init ]; then
+        echo_error "esc has already been initialized"
         return
     fi
 
-    cd $SCRIPT_PATH/eth
-    local ETH_NUM_ACCOUNTS=$(./geth --datadir "$SCRIPT_PATH/eth/data/" \
+    cd $SCRIPT_PATH/esc
+    local ESC_NUM_ACCOUNTS=$(./esc --datadir "$SCRIPT_PATH/esc/data/" \
         --nousb --verbosity 0 account list | wc -l)
-    if [ $ETH_NUM_ACCOUNTS -ge 1 ]; then
-        echo_error "eth keystore file exist"
+    if [ $ESC_NUM_ACCOUNTS -ge 1 ]; then
+        echo_error "esc keystore file exist"
         return
     fi
 
-    if [ -f "$ETH_KEYSTORE_PASS_FILE" ]; then
-        echo_error "$ETH_KEYSTORE_PASS_FILE exist"
+    if [ -f "$ESC_KEYSTORE_PASS_FILE" ]; then
+        echo_error "$ESC_KEYSTORE_PASS_FILE exist"
         return
     fi
 
-    echo "Creating eth keystore..."
+    echo "Creating esc keystore..."
     gen_pass
     if [ "$KEYSTORE_PASS" == "" ]; then
         echo_error "empty password"
         exit
     fi
 
-    echo "Saving eth keystore password..."
-    mkdir -p $(dirname $ETH_KEYSTORE_PASS_FILE)
-    chmod 700 $(dirname $ETH_KEYSTORE_PASS_FILE)
-    echo $KEYSTORE_PASS > $ETH_KEYSTORE_PASS_FILE
-    chmod 600 $ETH_KEYSTORE_PASS_FILE
+    echo "Saving esc keystore password..."
+    mkdir -p $(dirname $ESC_KEYSTORE_PASS_FILE)
+    chmod 700 $(dirname $ESC_KEYSTORE_PASS_FILE)
+    echo $KEYSTORE_PASS > $ESC_KEYSTORE_PASS_FILE
+    chmod 600 $ESC_KEYSTORE_PASS_FILE
 
-    cd ${SCRIPT_PATH}/eth
-    ./geth --datadir "$SCRIPT_PATH/eth/data/" --verbosity 0 account new \
-        --password "$ETH_KEYSTORE_PASS_FILE" >/dev/null
+    cd ${SCRIPT_PATH}/esc
+    ./esc --datadir "$SCRIPT_PATH/esc/data/" --verbosity 0 account new \
+        --password "$ESC_KEYSTORE_PASS_FILE" >/dev/null
     if [ "$?" != "0" ]; then
-        echo "ERROR: failed to create eth keystore"
+        echo "ERROR: failed to create esc keystore"
         return
     fi
 
-    echo "Checking eth keystore..."
-    local ETH_KEYSTORE=$(./geth --datadir "$SCRIPT_PATH/eth/data/" \
+    echo "Checking esc keystore..."
+    local ESC_KEYSTORE=$(./esc --datadir "$SCRIPT_PATH/esc/data/" \
         --nousb --verbosity 0 account list | sed 's/.*keystore:\/\///')
-    chmod 600 $ETH_KEYSTORE
+    chmod 600 $ESC_KEYSTORE
 
-    echo_info "eth keystore file: $ETH_KEYSTORE"
-    echo_info "eth keystore password file: $ETH_KEYSTORE_PASS_FILE"
+    echo_info "esc keystore file: $ESC_KEYSTORE"
+    echo_info "esc keystore password file: $ESC_KEYSTORE_PASS_FILE"
 
-    touch ${SCRIPT_PATH}/eth/.init
-    echo_ok "eth initialized"
+    touch ${SCRIPT_PATH}/esc/.init
+    echo_ok "esc initialized"
     echo
 }
 
 #
-# oracle
+# esc-oracle
 #
-oracle_start()
+esc-oracle_start()
 {
     export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
 
-    if [ ! -f $SCRIPT_PATH/eth/oracle/crosschain_oracle.js ]; then
-        echo "ERROR: $SCRIPT_PATH/eth/oracle/crosschain_oracle.js is not exist"
+    if [ ! -f $SCRIPT_PATH/esc/esc-oracle/crosschain_oracle.js ]; then
+        echo "ERROR: $SCRIPT_PATH/esc/esc-oracle/crosschain_oracle.js is not exist"
         return
     fi
 
     local PID=$(pgrep -f 'node crosschain_oracle.js')
     if [ "$PID" != "" ]; then
-        oracle_status
+        esc-oracle_status
         return
     fi
 
-    echo "Starting oracle..."
-    cd $SCRIPT_PATH/eth/oracle
-    mkdir -p $SCRIPT_PATH/eth/oracle/logs
+    echo "Starting esc-oracle..."
+    cd $SCRIPT_PATH/esc/esc-oracle
+    mkdir -p $SCRIPT_PATH/esc/esc-oracle/logs
 
     export env=mainnet
 
     nohup node crosschain_oracle.js \
-        1>$SCRIPT_PATH/eth/oracle/logs/oracle_out.log \
-        2>$SCRIPT_PATH/eth/oracle/logs/oracle_err.log &
+        1>$SCRIPT_PATH/esc/esc-oracle/logs/esc-oracle_out.log \
+        2>$SCRIPT_PATH/esc/esc-oracle/logs/esc-oracle_err.log &
 
     sleep 1
-    oracle_status
+    esc-oracle_status
 }
 
-oracle_stop()
+esc-oracle_stop()
 {
-    echo "Stopping oracle..."
+    echo "Stopping esc-oracle..."
     while pgrep -f 'node crosschain_oracle.js' 1>/dev/null; do
         pkill -f 'node crosschain_oracle.js'
         sleep 1
     done
-    oracle_status
+    esc-oracle_status
 }
 
-oracle_status()
+esc-oracle_status()
 {
     local PID=$(pgrep -f 'node crosschain_oracle.js')
     if [ "$PID" == "" ]; then
-        echo "oracle: Stopped"
+        echo "esc-oracle: Stopped"
         return
     fi
 
-    local ORACLE_RAM=$(mem_usage $PID)
-    local ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
-    local ORACLE_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
-    local ORACLE_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+    local ESC_ORACLE_RAM=$(mem_usage $PID)
+    local ESC_ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
+    local ESC_ORACLE_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local ESC_ORACLE_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
-    echo "oracle: Running"
+    echo "esc-oracle: Running"
     echo "  PID:    $PID"
-    echo "  RAM:    $ORACLE_RAM"
-    echo "  Uptime: $ORACLE_UPTIME"
-    echo "  #TCP:   $ORACLE_NUM_TCPS"
-    echo "  #Files: $ORACLE_NUM_FILES"
+    echo "  RAM:    $ESC_ORACLE_RAM"
+    echo "  Uptime: $ESC_ORACLE_UPTIME"
+    echo "  #TCP:   $ESC_ORACLE_NUM_TCPS"
+    echo "  #Files: $ESC_ORACLE_NUM_FILES"
     echo
 }
 
-oracle_upgrade()
+esc-oracle_upgrade()
 {
     unset OPTIND
     while getopts "ny" OPTION; do
@@ -1055,40 +1049,40 @@ oracle_upgrade()
         esac
     done
 
-    chain_prepare_stage oracle '*.js'
+    chain_prepare_stage esc-oracle '*.js'
     if [ "$?" != "0" ]; then
         return
     fi
 
-    local PATH_STAGE=$SCRIPT_PATH/.node-upload/oracle
-    local DIR_DEPLOY=$SCRIPT_PATH/eth/oracle
+    local PATH_STAGE=$SCRIPT_PATH/.node-upload/esc-oracle
+    local DIR_DEPLOY=$SCRIPT_PATH/esc/esc-oracle
 
     local PID=$(pgrep -f 'node crosschain_oracle.js')
     if [ $PID ]; then
-        oracle_stop
+        esc-oracle_stop
     fi
 
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/*.js $DIR_DEPLOY/
 
     if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
-        oracle_start
+        esc-oracle_start
     fi
 }
 
-oracle_init()
+esc-oracle_init()
 {
-    if [ ! -f ${SCRIPT_PATH}/eth/.init ]; then
-        echo_error "eth not initialzed"
+    if [ ! -f ${SCRIPT_PATH}/esc/.init ]; then
+        echo_error "esc not initialzed"
         return
     fi
 
-    if [ ! -f $SCRIPT_PATH/eth/oracle/crosschain_oracle.js ]; then
-        oracle_upgrade -y
+    if [ ! -f $SCRIPT_PATH/esc/esc-oracle/crosschain_oracle.js ]; then
+        esc-oracle_upgrade -y
     fi
 
-    if [ -f $SCRIPT_PATH/eth/oracle/.init ]; then
-        echo_error "oracle has already been initialized"
+    if [ -f $SCRIPT_PATH/esc/esc-oracle/.init ]; then
+        echo_error "esc-oracle has already been initialized"
         return
     fi
 
@@ -1102,12 +1096,12 @@ oracle_init()
 
     export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
 
-    mkdir -p $SCRIPT_PATH/eth/oracle
-    cd $SCRIPT_PATH/eth/oracle
+    mkdir -p $SCRIPT_PATH/esc/esc-oracle
+    cd $SCRIPT_PATH/esc/esc-oracle
     npm install web3 express
 
-    touch ${SCRIPT_PATH}/eth/oracle/.init
-    echo_ok "oracle initialized"
+    touch ${SCRIPT_PATH}/esc/esc-oracle/.init
+    echo_ok "esc-oracle initialized"
     echo
 }
 
@@ -1192,14 +1186,13 @@ eid_stop()
 
 eid_status()
 {
-    # TODO: dump version
+    local EID_VER="eid $($SCRIPT_PATH/eid/eid version | grep 'Git Commit:' | sed 's/.* //')"
+
     local PID=$(pgrep -x eid)
     if [ "$PID" == "" ]; then
-        echo "eid: Stopped"
+        echo "$EID_VER: Stopped"
         return
     fi
-
-    local EID_CLI=
 
     local EID_RAM=$(mem_usage $PID)
     local EID_UPTIME=$(ps -oetime= -p $PID | trim)
@@ -1221,7 +1214,7 @@ eid_status()
         EID_HEIGHT=N/A
     fi
 
-    echo "eid: Running"
+    echo "$EID_VER: Running"
     echo "  PID:    $PID"
     echo "  RAM:    $EID_RAM"
     echo "  Uptime: $EID_UPTIME"
@@ -1506,7 +1499,7 @@ arbiter_start()
         else
             nohup ./arbiter 1>/dev/null 2>output &
         fi
-        echo "Waiting for ela, did, oracle, eid-oracle to start..."
+        echo "Waiting for ela, did, esc-oracle, eid-oracle to start..."
         sleep 5
     done
 
@@ -1562,13 +1555,13 @@ arbiter_status()
         ARBITER_DID_HEIGHT=N/A
     fi
 
-    local ETH_GENESIS=6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a
-    local ARBITER_ETH_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
-        -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$ETH_GENESIS\"}}" \
+    local ESC_GENESIS=6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a
+    local ARBITER_ESC_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
+        -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$ESC_GENESIS\"}}" \
         -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
         http://127.0.0.1:20536 | jq -r '.result')
-    if [[ ! "$ARBITER_ETH_HEIGHT" =~ ^[0-9]+$ ]]; then
-        ARBITER_ETH_HEIGHT=N/A
+    if [[ ! "$ARBITER_ESC_HEIGHT" =~ ^[0-9]+$ ]]; then
+        ARBITER_ESC_HEIGHT=N/A
     fi
 
     echo "$ARBITER_VER: Running"
@@ -1579,7 +1572,7 @@ arbiter_status()
     echo "  #Files:     $ARBITER_NUM_FILES"
     echo "  SPV Height: $ARBITER_SPV_HEIGHT"
     echo "  DID Height: $ARBITER_DID_HEIGHT"
-    echo "  ETH Height: $ARBITER_ETH_HEIGHT"
+    echo "  ESC Height: $ARBITER_ESC_HEIGHT"
     echo
 }
 
@@ -1634,8 +1627,12 @@ arbiter_init()
         echo_error "did not initialzed"
         return
     fi
-    if [ ! -f $SCRIPT_PATH/eth/oracle/.init ]; then
-        echo_error "oracle not initialzed"
+    if [ ! -f $SCRIPT_PATH/esc/esc-oracle/.init ]; then
+        echo_error "esc-oracle not initialzed"
+        return
+    fi
+    if [ ! -f $SCRIPT_PATH/eid/eid-oracle/.init ]; then
+        echo_error "eid-oracle not initialzed"
         return
     fi
 
@@ -1738,8 +1735,8 @@ EOF
     local MINING_ADDR_DID=$(./ela-cli wallet add -p $KEYSTORE_PASS | \
         sed -n '3p' | sed 's/ .*//')
 
-    # Arbiter Config: ETH
-    local MINING_ADDR_ETH=$(./ela-cli wallet add -p $KEYSTORE_PASS | \
+    # Arbiter Config: ESC
+    local MINING_ADDR_ESC=$(./ela-cli wallet add -p $KEYSTORE_PASS | \
         sed -n '3p' | sed 's/ .*//')
 
     # Arbiter Config: Arbiter RPC
@@ -1763,7 +1760,7 @@ EOF
         .Configuration.SideNodeList[0].Rpc.Pass=\"$DID_RPC_PASS\"       | \
         .Configuration.SideNodeList[0].MiningAddr=\"$MINING_ADDR_DID\"  | \
         .Configuration.SideNodeList[0].PayToAddr=\"$PAY_TO_ADDR\"       | \
-        .Configuration.SideNodeList[1].MiningAddr=\"$MINING_ADDR_ETH\"  | \
+        .Configuration.SideNodeList[1].MiningAddr=\"$MINING_ADDR_ESC\"  | \
         .Configuration.SideNodeList[1].PayToAddr=\"$PAY_TO_ADDR\"       | \
         .Configuration.RpcConfiguration.User=\"$ARBITER_RPC_USER\"      | \
         .Configuration.RpcConfiguration.Pass=\"$ARBITER_RPC_PASS\"" \
@@ -1999,8 +1996,8 @@ usage()
     echo
     echo "  ela"
     echo "  did"
-    echo "  eth"
-    echo "  oracle"
+    echo "  esc"
+    echo "  esc-oracle"
     echo "  eid"
     echo "  eid-oracle"
     echo "  arbiter"
@@ -2047,8 +2044,8 @@ else
 
     if [ "$1" != "ela" -a \
          "$1" != "did" -a \
-         "$1" != "eth" -a \
-         "$1" != "oracle" -a \
+         "$1" != "esc" -a \
+         "$1" != "esc-oracle" -a \
          "$1" != "eid" -a \
          "$1" != "eid-oracle" -a \
          "$1" != "arbiter" -a \

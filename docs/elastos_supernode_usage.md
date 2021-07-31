@@ -29,8 +29,8 @@ A new Linux operation system is required to run Elastos Supernode.
 | ELA     | TCP 20338               | ELA P2P           |
 | ELA     | TCP 20339               | ELA DPoS          |
 | DID     | TCP 20608               | DID P2P           |
-| ETH     | TCP+UDP 20638           | ETH P2P           |
-| ETH     | TCP 20639               | ETH DPoS          |
+| ESC     | TCP+UDP 20638           | ESC P2P           |
+| ESC     | TCP 20639               | ESC DPoS          |
 | EID     | TCP+UDP 20648           | EID P2P           |
 | EID     | TCP 20649               | EID DPoS          |
 | Arbiter | TCP 20538               | Arbiter P2P       |
@@ -74,7 +74,7 @@ If the output is similar to the following, then the installation is good.
 Usage: node.sh [CHAIN] COMMAND [OPTIONS]
 ELA Management ($HOME/node)
 
-Avaliable Chains:   all, carrier, ela, did, eth, oracle, arbiter
+Avaliable Chains:   all, carrier, ela, did, esc, esc-oracle, eid, eid-oracle, arbiter
 Avaliable Commands: start, stop, status, upgrade, init
 ```
 
@@ -91,7 +91,8 @@ The init command will process the following programs (chains) in one go.
 - Elastos Carrier Bootstrap
 - Elastos ELA Mainchain
 - Elastos DID Sidechain
-- Elastos ETH Sidechain (with Oracle)
+- Elastos ESC Sidechain (with ESC Oracle)
+- Elastos EID Sidechain (with EID Oracle)
 - Elastos Arbiter
 
 ```bash
@@ -103,8 +104,10 @@ As an alternative, you can also run the init command one by one.
     $ ~/node/node.sh carrier init
     $ ~/node/node.sh ela init
     $ ~/node/node.sh did init
-    $ ~/node/node.sh eth init
-    $ ~/node/node.sh oracle init
+    $ ~/node/node.sh esc init
+    $ ~/node/node.sh esc-oracle init
+    $ ~/node/node.sh eid init
+    $ ~/node/node.sh eid-oracle init
     $ ~/node/node.sh arbiter init
 
 ### 3.1 Elastos Carrier Bootstrap
@@ -179,53 +182,99 @@ INFO: did config file: /home/ubuntu/node/did/config.json
 OK: did initialzed
 ```
 
-### 3.4 Elastos ETH Sidechain
+### 3.4 Elastos ESC Sidechain
 
 ```bash
-Finding the latest eth release...
+Finding the latest esc release...
 INFO: Latest version: v0.1.3.2
-Downloading https://download.elastos.org/elastos-eth/elastos-eth-v0.1.3.2/elastos-eth-v0.1.3.2-linux-x86_64.tgz...
+Downloading https://download.elastos.org/elastos-esc/elastos-esc-v0.1.3.2/elastos-esc-v0.1.3.2-linux-x86_64.tgz...
 ###################################################################### 100.0%
-Extracting elastos-eth-v0.1.3.2-linux-x86_64.tgz...
-'/home/ubuntu/node/.node-upload/eth/geth' -> '/home/ubuntu/node/eth/geth'
-Creating eth keystore...
+Extracting elastos-esc-v0.1.3.2-linux-x86_64.tgz...
+'/home/ubuntu/node/.node-upload/esc/esc' -> '/home/ubuntu/node/esc/esc'
+Creating esc keystore...
 Please input a password (ENTER to use a random one)
 ? Password: 
 Generating random password...
-Saving eth keystore password...
-Checking eth keystore...
-INFO: eth keystore file: /home/ubuntu/node/eth/data/keystore/UTC--2021-06-02T01-40-32.704318848Z--21bc5264b191a1277d72710db2bc1c3a9b......
-INFO: eth keystore password file: /home/ubuntu/.config/elastos/eth.txt
-OK: eth initialized
+Saving esc keystore password...
+Checking esc keystore...
+INFO: esc keystore file: /home/ubuntu/node/esc/data/keystore/UTC--2021-06-02T01-40-32.704318848Z--21bc5264b191a1277d72710db2bc1c3a9b......
+INFO: esc keystore password file: /home/ubuntu/.config/elastos/esc.txt
+OK: esc initialized
 ```
 
-### 3.5 Elastos ETH Sidechain (Oracle Module)
+### 3.5 Elastos ESC Sidechain (ESC Oracle Module)
 
 ```bash
-Finding the latest oracle release...
-INFO: Latest version: v0.1.1
-Downloading https://download.elastos.org/elastos-oracle/elastos-oracle-v0.1.1/elastos-oracle-v0.1.1.tgz...
+Finding the latest esc-oracle release...
+INFO: Latest version: v0.1.3.4
+Downloading https://download.elastos.org/elastos-esc-oracle/elastos-esc-oracle-v0.1.3.4/elastos-esc-oracle-v0.1.3.4.tgz...
 ###################################################################### 100.0%
-Extracting elastos-oracle-v0.1.1.tgz...
-'/home/ubuntu/node/.node-upload/oracle/checkillegalevidence.js' -> '/home/ubuntu/node/eth/oracle/checkillegalevidence.js'
-'/home/ubuntu/node/.node-upload/oracle/common.js' -> '/home/ubuntu/node/eth/oracle/common.js'
-'/home/ubuntu/node/.node-upload/oracle/crosschain_oracle.js' -> '/home/ubuntu/node/eth/oracle/crosschain_oracle.js'
-'/home/ubuntu/node/.node-upload/oracle/ctrt.js' -> '/home/ubuntu/node/eth/oracle/ctrt.js'
-'/home/ubuntu/node/.node-upload/oracle/getblklogs.js' -> '/home/ubuntu/node/eth/oracle/getblklogs.js'
-'/home/ubuntu/node/.node-upload/oracle/getblknum.js' -> '/home/ubuntu/node/eth/oracle/getblknum.js'
-'/home/ubuntu/node/.node-upload/oracle/getexisttxs.js' -> '/home/ubuntu/node/eth/oracle/getexisttxs.js'
-'/home/ubuntu/node/.node-upload/oracle/getillegalevidencebyheight.js' -> '/home/ubuntu/node/eth/oracle/getillegalevidencebyheight.js'
-'/home/ubuntu/node/.node-upload/oracle/gettxinfo.js' -> '/home/ubuntu/node/eth/oracle/gettxinfo.js'
-'/home/ubuntu/node/.node-upload/oracle/sendrechargetransaction.js' -> '/home/ubuntu/node/eth/oracle/sendrechargetransaction.js'
-'/home/ubuntu/node/.node-upload/oracle/deployctrt.sh' -> '/home/ubuntu/node/eth/oracle/deployctrt.sh'
+Extracting elastos-esc-oracle-v0.1.3.4.tgz...
+'/home/ubuntu/node/.node-upload/esc-oracle/checkillegalevidence.js' -> '/home/ubuntu/node/esc/esc-oracle/checkillegalevidence.js'
+'/home/ubuntu/node/.node-upload/esc-oracle/common.js' -> '/home/ubuntu/node/esc/esc-oracle/common.js'
+'/home/ubuntu/node/.node-upload/esc-oracle/crosschain_oracle.js' -> '/home/ubuntu/node/esc/esc-oracle/crosschain_oracle.js'
+'/home/ubuntu/node/.node-upload/esc-oracle/ctrt.js' -> '/home/ubuntu/node/esc/esc-oracle/ctrt.js'
+'/home/ubuntu/node/.node-upload/esc-oracle/getblklogs.js' -> '/home/ubuntu/node/esc/esc-oracle/getblklogs.js'
+'/home/ubuntu/node/.node-upload/esc-oracle/getblknum.js' -> '/home/ubuntu/node/esc/esc-oracle/getblknum.js'
+'/home/ubuntu/node/.node-upload/esc-oracle/getexisttxs.js' -> '/home/ubuntu/node/esc/esc-oracle/getexisttxs.js'
+'/home/ubuntu/node/.node-upload/esc-oracle/getillegalevidencebyheight.js' -> '/home/ubuntu/node/esc/esc-oracle/getillegalevidencebyheight.js'
+'/home/ubuntu/node/.node-upload/esc-oracle/gettxinfo.js' -> '/home/ubuntu/node/esc/esc-oracle/gettxinfo.js'
+'/home/ubuntu/node/.node-upload/esc-oracle/sendrechargetransaction.js' -> '/home/ubuntu/node/esc/esc-oracle/sendrechargetransaction.js'
+Downloading https://nodejs.org/download/release/v14.17.0/node-v14.17.0-linux-x64.tar.xz...
+###################################################################### 100.0%
 
-+ web3@1.3.6
 + express@4.17.1
++ web3@1.5.0
 
-OK: oracle initialized
+OK: esc-oracle initialized
 ```
 
-### 3.6 Elastos Arbiter
+### 3.6 Elastos EID Sidechain
+
+```bash
+Finding the latest eid release...
+INFO: Latest version: v0.1.2
+Downloading https://download.elastos.org/elastos-eid/elastos-eid-v0.1.2/elastos-eid-v0.1.2-linux-x86_64.tgz...
+###################################################################### 100.0%
+Extracting elastos-eid-v0.1.2-linux-x86_64.tgz...
+'/home/ubuntu/node/.node-upload/eid/eid' -> '/home/ubuntu/node/eid/eid'
+Creating eid keystore...
+Please input a password (ENTER to use a random one)
+? Password:
+Generating random password...
+Saving eid keystore password...
+Checking eid keystore...
+INFO: eid keystore file: /home/ubuntu/node/eid/data/keystore/UTC--2021-07-31T09-59-33.603771823Z--03a9526bc7b653d9ad0a23d8ea78beed40054888
+INFO: eid keystore password file: /home/ubuntu/.config/elastos/eid.txt
+OK: eid initialized
+```
+
+### 3.7 Elastos EID Sidechain (EID Oracle Module)
+
+```bash
+Finding the latest eid-oracle release...
+INFO: Latest version: v0.1.0
+Downloading https://download.elastos.org/elastos-eid-oracle/elastos-eid-oracle-v0.1.0/elastos-eid-oracle-v0.1.0.tgz...
+###################################################################### 100.0%
+Extracting elastos-eid-oracle-v0.1.0.tgz...
+'/home/ubuntu/node/.node-upload/eid-oracle/checkillegalevidence.js' -> '/home/ubuntu/node/eid/eid-oracle/checkillegalevidence.js'
+'/home/ubuntu/node/.node-upload/eid-oracle/common.js' -> '/home/ubuntu/node/eid/eid-oracle/common.js'
+'/home/ubuntu/node/.node-upload/eid-oracle/crosschain_eid.js' -> '/home/ubuntu/node/eid/eid-oracle/crosschain_eid.js'
+'/home/ubuntu/node/.node-upload/eid-oracle/ctrt.js' -> '/home/ubuntu/node/eid/eid-oracle/ctrt.js'
+'/home/ubuntu/node/.node-upload/eid-oracle/getblklogs.js' -> '/home/ubuntu/node/eid/eid-oracle/getblklogs.js'
+'/home/ubuntu/node/.node-upload/eid-oracle/getblknum.js' -> '/home/ubuntu/node/eid/eid-oracle/getblknum.js'
+'/home/ubuntu/node/.node-upload/eid-oracle/getexisttxs.js' -> '/home/ubuntu/node/eid/eid-oracle/getexisttxs.js'
+'/home/ubuntu/node/.node-upload/eid-oracle/getillegalevidencebyheight.js' -> '/home/ubuntu/node/eid/eid-oracle/getillegalevidencebyheight.js'
+'/home/ubuntu/node/.node-upload/eid-oracle/gettxinfo.js' -> '/home/ubuntu/node/eid/eid-oracle/gettxinfo.js'
+'/home/ubuntu/node/.node-upload/eid-oracle/sendrechargetransaction.js' -> '/home/ubuntu/node/eid/eid-oracle/sendrechargetransaction.js'
+
++ web3@1.5.0
++ express@4.17.1
+
+OK: eid-oracle initialized
+```
+
+### 3.8 Elastos Arbiter
 
 ```bash
 Finding the latest arbiter release...
@@ -246,7 +295,7 @@ INFO: arbiter config file: /home/ubuntu/node/arbiter/config.json
 OK: arbiter initialized
 ```
 
-### 3.7 Directory Layout
+### 3.9 Directory Layout
 
 Currently, if all things work well, we have the following directory.
 
@@ -278,11 +327,17 @@ $ tree -L 2 ~/node
 │   ├── elastos                     # ela chain data and log
 │   └── keystore.dat                # ela keystore file, the wallet
 │
-├── eth                             # eth folder
-│   ├── data                        # eth running data and logs
-│   ├── geth                        # eth program
-│   ├── logs                        # eth log files
-│   └── oracle                      # oracle scripts
+├── esc                             # esc folder
+│   ├── data                        # esc running data and logs
+│   ├── esc                         # esc program
+│   ├── logs                        # esc log files
+│   └── esc-oracle                  # esc oracle scripts
+│
+├── eid                             # eid folder
+│   ├── data                        # eid running data and logs
+│   ├── esc                         # eid program
+│   ├── logs                        # eid log files
+│   └── eid-oracle                  # eid oracle scripts
 │
 ├── extern
 │   └── node-v14.17.0-linux-x64     # nodejs required by oracle script
