@@ -15,10 +15,10 @@
 
 ## 环境要求
 
-- 操作系统: Ubuntu 18.04 LTS 64-bit、Ubuntu 20.04 LTS 64-bit
+- 操作系统: Ubuntu 20.04 LTS 64-bit
 - CPU: 不小于2核
 - 内存: 不小于16GB
-- 硬盘: 不少于50GB
+- 硬盘: 不少于64GB
 - 网络: aws标准网络，具有可访问的公网IP或域名
 - 防火墙需要将ELAPort[TCP：20338、20339]、DIDPort[TCP：20608]、ETHPort[TCP：20639、20638,UDP：20638]、EIDPort[TCP：20649、20648,UDP：20648]、ArbiterPort[TCP：20538]和CarrierPort[UDP：3478、33445，TCP：33445]端口端口设置为全网开放
 - 系统权限: 具有sudo权限

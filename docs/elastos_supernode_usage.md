@@ -17,7 +17,7 @@ A new Linux operation system is required to run Elastos Supernode.
   - **HDD**: **64 GB** or more
     - A solid-state drive (SSD) is a plus but not a must. A hard drive (HDD) should be OK.
 - **Server Software**
-  - **OS**: **Ubuntu 18.04 LTS** 64 Bit or newer
+  - **OS**: **Ubuntu 20.04 LTS** 64 Bit or newer
     - Use **Ubuntu** because the developer uses macOS and Ubuntu to do the test harness. But it is your freedom of choice of other distributions.
     - **LTS** is better because LTS has a longer product life than the **non-LTS** version. (See [Ubuntu Releases](https://wiki.ubuntu.com/Releases))
     - The script prefers a **freshly installed** OS because it reduces conflicts with the old setup. It is time-consuming to debug such conflicts and do the related support works.
