@@ -175,7 +175,7 @@ chain_prepare_stage()
 
     local RELEASE_PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/$CHAIN_NAME
-    local URL_PREFIX=https://download.elastos.org/elastos-$CHAIN_NAME
+    local URL_PREFIX=https://download.elastos.io/elastos-$CHAIN_NAME
 
     echo "Finding the latest $CHAIN_NAME release..."
     local VER_LATEST=$(curl -s "$URL_PREFIX/?F=1" | grep '\[DIR\]' \
