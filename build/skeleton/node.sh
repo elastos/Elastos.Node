@@ -1735,10 +1735,6 @@ EOF
     local MINING_ADDR_DID=$(./ela-cli wallet add -p $KEYSTORE_PASS | \
         sed -n '3p' | sed 's/ .*//')
 
-    # Arbiter Config: ESC
-    local MINING_ADDR_ESC=$(./ela-cli wallet add -p $KEYSTORE_PASS | \
-        sed -n '3p' | sed 's/ .*//')
-
     # Arbiter Config: Arbiter RPC
     echo "Generating random userpass for arbiter RPC interface..."
     local ARBITER_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
@@ -1760,8 +1756,6 @@ EOF
         .Configuration.SideNodeList[0].Rpc.Pass=\"$DID_RPC_PASS\"       | \
         .Configuration.SideNodeList[0].MiningAddr=\"$MINING_ADDR_DID\"  | \
         .Configuration.SideNodeList[0].PayToAddr=\"$PAY_TO_ADDR\"       | \
-        .Configuration.SideNodeList[1].MiningAddr=\"$MINING_ADDR_ESC\"  | \
-        .Configuration.SideNodeList[1].PayToAddr=\"$PAY_TO_ADDR\"       | \
         .Configuration.RpcConfiguration.User=\"$ARBITER_RPC_USER\"      | \
         .Configuration.RpcConfiguration.Pass=\"$ARBITER_RPC_PASS\"" \
         $ARBITER_CONFIG >$ARBITER_CONFIG.tmp
