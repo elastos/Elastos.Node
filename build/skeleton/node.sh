@@ -354,7 +354,9 @@ all_compress_log()
     ela_compress_log
     did_compress_log
     esc_compress_log
+    esc-oracle_compress_log
     eid_compress_log
+    eid-oracle_compress_log
     arbiter_compress_log
 }
 
@@ -808,18 +810,6 @@ esc_start()
         return
     fi
 
-    while [ "$1" ]; do
-        if [ "$1" == "testnet" ]; then
-            local ESC_OPTS=--testnet
-        elif [ "$1" == "blockscout" ]; then
-            local ESC_FOR_BLOCKSCOUT=1
-        else
-            echo "ERROR: do not support $1"
-            return
-        fi
-        shift
-    done
-
     local PID=$(pgrep -x esc)
     if [ "$PID" != "" ]; then
         esc_status
@@ -848,22 +838,6 @@ esc_start()
             --rpcvhosts '*' \
             --syncmode full \
             --unlock '0x$(cat $SCRIPT_PATH/esc/data/keystore/UTC* | jq -r .address)' \
-            2>&1 \
-            | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
-    elif [ "$ESC_FOR_BLOCKSCOUT" ]; then
-        nohup $SHELL -c "./esc \
-            $ESC_OPTS \
-            --datadir $SCRIPT_PATH/esc/data \
-            --gcmode archive \
-            --nousb \
-            --rpc \
-            --rpcaddr '0.0.0.0' \
-            --rpcapi 'admin,debug,eth,net,personal,txpool,web3' \
-            --rpcvhosts '*' \
-            --syncmode full \
-            --ws \
-            --wsaddr '0.0.0.0' \
-            --wsorigins '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
     else
@@ -1209,16 +1183,6 @@ eid_start()
         echo "ERROR: $SCRIPT_PATH/eid/eid is not exist"
         return
     fi
-
-    while [ "$1" ]; do
-        if [ "$1" == "testnet" ]; then
-            local EID_OPTS=--testnet
-        else
-            echo "ERROR: do not support $1"
-            return
-        fi
-        shift
-    done
 
     local PID=$(pgrep -x eid)
     if [ "$PID" != "" ]; then
