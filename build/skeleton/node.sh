@@ -46,10 +46,16 @@ script_update()
 check_env()
 {
     #echo "Checking OS Version..."
-    local OS_VER="$(lsb_release -s -i 2>/dev/null)"
-    local OS_VER="$OS_VER-$(lsb_release -s -r 2>/dev/null)"
-    if [ "$OS_VER" \< "Ubuntu-18.04" ]; then
-        echo_warn "this script requires Ubuntu version 18.04 or higher"
+    if [ "$(uname -s)" == "Linux" ]; then
+        local OS_VER="$(lsb_release -s -i 2>/dev/null)"
+        local OS_VER="$OS_VER-$(lsb_release -s -r 2>/dev/null)"
+        if [ "$OS_VER" \< "Ubuntu-18.04" ]; then
+            echo_error "this script requires Ubuntu 18.04 or higher"
+            exit
+        fi
+    else
+        echo_error "do not support $(uname -s)"
+        exit
     fi
 
     #echo "Checking sudo permission..."
@@ -141,13 +147,55 @@ compress_log()
         return
     fi
 
-    if [ -d $1 ]; then
-        echo "Compressing log files in $1..."
-        cd $1
-        for i in $(ls -1 *.log | sort -r | sed 1d); do
+    if [ -d "$1" ]; then
+        local LOG_DIR="$1"
+        local LOG_PAT=\*.log
+    else
+        local LOG_DIR=$(dirname "$1")
+        local LOG_PAT=$(basename "$1")
+    fi
+
+    if [ "$IS_DEBUG" ]; then
+        echo "LOG_DIR: $LOG_DIR"
+        echo "LOG_PAT: $LOG_PAT"
+    fi
+
+    if [ -d $LOG_DIR ]; then
+        echo "Compressing log files in $LOG_DIR..."
+        cd $LOG_DIR
+        for i in $(ls -1 $LOG_PAT | sort -r | sed 1d); do
             gzip -v $i
         done
+        #echo "Removing log files in $LOG_DIR..."
+        #for i in $(ls -1 $LOG_PAT.gz | sort -r | sed '1,20d'); do
+        #    rm -v $i
+        #done
     fi
+
+}
+
+list_tcp()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    for i in $(lsof -nP -iTCP -sTCP:LISTEN -a -p $1 | sed '1d' | awk '{ print $5 "_" $9 }'); do
+        echo -n "$i "
+    done
+    echo
+}
+
+list_udp()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    for i in $(lsof -nP -iUDP -a -p $1 | sed '1d' | awk '{ print $5 "_" $9 }'); do
+        echo -n "$i "
+    done
+    echo
 }
 
 #
@@ -157,14 +205,14 @@ chain_prepare_stage()
 {
     local CHAIN_NAME=$1
 
-    if [ "$CHAIN_NAME" != "ela" -a \
-         "$CHAIN_NAME" != "did" -a \
-         "$CHAIN_NAME" != "esc" -a \
-         "$CHAIN_NAME" != "eid" -a \
-         "$CHAIN_NAME" != "eid-oracle" -a \
-         "$CHAIN_NAME" != "arbiter" -a \
-         "$CHAIN_NAME" != "carrier" -a \
-         "$CHAIN_NAME" != "esc-oracle" ]; then
+    if [ "$CHAIN_NAME" != "ela" ] && \
+       [ "$CHAIN_NAME" != "did" ] && \
+       [ "$CHAIN_NAME" != "esc" ] && \
+       [ "$CHAIN_NAME" != "esc-oracle" ] && \
+       [ "$CHAIN_NAME" != "eid" ] && \
+       [ "$CHAIN_NAME" != "eid-oracle" ] && \
+       [ "$CHAIN_NAME" != "arbiter" ] && \
+       [ "$CHAIN_NAME" != "carrier" ]; then
         echo "ERROR: do not support chain: $1"
         return 1
     fi
@@ -175,9 +223,9 @@ chain_prepare_stage()
 
     local RELEASE_PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/$CHAIN_NAME
-    local URL_PREFIX=https://download.elastos.io/elastos-$CHAIN_NAME
 
     echo "Finding the latest $CHAIN_NAME release..."
+    local URL_PREFIX=https://download.elastos.io/elastos-$CHAIN_NAME
     local VER_LATEST=$(curl -s "$URL_PREFIX/?F=1" | grep '\[DIR\]' \
         | sed -e 's/.*href="//' -e 's/".*//' -e 's/.*-//' -e 's/\/$//' \
         | sort -Vr | head -n 1)
@@ -201,10 +249,11 @@ chain_prepare_stage()
     if [ "$CHAIN_NAME" == "esc-oracle" ] || \
        [ "$CHAIN_NAME" == "eid-oracle" ] ; then
         local TGZ_LATEST=elastos-${CHAIN_NAME}-${VER_LATEST}.tgz
+        local URL_LATEST=$URL_PREFIX/elastos-${CHAIN_NAME}-${VER_LATEST}/${TGZ_LATEST}
     else
         local TGZ_LATEST=elastos-${CHAIN_NAME}-${VER_LATEST}-${RELEASE_PLATFORM}.tgz
+        local URL_LATEST=$URL_PREFIX/elastos-${CHAIN_NAME}-${VER_LATEST}/${TGZ_LATEST}
     fi
-    local URL_LATEST=$URL_PREFIX/elastos-${CHAIN_NAME}-${VER_LATEST}/${TGZ_LATEST}
 
     mkdir -p $PATH_STAGE
     cd $PATH_STAGE
@@ -224,6 +273,7 @@ chain_prepare_stage()
 
     echo "Extracting $TGZ_LATEST..."
     shift
+    set -f
     for i in $*; do
         tar xf $TGZ_LATEST $TAR_FLAGS --strip=1 \*/$i
         if [ "$?" != "0" ]; then
@@ -231,6 +281,7 @@ chain_prepare_stage()
             return 5
         fi
     done
+    set +f
 
     return 0
 }
@@ -336,17 +387,24 @@ ela_start()
 
 ela_stop()
 {
-    echo "Stopping ela..."
-    while pgrep -x ela 1>/dev/null; do
-        killall ela
-        sleep 1
-    done
+    local PID=$(pgrep -x ela)
+    if [ "$PID" != "" ]; then
+        echo "Stopping ela..."
+        while ps -p $PID 1>/dev/null; do
+            kill $PID
+            sleep 1
+        done
+    fi
     ela_status
 }
 
 ela_status()
 {
-    local ELA_VER="ela $($SCRIPT_PATH/ela/ela -v | sed 's/.* //')"
+    if [ -f $SCRIPT_PATH/ela/ela ]; then
+        local ELA_VER="ela $($SCRIPT_PATH/ela/ela -v | sed 's/.* //')"
+    else
+        local ELA_VER="ela"
+    fi
 
     local PID=$(pgrep -x ela)
     if [ "$PID" == "" ]; then
@@ -358,12 +416,15 @@ ela_status()
         jq -r '.Configuration.RpcConfiguration.User')
     local ELA_RPC_PASS=$(cat $SCRIPT_PATH/ela/config.json | \
         jq -r '.Configuration.RpcConfiguration.Pass')
-    local ELA_CLI="$SCRIPT_PATH/ela/ela-cli \
+
+    local ELA_RPC_PORT=20336
+    local ELA_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $ELA_RPC_PORT \
         --rpcuser $ELA_RPC_USER --rpcpassword $ELA_RPC_PASS"
 
     local ELA_RAM=$(mem_usage $PID)
     local ELA_UPTIME=$(ps -oetime= -p $PID | trim)
     local ELA_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local ELA_TCP_LISTEN=$(list_tcp $PID)
     local ELA_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
     local ELA_NUM_PEERS=$($ELA_CLI info getconnectioncount)
@@ -380,6 +441,7 @@ ela_status()
     echo "  RAM:    $ELA_RAM"
     echo "  Uptime: $ELA_UPTIME"
     echo "  #TCP:   $ELA_NUM_TCPS"
+    echo "  TCP:    $ELA_TCP_LISTEN"
     echo "  #Files: $ELA_NUM_FILES"
     echo "  #Peers: $ELA_NUM_PEERS"
     echo "  Height: $ELA_HEIGHT"
@@ -559,17 +621,24 @@ did_start()
 
 did_stop()
 {
-    echo "Stopping did..."
-    while pgrep -x did 1>/dev/null; do
-        killall did
-        sleep 1
-    done
+    local PID=$(pgrep -x did)
+    if [ "$PID" != "" ]; then
+        echo "Stopping did..."
+        while ps -p $PID 1>/dev/null; do
+            kill $PID
+            sleep 1
+        done
+    fi
     did_status
 }
 
 did_status()
 {
-    local DID_VER="did $($SCRIPT_PATH/did/did -v 2>&1 | sed 's/.* //')"
+    if [ -f $SCRIPT_PATH/did/did ]; then
+        local DID_VER="did $($SCRIPT_PATH/did/did -v 2>&1 | sed 's/.* //')"
+    else
+        local DID_VER="did"
+    fi
 
     local PID=$(pgrep -x did)
     if [ "$PID" == "" ]; then
@@ -581,12 +650,15 @@ did_status()
         jq -r '.RPCUser')
     local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
         jq -r '.RPCPass')
-    local DID_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport 20606 \
+
+    local DID_RPC_PORT=20606
+    local DID_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $DID_RPC_PORT \
         --rpcuser $DID_RPC_USER --rpcpassword $DID_RPC_PASS"
 
     local DID_RAM=$(mem_usage $PID)
     local DID_UPTIME=$(ps -oetime= -p $PID | trim)
     local DID_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local DID_TCP_LISTEN=$(list_tcp $PID)
     local DID_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
     local DID_NUM_PEERS=$($DID_CLI info getconnectioncount)
@@ -603,6 +675,7 @@ did_status()
     echo "  RAM:    $DID_RAM"
     echo "  Uptime: $DID_UPTIME"
     echo "  #TCP:   $DID_NUM_TCPS"
+    echo "  TCP:    $DID_TCP_LISTEN"
     echo "  #Files: $DID_NUM_FILES"
     echo "  #Peers: $DID_NUM_PEERS"
     echo "  Height: $DID_HEIGHT"
@@ -739,7 +812,7 @@ esc_start()
         if [ "$1" == "testnet" ]; then
             local ESC_OPTS=--testnet
         elif [ "$1" == "blockscout" ]; then
-            local FOR_BLOCKSCOUT=1
+            local ESC_FOR_BLOCKSCOUT=1
         else
             echo "ERROR: do not support $1"
             return
@@ -771,12 +844,13 @@ esc_start()
             --pbft.net.port 20639 \
             --rpc \
             --rpcaddr '0.0.0.0' \
-            --rpcapi 'personal,db,eth,net,web3,txpool,miner' \
+            --rpcapi 'db,eth,miner,net,personal,txpool,web3' \
             --rpcvhosts '*' \
+            --syncmode full \
             --unlock '0x$(cat $SCRIPT_PATH/esc/data/keystore/UTC* | jq -r .address)' \
             2>&1 \
-            | rotatelogs $SCRIPT_PATH/esc/logs/geth-%Y-%m-%d-%H_%M_%S.log 20M" &
-    elif [ "$FOR_BLOCKSCOUT" ]; then
+            | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
+    elif [ "$ESC_FOR_BLOCKSCOUT" ]; then
         nohup $SHELL -c "./esc \
             $ESC_OPTS \
             --datadir $SCRIPT_PATH/esc/data \
@@ -791,7 +865,7 @@ esc_start()
             --wsaddr '0.0.0.0' \
             --wsorigins '*' \
             2>&1 \
-            | rotatelogs $SCRIPT_PATH/esc/logs/geth-%Y-%m-%d-%H_%M_%S.log 20M" &
+            | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
     else
         nohup $SHELL -c "./esc \
             $ESC_OPTS \
@@ -799,10 +873,10 @@ esc_start()
             --lightserv 10 \
             --rpc \
             --rpcaddr '0.0.0.0' \
-            --rpcapi 'eth,web3,admin,txpool' \
+            --rpcapi 'admin,eth,txpool,web3' \
             --rpcvhosts '*' \
             2>&1 \
-            | rotatelogs $SCRIPT_PATH/esc/logs/geth-%Y-%m-%d-%H_%M_%S.log 20M" &
+            | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
     fi
 
     sleep 3
@@ -811,18 +885,26 @@ esc_start()
 
 esc_stop()
 {
-    echo "Stopping esc..."
-    while pgrep -x esc 1>/dev/null; do
-        local PID=$(pgrep -x esc)
+    local PID=$(pgrep -x esc)
+    if [ "$PID" != "" ]; then
+        echo "Stopping esc..."
         kill -s SIGINT $PID
-        sleep 1
-    done
+        while ps -p $PID 1>/dev/null; do
+            echo -n .
+            sleep 1
+        done
+        echo
+    fi
     esc_status
 }
 
 esc_status()
 {
-    local ESC_VER="esc $($SCRIPT_PATH/esc/esc version | grep 'Git Commit:' | sed 's/.* //')"
+    if [ -f $SCRIPT_PATH/esc/esc ]; then
+        local ESC_VER="esc $($SCRIPT_PATH/esc/esc version | grep 'Git Commit:' | sed 's/.* //' | cut -c1-7)"
+    else
+        local ESC_VER="esc"
+    fi
 
     local PID=$(pgrep -x esc)
     if [ "$PID" == "" ]; then
@@ -833,6 +915,8 @@ esc_status()
     local ESC_RAM=$(mem_usage $PID)
     local ESC_UPTIME=$(ps -oetime= -p $PID | trim)
     local ESC_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local ESC_TCP_LISTEN=$(list_tcp $PID)
+    local ESC_UDP_LISTEN=$(list_udp $PID)
     local ESC_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
     local ESC_NUM_PEERS=$(curl -s -H 'Content-Type: application/json' \
@@ -855,6 +939,8 @@ esc_status()
     echo "  RAM:    $ESC_RAM"
     echo "  Uptime: $ESC_UPTIME"
     echo "  #TCP:   $ESC_NUM_TCPS"
+    echo "  TCP:    $ESC_TCP_LISTEN"
+    echo "  UDP:    $ESC_UDP_LISTEN"
     echo "  #Files: $ESC_NUM_FILES"
     echo "  #Peers: $ESC_NUM_PEERS"
     echo "  Height: $ESC_HEIGHT"
@@ -983,7 +1069,7 @@ esc-oracle_start()
         return
     fi
 
-    local PID=$(pgrep -f 'node crosschain_oracle.js')
+    local PID=$(pgrep -fx 'node crosschain_oracle.js')
     if [ "$PID" != "" ]; then
         esc-oracle_status
         return
@@ -995,9 +1081,10 @@ esc-oracle_start()
 
     export env=mainnet
 
-    nohup node crosschain_oracle.js \
-        1>$SCRIPT_PATH/esc/esc-oracle/logs/esc-oracle_out.log \
-        2>$SCRIPT_PATH/esc/esc-oracle/logs/esc-oracle_err.log &
+    echo "env: $env"
+    nohup $SHELL -c "node crosschain_oracle.js \
+        2>$SCRIPT_PATH/esc/esc-oracle/logs/esc-oracle_err.log \
+        | rotatelogs $SCRIPT_PATH/esc/esc-oracle/logs/esc-oracle_out-%Y-%m-%d-%H_%M_%S.log 20M" &
 
     sleep 1
     esc-oracle_status
@@ -1005,17 +1092,20 @@ esc-oracle_start()
 
 esc-oracle_stop()
 {
-    echo "Stopping esc-oracle..."
-    while pgrep -f 'node crosschain_oracle.js' 1>/dev/null; do
-        pkill -f 'node crosschain_oracle.js'
-        sleep 1
-    done
+    local PID=$(pgrep -fx 'node crosschain_oracle.js')
+    if [ "$PID" != "" ]; then
+        echo "Stopping esc-oracle..."
+        while ps -p $PID 1>/dev/null; do
+            kill $PID
+            sleep 1
+        done
+    fi
     esc-oracle_status
 }
 
 esc-oracle_status()
 {
-    local PID=$(pgrep -f 'node crosschain_oracle.js')
+    local PID=$(pgrep -fx 'node crosschain_oracle.js')
     if [ "$PID" == "" ]; then
         echo "esc-oracle: Stopped"
         return
@@ -1033,6 +1123,11 @@ esc-oracle_status()
     echo "  #TCP:   $ESC_ORACLE_NUM_TCPS"
     echo "  #Files: $ESC_ORACLE_NUM_FILES"
     echo
+}
+
+esc-oracle_compress_log()
+{
+    compress_log $SCRIPT_PATH/esc/esc-oracle/logs/esc-oracle_out-\*.log
 }
 
 esc-oracle_upgrade()
@@ -1057,7 +1152,7 @@ esc-oracle_upgrade()
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/esc-oracle
     local DIR_DEPLOY=$SCRIPT_PATH/esc/esc-oracle
 
-    local PID=$(pgrep -f 'node crosschain_oracle.js')
+    local PID=$(pgrep -fx 'node crosschain_oracle.js')
     if [ $PID ]; then
         esc-oracle_stop
     fi
@@ -1149,7 +1244,7 @@ eid_start()
             --pbft.net.port 20649 \
             --rpc \
             --rpcaddr '0.0.0.0' \
-            --rpcapi 'personal,db,eth,net,web3,txpool,miner' \
+            --rpcapi 'db,eth,miner,net,personal,txpool,web3' \
             --rpcvhosts '*' \
             --syncmode full \
             --unlock '0x$(cat $SCRIPT_PATH/eid/data/keystore/UTC* | jq -r .address)' \
@@ -1164,7 +1259,6 @@ eid_start()
             --rpcaddr '0.0.0.0' \
             --rpcapi 'admin,eth,txpool,web3' \
             --rpcvhosts '*' \
-            --syncmode full \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/eid/logs/eid-%Y-%m-%d-%H_%M_%S.log 20M" &
     fi
@@ -1175,18 +1269,26 @@ eid_start()
 
 eid_stop()
 {
-    echo "Stopping eid..."
-    while pgrep -x eid 1>/dev/null; do
-        local PID=$(pgrep -x eid)
+    local PID=$(pgrep -x eid)
+    if [ "$PID" != "" ]; then
+        echo "Stopping eid..."
         kill -s SIGINT $PID
-        sleep 1
-    done
+        while ps -p $PID 1>/dev/null; do
+            echo -n .
+            sleep 1
+        done
+        echo
+    fi
     eid_status
 }
 
 eid_status()
 {
-    local EID_VER="eid $($SCRIPT_PATH/eid/eid version | grep 'Git Commit:' | sed 's/.* //')"
+    if [ -f $SCRIPT_PATH/eid/eid ]; then
+        local EID_VER="eid $($SCRIPT_PATH/eid/eid version | grep 'Git Commit:' | sed 's/.* //' | cut -c1-7)"
+    else
+        local EID_VER="eid"
+    fi
 
     local PID=$(pgrep -x eid)
     if [ "$PID" == "" ]; then
@@ -1197,6 +1299,8 @@ eid_status()
     local EID_RAM=$(mem_usage $PID)
     local EID_UPTIME=$(ps -oetime= -p $PID | trim)
     local EID_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local EID_TCP_LISTEN=$(list_tcp $PID)
+    local EID_UDP_LISTEN=$(list_udp $PID)
     local EID_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
     local EID_NUM_PEERS=$(curl -s -H 'Content-Type: application/json' \
@@ -1219,6 +1323,8 @@ eid_status()
     echo "  RAM:    $EID_RAM"
     echo "  Uptime: $EID_UPTIME"
     echo "  #TCP:   $EID_NUM_TCPS"
+    echo "  TCP:    $EID_TCP_LISTEN"
+    echo "  UDP:    $EID_UDP_LISTEN"
     echo "  #Files: $EID_NUM_FILES"
     echo "  #Peers: $EID_NUM_PEERS"
     echo "  Height: $EID_HEIGHT"
@@ -1230,11 +1336,6 @@ eid_compress_log()
     compress_log $SCRIPT_PATH/eid/data/geth/logs/dpos
     compress_log $SCRIPT_PATH/eid/data/logs-spv
     compress_log $SCRIPT_PATH/eid/logs
-}
-
-eid_mon()
-{
-    chain_mon eid 120
 }
 
 eid_upgrade()
@@ -1352,7 +1453,7 @@ eid-oracle_start()
         return
     fi
 
-    local PID=$(pgrep -f 'node crosschain_eid.js')
+    local PID=$(pgrep -fx 'node crosschain_eid.js')
     if [ "$PID" != "" ]; then
         eid-oracle_status
         return
@@ -1364,9 +1465,10 @@ eid-oracle_start()
 
     export env=mainnet
 
-    nohup node crosschain_eid.js \
-        1>$SCRIPT_PATH/eid/eid-oracle/logs/eid-oracle_out.log \
-        2>$SCRIPT_PATH/eid/eid-oracle/logs/eid-oracle_err.log &
+    echo "env: $env"
+    nohup $SHELL -c "node crosschain_eid.js \
+        2>$SCRIPT_PATH/eid/eid-oracle/logs/eid-oracle_err.log \
+        | rotatelogs $SCRIPT_PATH/eid/eid-oracle/logs/eid-oracle_out-%Y-%m-%d-%H_%M_%S.log 20M" &
 
     sleep 1
     eid-oracle_status
@@ -1374,17 +1476,20 @@ eid-oracle_start()
 
 eid-oracle_stop()
 {
-    echo "Stopping eid-oracle..."
-    while pgrep -f 'node crosschain_eid.js' 1>/dev/null; do
-        pkill -f 'node crosschain_eid.js'
-        sleep 1
-    done
+    local PID=$(pgrep -fx 'node crosschain_eid.js')
+    if [ "$PID" != "" ]; then
+        echo "Stopping eid-oracle..."
+        while ps -p $PID 1>/dev/null; do
+            kill $PID
+            sleep 1
+        done
+    fi
     eid-oracle_status
 }
 
 eid-oracle_status()
 {
-    local PID=$(pgrep -f 'node crosschain_eid.js')
+    local PID=$(pgrep -fx 'node crosschain_eid.js')
     if [ "$PID" == "" ]; then
         echo "eid-oracle: Stopped"
         return
@@ -1402,6 +1507,11 @@ eid-oracle_status()
     echo "  #TCP:   $EID_ORACLE_NUM_TCPS"
     echo "  #Files: $EID_ORACLE_NUM_FILES"
     echo
+}
+
+eid-oracle_compress_log()
+{
+    compress_log $SCRIPT_PATH/eid/eid-oracle/logs/eid-oracle_out-\*.log
 }
 
 eid-oracle_upgrade()
@@ -1426,7 +1536,7 @@ eid-oracle_upgrade()
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/eid-oracle
     local DIR_DEPLOY=$SCRIPT_PATH/eid/eid-oracle
 
-    local PID=$(pgrep -f 'node crosschain_eid.js')
+    local PID=$(pgrep -fx 'node crosschain_eid.js')
     if [ $PID ]; then
         eid-oracle_stop
     fi
@@ -1508,17 +1618,24 @@ arbiter_start()
 
 arbiter_stop()
 {
-    echo "Stopping arbiter..."
-    while pgrep -x arbiter 1>/dev/null; do
-        killall arbiter
-        sleep 1
-    done
+    local PID=$(pgrep -x arbiter)
+    if [ "$PID" != "" ]; then
+        echo "Stopping arbiter..."
+        while ps -p $PID 1>/dev/null; do
+            kill $PID
+            sleep 1
+        done
+    fi
     arbiter_status
 }
 
 arbiter_status()
 {
-    local ARBITER_VER="arbiter $($SCRIPT_PATH/arbiter/arbiter -v 2>&1 | sed 's/.* //')"
+    if [ -f $SCRIPT_PATH/arbiter/arbiter ]; then
+        local ARBITER_VER="arbiter $($SCRIPT_PATH/arbiter/arbiter -v 2>&1 | sed 's/.* //')"
+    else
+        local ARBITER_VER="arbiter"
+    fi
 
     local PID=$(pgrep -x arbiter)
     if [ "$PID" == "" ]; then
@@ -1530,18 +1647,22 @@ arbiter_status()
         jq -r '.Configuration.RpcConfiguration.User')
     local ARBITER_RPC_PASS=$(cat $SCRIPT_PATH/arbiter/config.json | \
         jq -r '.Configuration.RpcConfiguration.Pass')
-    local ARBITER_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport 20536 \
+
+    local ARBITER_RPC_PORT=20536
+
+    local ARBITER_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $ARBITER_RPC_PORT \
         --rpcuser $ARBITER_RPC_USER --rpcpassword $ARBITER_RPC_PASS"
 
     local ARBITER_RAM=$(mem_usage $PID)
     local ARBITER_UPTIME=$(ps -oetime= -p $PID | trim)
     local ARBITER_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local ARBITER_TCP_LISTEN=$(list_tcp $PID)
     local ARBITER_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
     local ARBITER_SPV_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
         -X POST --data '{"method":"getspvheight"}' \
         -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
-        http://127.0.0.1:20536 | jq -r '.result')
+        http://127.0.0.1:$ARBITER_RPC_PORT | jq -r '.result')
     if [[ ! "$ARBITER_SPV_HEIGHT" =~ ^[0-9]+$ ]]; then
         ARBITER_SPV_HEIGHT=N/A
     fi
@@ -1550,7 +1671,7 @@ arbiter_status()
     local ARBITER_DID_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
         -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$DID_GENESIS\"}}" \
         -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
-        http://127.0.0.1:20536 | jq -r '.result')
+        http://127.0.0.1:$ARBITER_RPC_PORT | jq -r '.result')
     if [[ ! "$ARBITER_DID_HEIGHT" =~ ^[0-9]+$ ]]; then
         ARBITER_DID_HEIGHT=N/A
     fi
@@ -1559,7 +1680,7 @@ arbiter_status()
     local ARBITER_ESC_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
         -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$ESC_GENESIS\"}}" \
         -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
-        http://127.0.0.1:20536 | jq -r '.result')
+        http://127.0.0.1:$ARBITER_RPC_PORT | jq -r '.result')
     if [[ ! "$ARBITER_ESC_HEIGHT" =~ ^[0-9]+$ ]]; then
         ARBITER_ESC_HEIGHT=N/A
     fi
@@ -1568,7 +1689,7 @@ arbiter_status()
     local ARBITER_EID_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
         -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$EID_GENESIS\"}}" \
         -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
-        http://127.0.0.1:20536 | jq -r '.result')
+        http://127.0.0.1:$ARBITER_RPC_PORT | jq -r '.result')
     if [[ ! "$ARBITER_EID_HEIGHT" =~ ^[0-9]+$ ]]; then
         ARBITER_EID_HEIGHT=N/A
     fi
@@ -1578,6 +1699,7 @@ arbiter_status()
     echo "  RAM:        $ARBITER_RAM"
     echo "  Uptime:     $ARBITER_UPTIME"
     echo "  #TCP:       $ARBITER_NUM_TCPS"
+    echo "  TCP:        $ARBITER_TCP_LISTEN"
     echo "  #Files:     $ARBITER_NUM_FILES"
     echo "  SPV Height: $ARBITER_SPV_HEIGHT"
     echo "  DID Height: $ARBITER_DID_HEIGHT"
@@ -1791,7 +1913,7 @@ carrier_start()
         return
     fi
     if [ ! -f $SCRIPT_PATH/carrier/.init ]; then
-        echo "ERROR: please run '$(basename $BASH_SOURCE) carrier init' first"
+        echo "ERROR: please run '$SCRIPT_NAME carrier init' first"
         return
     fi
 
@@ -1821,7 +1943,11 @@ carrier_stop()
 
 carrier_status()
 {
-    local CARRIER_VER="carrier $($SCRIPT_PATH/carrier/ela-bootstrapd -v | tail -1 | sed "s/.* //")"
+    if [ -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
+        local CARRIER_VER="carrier $($SCRIPT_PATH/carrier/ela-bootstrapd -v | tail -1 | sed "s/.* //")"
+    else
+        local CARRIER_VER="carrier"
+    fi
 
     local PID=$(pgrep -x -d ', ' ela-bootstrapd)
     if [ "$PID" == "" ]; then
@@ -1833,6 +1959,8 @@ carrier_status()
     local CARRIER_RAM=$(pmap $CARRIER_PID | tail -1 | sed 's/.* //')
     local CARRIER_UPTIME=$(ps --pid $CARRIER_PID -oetime:1=)
     local CARRIER_NUM_TCPS=$(lsof -n -a -itcp -p $CARRIER_PID | wc -l)
+    local CARRIER_TCP_LISTEN=$(list_tcp $PID)
+    local CARRIER_UDP_LISTEN=$(list_udp $PID)
     local CARRIER_NUM_FILES=$(lsof -n -p $CARRIER_PID | wc -l)
 
     echo "$CARRIER_VER: Running"
@@ -1840,6 +1968,8 @@ carrier_status()
     echo "  RAM:    $CARRIER_RAM"
     echo "  Uptime: $CARRIER_UPTIME"
     echo "  #TCP:   $CARRIER_NUM_TCPS"
+    echo "  TCP:    $CARRIER_TCP_LISTEN"
+    echo "  UDP:    $CARRIER_UDP_LISTEN"
     echo "  #Files: $CARRIER_NUM_FILES"
     echo
 }
@@ -1993,8 +2123,8 @@ EOF
 
 usage()
 {
-    echo "Usage: $(basename $BASH_SOURCE) [CHAIN] COMMAND [OPTIONS]"
-    echo "ELA Management ($SCRIPT_PATH)"
+    echo "Usage: $SCRIPT_NAME [CHAIN] COMMAND [OPTIONS]"
+    echo "ELA Management ($SCRIPT_PATH) [mainnet]"
     echo
     echo "Available Chains:"
     echo
@@ -2022,6 +2152,7 @@ usage()
 # Main
 #
 SCRIPT_PATH=$(cd $(dirname $BASH_SOURCE); pwd)
+SCRIPT_NAME=$(basename $BASH_SOURCE)
 
 check_env
 
@@ -2046,14 +2177,14 @@ if [ "$1" == "init"    ] || \
 else
     # operate on a single chain
 
-    if [ "$1" != "ela" -a \
-         "$1" != "did" -a \
-         "$1" != "esc" -a \
-         "$1" != "esc-oracle" -a \
-         "$1" != "eid" -a \
-         "$1" != "eid-oracle" -a \
-         "$1" != "arbiter" -a \
-         "$1" != "carrier" ]; then
+    if [ "$1" != "ela" ] && \
+       [ "$1" != "did" ] && \
+       [ "$1" != "esc" ] && \
+       [ "$1" != "esc-oracle" ] && \
+       [ "$1" != "eid" ] && \
+       [ "$1" != "eid-oracle" ] && \
+       [ "$1" != "arbiter" ] && \
+       [ "$1" != "carrier" ]; then
         echo "ERROR: do not support chain: $1"
         exit
     fi
@@ -2062,12 +2193,12 @@ else
     if [ "$2" == "" ]; then
         echo "ERROR: no command specified"
         exit
-    elif [ "$2" != "start" -a \
-           "$2" != "stop" -a \
-           "$2" != "status" -a \
-           "$2" != "upgrade" -a \
-           "$2" != "init" -a \
-           "$2" != "compress_log" ]; then
+    elif [ "$2" != "start"   ] && \
+         [ "$2" != "stop"    ] && \
+         [ "$2" != "status"  ] && \
+         [ "$2" != "upgrade" ] && \
+         [ "$2" != "init"    ] && \
+         [ "$2" != "compress_log" ]; then
         echo "ERROR: do not support command: $2"
         exit
     fi
