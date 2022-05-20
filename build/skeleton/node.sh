@@ -1564,6 +1564,15 @@ arbiter_status()
         ARBITER_ESC_HEIGHT=N/A
     fi
 
+    local EID_GENESIS=7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567
+    local ARBITER_EID_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
+        -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$EID_GENESIS\"}}" \
+        -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
+        http://127.0.0.1:20536 | jq -r '.result')
+    if [[ ! "$ARBITER_EID_HEIGHT" =~ ^[0-9]+$ ]]; then
+        ARBITER_EID_HEIGHT=N/A
+    fi
+
     echo "$ARBITER_VER: Running"
     echo "  PID:        $PID"
     echo "  RAM:        $ARBITER_RAM"
@@ -1573,6 +1582,7 @@ arbiter_status()
     echo "  SPV Height: $ARBITER_SPV_HEIGHT"
     echo "  DID Height: $ARBITER_DID_HEIGHT"
     echo "  ESC Height: $ARBITER_ESC_HEIGHT"
+    echo "  EID Height: $ARBITER_EID_HEIGHT"
     echo
 }
 
