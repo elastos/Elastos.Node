@@ -13,8 +13,8 @@ A new Linux operation system is required to run Elastos Supernode.
   - Use the **non-metered connection** to prevent a high usage billing.
 - **Server Hardware**
   - **CPU**: **2 cores** or more
-  - **RAM**: **16 GB** or more
-  - **HDD**: **64 GB** or more
+  - **RAM**: **32 GB** or more
+  - **HDD**: **200 GB** or more
     - A solid-state drive (SSD) is a plus but not a must. A hard drive (HDD) should be OK.
 - **Server Software**
   - **OS**: **Ubuntu 20.04 LTS** 64 Bit or newer
