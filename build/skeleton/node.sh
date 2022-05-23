@@ -1045,7 +1045,7 @@ esc_upgrade()
 esc_init()
 {
     if [ ! -f ${SCRIPT_PATH}/ela/.init ]; then
-        echo_error "ela not initialzed"
+        echo_error "ela not initialized"
         return
     fi
 
@@ -1233,7 +1233,7 @@ esc-oracle_upgrade()
 esc-oracle_init()
 {
     if [ ! -f ${SCRIPT_PATH}/esc/.init ]; then
-        echo_error "esc not initialzed"
+        echo_error "esc not initialized"
         return
     fi
 
@@ -1439,7 +1439,7 @@ eid_upgrade()
 eid_init()
 {
     if [ ! -f ${SCRIPT_PATH}/ela/.init ]; then
-        echo_error "ela not initialzed"
+        echo_error "ela not initialized"
         return
     fi
 
@@ -1627,7 +1627,7 @@ eid-oracle_upgrade()
 eid-oracle_init()
 {
     if [ ! -f ${SCRIPT_PATH}/eid/.init ]; then
-        echo_error "eid not initialzed"
+        echo_error "eid not initialized"
         return
     fi
 
@@ -1835,19 +1835,19 @@ arbiter_upgrade()
 arbiter_init()
 {
     if [ ! -f $SCRIPT_PATH/ela/.init ]; then
-        echo_error "ela not initialzed"
+        echo_error "ela not initialized"
         return
     fi
     if [ ! -f $SCRIPT_PATH/did/.init ]; then
-        echo_error "did not initialzed"
+        echo_error "did not initialized"
         return
     fi
     if [ ! -f $SCRIPT_PATH/esc/esc-oracle/.init ]; then
-        echo_error "esc-oracle not initialzed"
+        echo_error "esc-oracle not initialized"
         return
     fi
     if [ ! -f $SCRIPT_PATH/eid/eid-oracle/.init ]; then
-        echo_error "eid-oracle not initialzed"
+        echo_error "eid-oracle not initialized"
         return
     fi
 
