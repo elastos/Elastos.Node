@@ -5,22 +5,38 @@
 #
 echo_warn()
 {
-    echo -e "\033[1;33mWARNING:\033[0m $1"
+    if [ -t 1 ]; then
+        echo -e "\033[1;33mWARNING:\033[0m $1"
+    else
+        echo "WARNING: $1"
+    fi
 }
 
 echo_error()
 {
-    echo -e "\033[1;31mERROR:\033[0m $1"
+    if [ -t 1 ]; then
+        echo -e "\033[1;31mERROR:\033[0m $1"
+    else
+        echo "ERROR: $1"
+    fi
 }
 
 echo_info()
 {
-    echo -e "\033[1;34mINFO:\033[0m $1"
+    if [ -t 1 ]; then
+        echo -e "\033[1;34mINFO:\033[0m $1"
+    else
+        echo "INFO: $1"
+    fi
 }
 
 echo_ok()
 {
-    echo -e "\033[1;32mOK:\033[0m $1"
+    if [ -t 1 ]; then
+        echo -e "\033[1;32mOK:\033[0m $1"
+    else
+        echo "OK: $1"
+    fi
 }
 
 script_update()
@@ -100,6 +116,45 @@ mem_usage()
         vmmap $1 | grep 'Physical footprint:' | sed 's/.* //'
     fi
 }
+
+disk_usage()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    du -sh $1 | sed 's/\t.*//'
+}
+
+status_head()
+{
+    if [ "$3" == "Running" ]; then
+        echo
+    fi
+
+    if [ -t 1 ]; then
+        if [ "$3" == "Running" ]; then
+            local FG_COLOR=2
+        elif [ "$3" == "Stopped" ]; then
+            local FG_COLOR=1
+        else
+            local FG_COLOR=8
+        fi
+        printf "$(tput smul)%-12s%-12s$(tput setaf $FG_COLOR)$(tput bold)%s$(tput sgr0)\n" $1 $2 $3
+    else
+        printf "%-12s%-12s%s\n" $1 $2 $3
+    fi
+}
+
+status_info()
+{
+    if [ -t 1 ]; then
+        printf "$(tput bold)%-12s$(tput sgr0)%s\n" "$1:" "$2"
+    else
+        printf "%-12s%-12s\n" "$1:" "$2"
+    fi
+}
+
 
 gen_pass()
 {
@@ -392,25 +447,32 @@ ela_stop()
     local PID=$(pgrep -x ela)
     if [ "$PID" != "" ]; then
         echo "Stopping ela..."
+        kill $PID
         while ps -p $PID 1>/dev/null; do
-            kill $PID
+            echo -n .
             sleep 1
         done
+        echo
     fi
     ela_status
 }
 
-ela_status()
+ela_ver()
 {
     if [ -f $SCRIPT_PATH/ela/ela ]; then
-        local ELA_VER="ela $($SCRIPT_PATH/ela/ela -v | sed 's/.* //')"
+        echo "ela $($SCRIPT_PATH/ela/ela -v | sed 's/.* //')"
     else
-        local ELA_VER="ela"
+        echo "ela N/A"
     fi
+}
+
+ela_status()
+{
+    local ELA_VER=$(ela_ver)
 
     local PID=$(pgrep -x ela)
     if [ "$PID" == "" ]; then
-        echo "$ELA_VER: Stopped"
+        status_head $ELA_VER Stopped
         return
     fi
 
@@ -423,6 +485,7 @@ ela_status()
     local ELA_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $ELA_RPC_PORT \
         --rpcuser $ELA_RPC_USER --rpcpassword $ELA_RPC_PASS"
 
+    local ELA_DISK_USAGE=$(disk_usage $SCRIPT_PATH/ela)
     local ELA_RAM=$(mem_usage $PID)
     local ELA_UPTIME=$(ps -oetime= -p $PID | trim)
     local ELA_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
@@ -438,16 +501,16 @@ ela_status()
         ELA_HEIGHT=N/A
     fi
 
-    echo "$ELA_VER: Running"
-    echo "  PID:    $PID"
-    echo "  RAM:    $ELA_RAM"
-    echo "  Uptime: $ELA_UPTIME"
-    echo "  #TCP:   $ELA_NUM_TCPS"
-    echo "  TCP:    $ELA_TCP_LISTEN"
-    echo "  #Files: $ELA_NUM_FILES"
-    echo "  #Peers: $ELA_NUM_PEERS"
-    echo "  Height: $ELA_HEIGHT"
-    echo
+    status_head $ELA_VER Running
+    status_info "Disk"   "$ELA_DISK_USAGE"
+    status_info "PID"    "$PID"
+    status_info "RAM"    "$ELA_RAM"
+    status_info "Uptime" "$ELA_UPTIME"
+    status_info "#TCP"   "$ELA_NUM_TCPS"
+    status_info "TCP"    "$ELA_TCP_LISTEN"
+    status_info "#Files" "$ELA_NUM_FILES"
+    status_info "#Peers" "$ELA_NUM_PEERS"
+    status_info "Height" "$ELA_HEIGHT"
 }
 
 ela_compress_log()
@@ -626,25 +689,32 @@ did_stop()
     local PID=$(pgrep -x did)
     if [ "$PID" != "" ]; then
         echo "Stopping did..."
+        kill $PID
         while ps -p $PID 1>/dev/null; do
-            kill $PID
+            echo -n .
             sleep 1
         done
+        echo
     fi
     did_status
 }
 
-did_status()
+did_ver()
 {
     if [ -f $SCRIPT_PATH/did/did ]; then
-        local DID_VER="did $($SCRIPT_PATH/did/did -v 2>&1 | sed 's/.* //')"
+        echo "did $($SCRIPT_PATH/did/did -v 2>&1 | sed 's/.* //')"
     else
-        local DID_VER="did"
+        echo "did N/A"
     fi
+}
+
+did_status()
+{
+    local DID_VER=$(did_ver)
 
     local PID=$(pgrep -x did)
     if [ "$PID" == "" ]; then
-        echo "$DID_VER: Stopped"
+        status_head $DID_VER Stopped
         return
     fi
 
@@ -657,6 +727,7 @@ did_status()
     local DID_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $DID_RPC_PORT \
         --rpcuser $DID_RPC_USER --rpcpassword $DID_RPC_PASS"
 
+    local DID_DISK_USAGE=$(disk_usage $SCRIPT_PATH/did)
     local DID_RAM=$(mem_usage $PID)
     local DID_UPTIME=$(ps -oetime= -p $PID | trim)
     local DID_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
@@ -672,16 +743,16 @@ did_status()
         DID_HEIGHT=N/A
     fi
 
-    echo "$DID_VER: Running"
-    echo "  PID:    $PID"
-    echo "  RAM:    $DID_RAM"
-    echo "  Uptime: $DID_UPTIME"
-    echo "  #TCP:   $DID_NUM_TCPS"
-    echo "  TCP:    $DID_TCP_LISTEN"
-    echo "  #Files: $DID_NUM_FILES"
-    echo "  #Peers: $DID_NUM_PEERS"
-    echo "  Height: $DID_HEIGHT"
-    echo
+    status_head $DID_VER Running
+    status_info "Disk"   "$DID_DISK_USAGE"
+    status_info "PID"    "$PID"
+    status_info "RAM"    "$DID_RAM"
+    status_info "Uptime" "$DID_UPTIME"
+    status_info "#TCP"   "$DID_NUM_TCPS"
+    status_info "TCP"    "$DID_TCP_LISTEN"
+    status_info "#Files" "$DID_NUM_FILES"
+    status_info "#Peers" "$DID_NUM_PEERS"
+    status_info "Height" "$DID_HEIGHT"
 }
 
 did_compress_log()
@@ -872,20 +943,26 @@ esc_stop()
     esc_status
 }
 
-esc_status()
+esc_ver()
 {
     if [ -f $SCRIPT_PATH/esc/esc ]; then
-        local ESC_VER="esc $($SCRIPT_PATH/esc/esc version | grep 'Git Commit:' | sed 's/.* //' | cut -c1-7)"
+        echo "esc $($SCRIPT_PATH/esc/esc version | grep 'Git Commit:' | sed 's/.* //' | cut -c1-7)"
     else
-        local ESC_VER="esc"
+        echo "esc N/A"
     fi
+}
+
+esc_status()
+{
+    local ESC_VER=$(esc_ver)
 
     local PID=$(pgrep -x esc)
     if [ "$PID" == "" ]; then
-        echo "$ESC_VER: Stopped"
+        status_head $ESC_VER Stopped
         return
     fi
 
+    local ESC_DISK_USAGE=$(disk_usage $SCRIPT_PATH/esc)
     local ESC_RAM=$(mem_usage $PID)
     local ESC_UPTIME=$(ps -oetime= -p $PID | trim)
     local ESC_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
@@ -908,17 +985,17 @@ esc_status()
         ESC_HEIGHT=N/A
     fi
 
-    echo "$ESC_VER: Running"
-    echo "  PID:    $PID"
-    echo "  RAM:    $ESC_RAM"
-    echo "  Uptime: $ESC_UPTIME"
-    echo "  #TCP:   $ESC_NUM_TCPS"
-    echo "  TCP:    $ESC_TCP_LISTEN"
-    echo "  UDP:    $ESC_UDP_LISTEN"
-    echo "  #Files: $ESC_NUM_FILES"
-    echo "  #Peers: $ESC_NUM_PEERS"
-    echo "  Height: $ESC_HEIGHT"
-    echo
+    status_head $ESC_VER Running
+    status_info "Disk"   "$ESC_DISK_USAGE"
+    status_info "PID"    "$PID"
+    status_info "RAM"    "$ESC_RAM"
+    status_info "Uptime" "$ESC_UPTIME"
+    status_info "#TCP"   "$ESC_NUM_TCPS"
+    status_info "TCP"    "$ESC_TCP_LISTEN"
+    status_info "UDP"    "$ESC_UDP_LISTEN"
+    status_info "#Files" "$ESC_NUM_FILES"
+    status_info "#Peers" "$ESC_NUM_PEERS"
+    status_info "Height" "$ESC_HEIGHT"
 }
 
 esc_compress_log()
@@ -1069,34 +1146,48 @@ esc-oracle_stop()
     local PID=$(pgrep -fx 'node crosschain_oracle.js')
     if [ "$PID" != "" ]; then
         echo "Stopping esc-oracle..."
+        kill $PID
         while ps -p $PID 1>/dev/null; do
-            kill $PID
+            echo -n .
             sleep 1
         done
+        echo
     fi
     esc-oracle_status
 }
 
+esc-oracle_ver()
+{
+    if [ -f $SCRIPT_PATH/esc/esc-oracle/crosschain_oracle.js ]; then
+        echo "esc-oracle $(cat $SCRIPT_PATH/esc/esc-oracle/*.js | shasum | cut -c 1-7)"
+    else
+        echo "esc-oracle N/A"
+    fi
+}
+
 esc-oracle_status()
 {
+    local ESC_ORACLE_VER=$(esc-oracle_ver)
+
     local PID=$(pgrep -fx 'node crosschain_oracle.js')
     if [ "$PID" == "" ]; then
-        echo "esc-oracle: Stopped"
+        status_head $ESC_ORACLE_VER Stopped
         return
     fi
 
+    local ESC_ORACLE_DISK_USAGE=$(disk_usage $SCRIPT_PATH/esc/esc-oracle)
     local ESC_ORACLE_RAM=$(mem_usage $PID)
     local ESC_ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
     local ESC_ORACLE_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
     local ESC_ORACLE_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
-    echo "esc-oracle: Running"
-    echo "  PID:    $PID"
-    echo "  RAM:    $ESC_ORACLE_RAM"
-    echo "  Uptime: $ESC_ORACLE_UPTIME"
-    echo "  #TCP:   $ESC_ORACLE_NUM_TCPS"
-    echo "  #Files: $ESC_ORACLE_NUM_FILES"
-    echo
+    status_head $ESC_ORACLE_VER Running
+    status_info "Disk"   "$ESC_ORACLE_DISK_USAGE"
+    status_info "PID"    "$PID"
+    status_info "RAM"    "$ESC_ORACLE_RAM"
+    status_info "Uptime" "$ESC_ORACLE_UPTIME"
+    status_info "#TCP"   "$ESC_ORACLE_NUM_TCPS"
+    status_info "#Files" "$ESC_ORACLE_NUM_FILES"
 }
 
 esc-oracle_compress_log()
@@ -1246,20 +1337,26 @@ eid_stop()
     eid_status
 }
 
-eid_status()
+eid_ver()
 {
     if [ -f $SCRIPT_PATH/eid/eid ]; then
-        local EID_VER="eid $($SCRIPT_PATH/eid/eid version | grep 'Git Commit:' | sed 's/.* //' | cut -c1-7)"
+        echo "eid $($SCRIPT_PATH/eid/eid version | grep 'Git Commit:' | sed 's/.* //' | cut -c1-7)"
     else
-        local EID_VER="eid"
+        echo "eid N/A"
     fi
+}
+
+eid_status()
+{
+    local EID_VER=$(eid_ver)
 
     local PID=$(pgrep -x eid)
     if [ "$PID" == "" ]; then
-        echo "$EID_VER: Stopped"
+        status_head $EID_VER Stopped
         return
     fi
 
+    local EID_DISK_USAGE=$(disk_usage $SCRIPT_PATH/eid)
     local EID_RAM=$(mem_usage $PID)
     local EID_UPTIME=$(ps -oetime= -p $PID | trim)
     local EID_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
@@ -1282,17 +1379,17 @@ eid_status()
         EID_HEIGHT=N/A
     fi
 
-    echo "$EID_VER: Running"
-    echo "  PID:    $PID"
-    echo "  RAM:    $EID_RAM"
-    echo "  Uptime: $EID_UPTIME"
-    echo "  #TCP:   $EID_NUM_TCPS"
-    echo "  TCP:    $EID_TCP_LISTEN"
-    echo "  UDP:    $EID_UDP_LISTEN"
-    echo "  #Files: $EID_NUM_FILES"
-    echo "  #Peers: $EID_NUM_PEERS"
-    echo "  Height: $EID_HEIGHT"
-    echo
+    status_head $EID_VER Running
+    status_info "Disk"   "$EID_DISK_USAGE"
+    status_info "PID"    "$PID"
+    status_info "RAM"    "$EID_RAM"
+    status_info "Uptime" "$EID_UPTIME"
+    status_info "#TCP"   "$EID_NUM_TCPS"
+    status_info "TCP"    "$EID_TCP_LISTEN"
+    status_info "UDP"    "$EID_UDP_LISTEN"
+    status_info "#Files" "$EID_NUM_FILES"
+    status_info "#Peers" "$EID_NUM_PEERS"
+    status_info "Height" "$EID_HEIGHT"
 }
 
 eid_compress_log()
@@ -1443,34 +1540,48 @@ eid-oracle_stop()
     local PID=$(pgrep -fx 'node crosschain_eid.js')
     if [ "$PID" != "" ]; then
         echo "Stopping eid-oracle..."
+        kill $PID
         while ps -p $PID 1>/dev/null; do
-            kill $PID
+            echo -n .
             sleep 1
         done
+        echo
     fi
     eid-oracle_status
 }
 
+eid-oracle_ver()
+{
+    if [ -f $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js ]; then
+        echo "eid-oracle $(cat $SCRIPT_PATH/eid/eid-oracle/*.js | shasum | cut -c 1-7)"
+    else
+        echo "eid-oracle N/A"
+    fi
+}
+
 eid-oracle_status()
 {
+    local EID_ORACLE_VER=$(eid-oracle_ver)
+
     local PID=$(pgrep -fx 'node crosschain_eid.js')
     if [ "$PID" == "" ]; then
-        echo "eid-oracle: Stopped"
+        status_head $EID_ORACLE_VER Stopped
         return
     fi
 
+    local EID_ORACLE_DISK_USAGE=$(disk_usage $SCRIPT_PATH/eid/eid-oracle)
     local EID_ORACLE_RAM=$(mem_usage $PID)
     local EID_ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
     local EID_ORACLE_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
     local EID_ORACLE_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
-    echo "eid-oracle: Running"
-    echo "  PID:    $PID"
-    echo "  RAM:    $EID_ORACLE_RAM"
-    echo "  Uptime: $EID_ORACLE_UPTIME"
-    echo "  #TCP:   $EID_ORACLE_NUM_TCPS"
-    echo "  #Files: $EID_ORACLE_NUM_FILES"
-    echo
+    status_head $EID_ORACLE_VER Running
+    status_info "Disk"   "$EID_ORACLE_DISK_USAGE"
+    status_info "PID"    "$PID"
+    status_info "RAM"    "$EID_ORACLE_RAM"
+    status_info "Uptime" "$EID_ORACLE_UPTIME"
+    status_info "#TCP"   "$EID_ORACLE_NUM_TCPS"
+    status_info "#Files" "$EID_ORACLE_NUM_FILES"
 }
 
 eid-oracle_compress_log()
@@ -1585,25 +1696,32 @@ arbiter_stop()
     local PID=$(pgrep -x arbiter)
     if [ "$PID" != "" ]; then
         echo "Stopping arbiter..."
+        kill $PID
         while ps -p $PID 1>/dev/null; do
-            kill $PID
+            echo -n .
             sleep 1
         done
+        echo
     fi
     arbiter_status
 }
 
-arbiter_status()
+arbiter_ver()
 {
     if [ -f $SCRIPT_PATH/arbiter/arbiter ]; then
-        local ARBITER_VER="arbiter $($SCRIPT_PATH/arbiter/arbiter -v 2>&1 | sed 's/.* //')"
+        echo "arbiter $($SCRIPT_PATH/arbiter/arbiter -v 2>&1 | sed 's/.* //')"
     else
-        local ARBITER_VER="arbiter"
+        echo "arbiter N/A"
     fi
+}
+
+arbiter_status()
+{
+    local ARBITER_VER=$(arbiter_ver)
 
     local PID=$(pgrep -x arbiter)
     if [ "$PID" == "" ]; then
-        echo "$ARBITER_VER: Stopped"
+        status_head $ARBITER_VER Stopped
         return
     fi
 
@@ -1617,6 +1735,7 @@ arbiter_status()
     local ARBITER_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $ARBITER_RPC_PORT \
         --rpcuser $ARBITER_RPC_USER --rpcpassword $ARBITER_RPC_PASS"
 
+    local ARBITER_DISK_USAGE=$(disk_usage $SCRIPT_PATH/arbiter)
     local ARBITER_RAM=$(mem_usage $PID)
     local ARBITER_UPTIME=$(ps -oetime= -p $PID | trim)
     local ARBITER_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
@@ -1658,18 +1777,18 @@ arbiter_status()
         ARBITER_EID_HEIGHT=N/A
     fi
 
-    echo "$ARBITER_VER: Running"
-    echo "  PID:        $PID"
-    echo "  RAM:        $ARBITER_RAM"
-    echo "  Uptime:     $ARBITER_UPTIME"
-    echo "  #TCP:       $ARBITER_NUM_TCPS"
-    echo "  TCP:        $ARBITER_TCP_LISTEN"
-    echo "  #Files:     $ARBITER_NUM_FILES"
-    echo "  SPV Height: $ARBITER_SPV_HEIGHT"
-    echo "  DID Height: $ARBITER_DID_HEIGHT"
-    echo "  ESC Height: $ARBITER_ESC_HEIGHT"
-    echo "  EID Height: $ARBITER_EID_HEIGHT"
-    echo
+    status_head $ARBITER_VER Running
+    status_info "Disk"       "$ARBITER_DISK_USAGE"
+    status_info "PID"        "$PID"
+    status_info "RAM"        "$ARBITER_RAM"
+    status_info "Uptime"     "$ARBITER_UPTIME"
+    status_info "#TCP"       "$ARBITER_NUM_TCPS"
+    status_info "TCP"        "$ARBITER_TCP_LISTEN"
+    status_info "#Files"     "$ARBITER_NUM_FILES"
+    status_info "SPV Height" "$ARBITER_SPV_HEIGHT"
+    status_info "DID Height" "$ARBITER_DID_HEIGHT"
+    status_info "ESC Height" "$ARBITER_ESC_HEIGHT"
+    status_info "EID Height" "$ARBITER_EID_HEIGHT"
 }
 
 arbiter_compress_log()
@@ -1896,29 +2015,40 @@ carrier_start()
 
 carrier_stop()
 {
-    echo "Stopping carrier..."
-    while pgrep -x ela-bootstrapd 1>/dev/null; do
-        killall ela-bootstrapd
-        sleep 1
-    done
-    rm $SCRIPT_PATH/carrier/var/run/ela-bootstrapd/*.pid 2>/dev/null
+    local PID=$(pgrep -x ela-bootstrapd)
+    if [ "$PID" != "" ]; then
+        echo "Stopping carrier..."
+        kill $PID
+        while ps -p $PID 1>/dev/null; do
+            echo -n .
+            sleep 1
+        done
+        echo
+        rm $SCRIPT_PATH/carrier/var/run/ela-bootstrapd/*.pid 2>/dev/null
+    fi
     carrier_status
+}
+
+carrier_ver()
+{
+    if [ -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
+        echo "carrier $($SCRIPT_PATH/carrier/ela-bootstrapd -v | tail -1 | sed "s/.* //")"
+    else
+        echo "carrier N/A"
+    fi
 }
 
 carrier_status()
 {
-    if [ -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
-        local CARRIER_VER="carrier $($SCRIPT_PATH/carrier/ela-bootstrapd -v | tail -1 | sed "s/.* //")"
-    else
-        local CARRIER_VER="carrier"
-    fi
+    local CARRIER_VER=$(carrier_ver)
 
     local PID=$(pgrep -x -d ', ' ela-bootstrapd)
     if [ "$PID" == "" ]; then
-        echo "$CARRIER_VER: Stopped"
+        status_head $CARRIER_VER Stopped
         return
     fi
 
+    local CARRIER_DISK_USAGE=$(disk_usage $SCRIPT_PATH/carrier)
     local CARRIER_PID=$(pgrep -x ela-bootstrapd | tail -1)
     local CARRIER_RAM=$(pmap $CARRIER_PID | tail -1 | sed 's/.* //')
     local CARRIER_UPTIME=$(ps --pid $CARRIER_PID -oetime:1=)
@@ -1927,15 +2057,15 @@ carrier_status()
     local CARRIER_UDP_LISTEN=$(list_udp $PID)
     local CARRIER_NUM_FILES=$(lsof -n -p $CARRIER_PID | wc -l)
 
-    echo "$CARRIER_VER: Running"
-    echo "  PID:    $CARRIER_PID"
-    echo "  RAM:    $CARRIER_RAM"
-    echo "  Uptime: $CARRIER_UPTIME"
-    echo "  #TCP:   $CARRIER_NUM_TCPS"
-    echo "  TCP:    $CARRIER_TCP_LISTEN"
-    echo "  UDP:    $CARRIER_UDP_LISTEN"
-    echo "  #Files: $CARRIER_NUM_FILES"
-    echo
+    status_head $CARRIER_VER Running
+    status_info "Disk"   "$CARRIER_DISK_USAGE"
+    status_head "PID"    "$CARRIER_PID"
+    status_head "RAM"    "$CARRIER_RAM"
+    status_head "Uptime" "$CARRIER_UPTIME"
+    status_head "#TCP"   "$CARRIER_NUM_TCPS"
+    status_head "TCP"    "$CARRIER_TCP_LISTEN"
+    status_head "UDP"    "$CARRIER_UDP_LISTEN"
+    status_head "#Files" "$CARRIER_NUM_FILES"
 }
 
 carrier_upgrade()
@@ -2088,7 +2218,7 @@ EOF
 usage()
 {
     echo "Usage: $SCRIPT_NAME [CHAIN] COMMAND [OPTIONS]"
-    echo "ELA Management ($SCRIPT_PATH) [mainnet]"
+    echo "Manage Elastos Node ($SCRIPT_PATH) [$CHAIN_TYPE]"
     echo
     echo "Available Chains:"
     echo
