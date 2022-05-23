@@ -2218,7 +2218,7 @@ EOF
 usage()
 {
     echo "Usage: $SCRIPT_NAME [CHAIN] COMMAND [OPTIONS]"
-    echo "Manage Elastos Node ($SCRIPT_PATH) [$CHAIN_TYPE]"
+    echo "Manage Elastos Node ($SCRIPT_PATH) [mainnet]"
     echo
     echo "Available Chains:"
     echo
