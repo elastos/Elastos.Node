@@ -20,7 +20,7 @@ A new Linux operation system is required to run Elastos Supernode.
   - **OS**: **Ubuntu 20.04 LTS** 64 Bit or newer
     - Use **Ubuntu** because the developer uses macOS and Ubuntu to do the test harness. But it is your freedom of choice of other distributions.
     - **LTS** is better because LTS has a longer product life than the **non-LTS** version. (See [Ubuntu Releases](https://wiki.ubuntu.com/Releases))
-    - The script prefers a **freshly installed** OS because it reduces conflicts with the old setup. It is time-consuming to debug such conflicts and do the related support works.
+    - The script prefers a **freshly installed** OS because it reduces conflicts with the old setup. It is time-consuming to debug such conflicts and do the related support work.
 - **Server Security Rules**
   - The following ports need to be accessible from anywhere (0.0.0.0/0). For a cloud server, please modify the inbound rules.
 
@@ -95,7 +95,7 @@ Available Commands:
   compress_log
 ```
 
-The first argument CHAIN specifies chain (program) name, and the second one, COMMAND specifies the action to perform.
+The first argument CHAIN specifies the chain (program) name, and the second one, COMMAND specifies the action to perform.
 
 Please be notified that the CHAIN argument is optional. If it is absent, all chains will be issued COMMAND.
 
@@ -467,7 +467,7 @@ Please **check the version** to make sure of a successful program upgrade.
 ## A. FAQ
 
 1. Q: The script complains: cannot find jq.
-   - A: jq is required to parse json config files. Install it by running the following commands:
+   - A: jq is required to parse JSON config files. Install it by running the following commands:
 
 ```bash
 $ sudo apt-get update -y

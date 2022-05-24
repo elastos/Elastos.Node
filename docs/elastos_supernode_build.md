@@ -21,7 +21,7 @@ $ ./build.sh
 
 ## Build result
 
-The generated package contains all the programs and the automatic script to run a supernode. Copy (rsync) it to the target server, extract it to the $HOME folder. 
+The generated package contains all the programs and the automatic script to run a supernode. Copy (rsync) it to the target server, and extract it to the $HOME folder. 
 
 **List** the build results.
 

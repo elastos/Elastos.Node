@@ -37,7 +37,7 @@ The **status** command will show all programs (chains) are **Running**. Watch th
 $ ~/node/node.sh status
 ```
 
-Now the initial **setup complete**.
+Now the initial **setup is complete**.
 
 For a more detailed setup and usage, please refer to [Elastos Supernode Guide](./elastos_supernode_usage.md). 
 
