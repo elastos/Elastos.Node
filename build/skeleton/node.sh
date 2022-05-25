@@ -140,9 +140,9 @@ status_head()
         else
             local FG_COLOR=8
         fi
-        printf "$(tput smul)%-12s%-12s$(tput setaf $FG_COLOR)$(tput bold)%s$(tput sgr0)\n" $1 $2 $3
+        printf "$(tput smul)%-12s%-16s$(tput setaf $FG_COLOR)$(tput bold)%s$(tput sgr0)\n" $1 $2 $3
     else
-        printf "%-12s%-12s%s\n" $1 $2 $3
+        printf "%-12s%-16s%s\n" $1 $2 $3
     fi
 }
 
@@ -151,7 +151,7 @@ status_info()
     if [ -t 1 ]; then
         printf "$(tput bold)%-12s$(tput sgr0)%s\n" "$1:" "$2"
     else
-        printf "%-12s%-12s\n" "$1:" "$2"
+        printf "%-12s%s\n" "$1:" "$2"
     fi
 }
 
@@ -502,15 +502,15 @@ ela_status()
     fi
 
     status_head $ELA_VER Running
-    status_info "Disk"   "$ELA_DISK_USAGE"
-    status_info "PID"    "$PID"
-    status_info "RAM"    "$ELA_RAM"
-    status_info "Uptime" "$ELA_UPTIME"
-    status_info "#TCP"   "$ELA_NUM_TCPS"
-    status_info "TCP"    "$ELA_TCP_LISTEN"
-    status_info "#Files" "$ELA_NUM_FILES"
-    status_info "#Peers" "$ELA_NUM_PEERS"
-    status_info "Height" "$ELA_HEIGHT"
+    status_info "Disk"      "$ELA_DISK_USAGE"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$ELA_RAM"
+    status_info "Uptime"    "$ELA_UPTIME"
+    status_info "#Files"    "$ELA_NUM_FILES"
+    status_info "TCP Ports" "$ELA_TCP_LISTEN"
+    status_info "#TCP"      "$ELA_NUM_TCPS"
+    status_info "#Peers"    "$ELA_NUM_PEERS"
+    status_info "Height"    "$ELA_HEIGHT"
 }
 
 ela_compress_log()
@@ -744,15 +744,15 @@ did_status()
     fi
 
     status_head $DID_VER Running
-    status_info "Disk"   "$DID_DISK_USAGE"
-    status_info "PID"    "$PID"
-    status_info "RAM"    "$DID_RAM"
-    status_info "Uptime" "$DID_UPTIME"
-    status_info "#TCP"   "$DID_NUM_TCPS"
-    status_info "TCP"    "$DID_TCP_LISTEN"
-    status_info "#Files" "$DID_NUM_FILES"
-    status_info "#Peers" "$DID_NUM_PEERS"
-    status_info "Height" "$DID_HEIGHT"
+    status_info "Disk"      "$DID_DISK_USAGE"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$DID_RAM"
+    status_info "Uptime"    "$DID_UPTIME"
+    status_info "#Files"    "$DID_NUM_FILES"
+    status_info "TCP Ports" "$DID_TCP_LISTEN"
+    status_info "#TCP"      "$DID_NUM_TCPS"
+    status_info "#Peers"    "$DID_NUM_PEERS"
+    status_info "Height"    "$DID_HEIGHT"
 }
 
 did_compress_log()
@@ -986,16 +986,16 @@ esc_status()
     fi
 
     status_head $ESC_VER Running
-    status_info "Disk"   "$ESC_DISK_USAGE"
-    status_info "PID"    "$PID"
-    status_info "RAM"    "$ESC_RAM"
-    status_info "Uptime" "$ESC_UPTIME"
-    status_info "#TCP"   "$ESC_NUM_TCPS"
-    status_info "TCP"    "$ESC_TCP_LISTEN"
-    status_info "UDP"    "$ESC_UDP_LISTEN"
-    status_info "#Files" "$ESC_NUM_FILES"
-    status_info "#Peers" "$ESC_NUM_PEERS"
-    status_info "Height" "$ESC_HEIGHT"
+    status_info "Disk"      "$ESC_DISK_USAGE"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$ESC_RAM"
+    status_info "Uptime"    "$ESC_UPTIME"
+    status_info "#Files"    "$ESC_NUM_FILES"
+    status_info "TCP Ports" "$ESC_TCP_LISTEN"
+    status_info "#TCP"      "$ESC_NUM_TCPS"
+    status_info "UDP Ports" "$ESC_UDP_LISTEN"
+    status_info "#Peers"    "$ESC_NUM_PEERS"
+    status_info "Height"    "$ESC_HEIGHT"
 }
 
 esc_compress_log()
@@ -1178,16 +1178,18 @@ esc-oracle_status()
     local ESC_ORACLE_DISK_USAGE=$(disk_usage $SCRIPT_PATH/esc/esc-oracle)
     local ESC_ORACLE_RAM=$(mem_usage $PID)
     local ESC_ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
+    local ESC_ORACLE_TCP_LISTEN=$(list_tcp $PID)
     local ESC_ORACLE_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
     local ESC_ORACLE_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
     status_head $ESC_ORACLE_VER Running
-    status_info "Disk"   "$ESC_ORACLE_DISK_USAGE"
-    status_info "PID"    "$PID"
-    status_info "RAM"    "$ESC_ORACLE_RAM"
-    status_info "Uptime" "$ESC_ORACLE_UPTIME"
-    status_info "#TCP"   "$ESC_ORACLE_NUM_TCPS"
-    status_info "#Files" "$ESC_ORACLE_NUM_FILES"
+    status_info "Disk"      "$ESC_ORACLE_DISK_USAGE"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$ESC_ORACLE_RAM"
+    status_info "Uptime"    "$ESC_ORACLE_UPTIME"
+    status_info "#Files"    "$ESC_ORACLE_NUM_FILES"
+    status_info "TCP Ports" "$ESC_ORACLE_TCP_LISTEN"
+    status_info "#TCP"      "$ESC_ORACLE_NUM_TCPS"
 }
 
 esc-oracle_compress_log()
@@ -1380,16 +1382,16 @@ eid_status()
     fi
 
     status_head $EID_VER Running
-    status_info "Disk"   "$EID_DISK_USAGE"
-    status_info "PID"    "$PID"
-    status_info "RAM"    "$EID_RAM"
-    status_info "Uptime" "$EID_UPTIME"
-    status_info "#TCP"   "$EID_NUM_TCPS"
-    status_info "TCP"    "$EID_TCP_LISTEN"
-    status_info "UDP"    "$EID_UDP_LISTEN"
-    status_info "#Files" "$EID_NUM_FILES"
-    status_info "#Peers" "$EID_NUM_PEERS"
-    status_info "Height" "$EID_HEIGHT"
+    status_info "Disk"      "$EID_DISK_USAGE"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$EID_RAM"
+    status_info "Uptime"    "$EID_UPTIME"
+    status_info "#Files"    "$EID_NUM_FILES"
+    status_info "TCP Ports" "$EID_TCP_LISTEN"
+    status_info "#TCP"      "$EID_NUM_TCPS"
+    status_info "UDP Ports" "$EID_UDP_LISTEN"
+    status_info "#Peers"    "$EID_NUM_PEERS"
+    status_info "Height"    "$EID_HEIGHT"
 }
 
 eid_compress_log()
@@ -1572,16 +1574,18 @@ eid-oracle_status()
     local EID_ORACLE_DISK_USAGE=$(disk_usage $SCRIPT_PATH/eid/eid-oracle)
     local EID_ORACLE_RAM=$(mem_usage $PID)
     local EID_ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
+    local EID_ORACLE_TCP_LISTEN=$(list_tcp $PID)
     local EID_ORACLE_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
     local EID_ORACLE_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
     status_head $EID_ORACLE_VER Running
-    status_info "Disk"   "$EID_ORACLE_DISK_USAGE"
-    status_info "PID"    "$PID"
-    status_info "RAM"    "$EID_ORACLE_RAM"
-    status_info "Uptime" "$EID_ORACLE_UPTIME"
-    status_info "#TCP"   "$EID_ORACLE_NUM_TCPS"
-    status_info "#Files" "$EID_ORACLE_NUM_FILES"
+    status_info "Disk"      "$EID_ORACLE_DISK_USAGE"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$EID_ORACLE_RAM"
+    status_info "Uptime"    "$EID_ORACLE_UPTIME"
+    status_info "#Files"    "$EID_ORACLE_NUM_FILES"
+    status_info "TCP Ports" "$EID_ORACLE_TCP_LISTEN"
+    status_info "#TCP"      "$EID_ORACLE_NUM_TCPS"
 }
 
 eid-oracle_compress_log()
@@ -1782,9 +1786,9 @@ arbiter_status()
     status_info "PID"        "$PID"
     status_info "RAM"        "$ARBITER_RAM"
     status_info "Uptime"     "$ARBITER_UPTIME"
-    status_info "#TCP"       "$ARBITER_NUM_TCPS"
-    status_info "TCP"        "$ARBITER_TCP_LISTEN"
     status_info "#Files"     "$ARBITER_NUM_FILES"
+    status_info "TCP Ports"  "$ARBITER_TCP_LISTEN"
+    status_info "#TCP"       "$ARBITER_NUM_TCPS"
     status_info "SPV Height" "$ARBITER_SPV_HEIGHT"
     status_info "DID Height" "$ARBITER_DID_HEIGHT"
     status_info "ESC Height" "$ARBITER_ESC_HEIGHT"
@@ -2001,7 +2005,7 @@ carrier_start()
     fi
 
     local PID=$(pgrep -x ela-bootstrapd)
-    if [ $PID ]; then
+    if [ "$PID" ]; then
         carrier_status
         return
     fi
@@ -2042,30 +2046,30 @@ carrier_status()
 {
     local CARRIER_VER=$(carrier_ver)
 
-    local PID=$(pgrep -x -d ', ' ela-bootstrapd)
+    # the child process only
+    local PID=$(pgrep -x -n ela-bootstrapd)
     if [ "$PID" == "" ]; then
         status_head $CARRIER_VER Stopped
         return
     fi
 
     local CARRIER_DISK_USAGE=$(disk_usage $SCRIPT_PATH/carrier)
-    local CARRIER_PID=$(pgrep -x ela-bootstrapd | tail -1)
-    local CARRIER_RAM=$(pmap $CARRIER_PID | tail -1 | sed 's/.* //')
-    local CARRIER_UPTIME=$(ps --pid $CARRIER_PID -oetime:1=)
-    local CARRIER_NUM_TCPS=$(lsof -n -a -itcp -p $CARRIER_PID | wc -l)
+    local CARRIER_RAM=$(pmap $PID | tail -1 | sed 's/.* //')
+    local CARRIER_UPTIME=$(ps --pid $PID -oetime:1=)
+    local CARRIER_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l)
     local CARRIER_TCP_LISTEN=$(list_tcp $PID)
     local CARRIER_UDP_LISTEN=$(list_udp $PID)
-    local CARRIER_NUM_FILES=$(lsof -n -p $CARRIER_PID | wc -l)
+    local CARRIER_NUM_FILES=$(lsof -n -p $PID | wc -l)
 
     status_head $CARRIER_VER Running
-    status_info "Disk"   "$CARRIER_DISK_USAGE"
-    status_head "PID"    "$CARRIER_PID"
-    status_head "RAM"    "$CARRIER_RAM"
-    status_head "Uptime" "$CARRIER_UPTIME"
-    status_head "#TCP"   "$CARRIER_NUM_TCPS"
-    status_head "TCP"    "$CARRIER_TCP_LISTEN"
-    status_head "UDP"    "$CARRIER_UDP_LISTEN"
-    status_head "#Files" "$CARRIER_NUM_FILES"
+    status_info "Disk"      "$CARRIER_DISK_USAGE"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$CARRIER_RAM"
+    status_info "Uptime"    "$CARRIER_UPTIME"
+    status_info "#Files"    "$CARRIER_NUM_FILES"
+    status_info "TCP Ports" "$CARRIER_TCP_LISTEN"
+    status_info "#TCP"      "$CARRIER_NUM_TCPS"
+    status_info "UDP Ports" "$CARRIER_UDP_LISTEN"
 }
 
 carrier_upgrade()
@@ -2091,15 +2095,15 @@ carrier_upgrade()
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/carrier
     local DIR_DEPLOY=$SCRIPT_PATH/carrier
 
-    local PID=$(pgrep -x -d ', ' ela-bootstrapd)
-    if [ $PID ]; then
+    local PID=$(pgrep -x ela-bootstrapd)
+    if [ "$PID" ]; then
         carrier_stop
     fi
 
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/usr/bin/ela-bootstrapd $DIR_DEPLOY/
 
-    if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+    if [ "$PID" ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
         carrier_start
     fi
 }
