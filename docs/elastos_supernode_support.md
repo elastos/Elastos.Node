@@ -2,7 +2,7 @@
 
 ## Tools and Documentation
 
-- [Node download](./)
+- [Node download](./elastos_supernode_support.md)
   - [ela](https://download.elastos.io/elastos-ela) 
   - [did](https://download.elastos.io/elastos-did) 
   - [esc](https://download.elastos.io/elastos-esc) 
