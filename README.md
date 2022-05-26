@@ -10,6 +10,7 @@ Hello, please refer to the following docs to set up and run an **Elastos Superno
 - [Elastos Supernode Reference](./docs/elastos_supernode_reference_zh.md) - For the advanced user who wishes to know the very detail of the supernode
 - [Elastos Supernode Build](./docs/elastos_supernode_build.md) - For the developer who wishes to build a supernode from the ground up
 - [Elastos Supernode Security](./docs/elastos_supernode_security_zh.md) - For the system administrator who manages the environment and the operation
+- [Elastos Supernode Support](./docs/elastos_supernode_support.md) - Supernode FAQ
 
 Welcome feedback!
 
