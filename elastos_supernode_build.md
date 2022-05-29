@@ -1,4 +1,4 @@
-# Elastos Supernode: Build
+# C. Build from the Source Code
 
 ## Summary
 
@@ -6,9 +6,9 @@ Generally, software build gives you confidence that you have the right and preci
 
 ## System requirements
 
-- **RAM**: 2 GB
-- **HDD**: 8 GB
-- **OS**: Ubuntu 16.04 x86_64
+* **RAM**: 2 GB
+* **HDD**: 8 GB
+* **OS**: Ubuntu 16.04 x86\_64
 
 ## Building steps
 
@@ -21,7 +21,7 @@ $ ./build.sh
 
 ## Build result
 
-The generated package contains all the programs and the automatic script to run a supernode. Copy (rsync) it to the target server, and extract it to the $HOME folder. 
+The generated package contains all the programs and the automatic script to run a supernode. Copy (rsync) it to the target server, and extract it to the $HOME folder.
 
 **List** the build results.
 
@@ -74,5 +74,4 @@ user@target-server $ echo $?
 user@target-server $ ~/node/node.sh
 ```
 
-For a more detailed setup and usage, please refer to [Elastos Supernode Guide](https://github.com/elastos/Elastos.ELA.Supernode/blob/master/docs/elastos_supernode_usage.md).
-
+For a more detailed setup and usage, please refer to [Elastos Supernode Guide](elastos\_supernode\_usage.md).
