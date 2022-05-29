@@ -122,3 +122,12 @@ The node cannot be started normally or is highly out of sync due to factors such
     $ rm -r ~/node/arbiter/elastos_arbiter/data
     $ ~/node/node.sh arbiter start
     ```
+
+### The script complains: cannot find jq
+
+jq is required to parse JSON config files. Install it by running the following commands:
+
+```bash
+$ sudo apt-get update -y
+$ sudo apt-get install -y jq
+```
