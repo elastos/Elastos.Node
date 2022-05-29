@@ -15,9 +15,9 @@ $ chmod a+x node.sh
 
 The **init** command will do the following jobs automatically:
 
-- downloads and extract the prebuilt package
-- prompts the user to enter the initial parameters (which include a user name, crypto addresses, and wallet passwords)
-- writes the config files required
+1. downloads and extract the prebuilt package
+2. prompts the user to enter the initial parameters (which include a user name, crypto addresses, and wallet passwords)
+3. writes the config files required
 
 ```bash
 $ ~/node/node.sh init
@@ -39,7 +39,6 @@ $ ~/node/node.sh status
 
 Now the initial **setup is complete**.
 
-For a more detailed setup and usage, please refer to [Elastos Supernode Guide](./elastos_supernode_usage.md). 
+For a more detailed setup and usage, please refer to [Elastos Supernode Guide](elastos\_supernode\_usage.md).
 
 Any issues, please contact the blockchain Dev team.
-
