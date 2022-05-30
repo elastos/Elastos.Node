@@ -4,7 +4,7 @@
 $ ~/node/node.sh esc init
 ```
 
-```
+```bash
 Finding the latest esc release...
 INFO: Latest version: v0.1.4.4
 Downloading https://download.elastos.io/elastos-esc/elastos-esc-v0.1.4.4/elastos-esc-v0.1.4.4-linux-x86_64.tgz...
@@ -16,7 +16,7 @@ Creating esc keystore...
 
 A relatively strong password is required to generate the keystore file (the wallet).
 
-```
+```bash
 Please input a password (ENTER to use a random one)
 ? Password:
 Generating random password...

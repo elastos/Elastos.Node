@@ -9,7 +9,7 @@ $ uname -a
 
 Installing the dependencies.
 
-```
+```bash
 $ sudo apt-get update -y
 $ sudo apt-get install -y jq apache2-utils
 ```

@@ -11,7 +11,7 @@ Using the **init** command without specifing chain program name will process the
 * Elastos EID Sidechain (with EID Oracle)
 * Elastos Arbiter
 
-```
+```bash
 $ ~/node/node.sh init
 ```
 

@@ -4,7 +4,7 @@
 $ ~/node/node.sh esc-oracle init
 ```
 
-```
+```bash
 Finding the latest esc-oracle release...
 INFO: Latest version: v0.1.4.4
 Downloading https://download.elastos.io/elastos-esc-oracle/elastos-esc-oracle-v0.1.4.4/elastos-esc-oracle-v0.1.4.4.tgz...
