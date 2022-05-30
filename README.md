@@ -2,14 +2,14 @@
 
 [![Build Status](https://travis-ci.com/elastos/Elastos.ELA.Supernode.svg?branch=master)](https://travis-ci.com/elastos/Elastos.ELA.Supernode)
 
-Hello, please refer to the following docs to set up and run an **Elastos Supernode**.
+Hello, please refer to the following docs to set up and run an [**Elastos node**](overview/elastos-node.md).
 
-* [Elastos Supernode Requirements](overview/requirements.md) - Please check it first before the setup
-* [Elastos Supernode 123](quick-setup.md) - For the impatient user who wishes to set up a supernode in 5 minutes
-* [Elastos Supernode Guide](step-by-step-setup.md) - For the system administrator who wishes to operate a supernode
-* [Elastos Supernode Reference](archives/manually-setup.md) - For the advanced user who wishes to know the very detail of the supernode
-* [Elastos Supernode Build](archives/elastos\_supernode\_build.md) - For the developer who wishes to build a supernode from the ground up
-* [Elastos Supernode Security](archives/security.md) - For the system administrator who manages the environment and the operation
-* [Elastos Supernode FAQ](faq.md) - Frequently asked questions
+* [Requirements](overview/requirements.md) - Please check it first before the setup
+* [Quick Setup](quick-setup.md) - For the impatient user who wishes to set up a node in 5 minutes
+* [Step-by-Step Setup](step-by-step-setup.md) - For the system administrator who wishes to operate a node
+* [_Manually Setup_](archives/manually-setup.md) _(Archived) - For the advanced user who wishes to know the very detail of the node_
+* __[_Build from the Source Code_](archives/elastos\_supernode\_build.md) _(Archived) - For the developer who wishes to build a node from the ground up_
+* __[_Security_](archives/security.md) _(Archived) - For the system administrator who manages the environment and the operation_
+* __[_FAQ_](faq.md)__[ __ ](faq.md)_(WIP) - Frequently asked questions_
 
 Welcome feedback!
