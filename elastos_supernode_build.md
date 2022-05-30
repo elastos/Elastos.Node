@@ -1,4 +1,4 @@
-# C. Build from the Source Code
+# Build from the Source Code
 
 ## Summary
 
@@ -74,4 +74,4 @@ user@target-server $ echo $?
 user@target-server $ ~/node/node.sh
 ```
 
-For a more detailed setup and usage, please refer to [Elastos Supernode Guide](elastos\_supernode\_usage.md).
+For a more detailed setup and usage, please refer to [Elastos Supernode Guide](step-by-step-setup.md).
