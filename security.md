@@ -1,4 +1,4 @@
-# Elastos Supernode: 安全考虑
+# Security
 
 基本的安全考虑。
 

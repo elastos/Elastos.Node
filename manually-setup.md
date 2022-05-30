@@ -1,6 +1,7 @@
-# CR委员认领超级节点搭建指南
+# Manually Setup
 
 ## 认领节点方式
+
 1. EF代运营节点
 2. CR委员运营节点
 
@@ -15,19 +16,19 @@
 
 ## 环境要求
 
-- 操作系统: Ubuntu 20.04 LTS 64-bit
-- CPU: 不小于2核
-- 内存: 不小于16GB
-- 硬盘: 不少于64GB
-- 网络: aws标准网络，具有可访问的公网IP或域名
-- 防火墙需要将ELAPort[TCP：20338、20339]、DIDPort[TCP：20608]、ETHPort[TCP：20639、20638,UDP：20638]、EIDPort[TCP：20649、20648,UDP：20648]、ArbiterPort[TCP：20538]和CarrierPort[UDP：3478、33445，TCP：33445]端口端口设置为全网开放
-- 系统权限: 具有sudo权限
+* 操作系统: Ubuntu 20.04 LTS 64-bit
+* CPU: 不小于2核
+* 内存: 不小于16GB
+* 硬盘: 不少于64GB
+* 网络: aws标准网络，具有可访问的公网IP或域名
+* 防火墙需要将ELAPort\[TCP：20338、20339]、DIDPort\[TCP：20608]、ETHPort\[TCP：20639、20638,UDP：20638]、EIDPort\[TCP：20649、20648,UDP：20648]、ArbiterPort\[TCP：20538]和CarrierPort\[UDP：3478、33445，TCP：33445]端口端口设置为全网开放
+* 系统权限: 具有sudo权限
 
 ## EF代运营节点
+
 1. 认领EF运营的CR节点，CR委员不需要搭建节点
 2. CR委员联系CR秘书长申请dpos节点公钥
 3. CR委员需要将dpos节点公钥填入Ela Wallet软件“CR领取节点”页面；CR委员需要在“CR委员会”的“委员管理”的“领取CR节点”页面填入该公钥。点击下一步需要输入支付密码，以保证更新的信息被提交并记录在区块链上
-
 
 ## CR委员运营节点
 
@@ -35,15 +36,14 @@
 
 #### 1.1 下载节点程序及默认配置文件
 
-- ela、ela-cli 
+*   ela、ela-cli
 
     ```
     # 下载链接: 
        $ wget https://download.elastos.org/elastos-ela/elastos-ela-v0.7.0/elastos-ela-v0.7.0-linux-x86_64.tgz
     ```
-    
-- dpos_config.json.sample
-  
+*   dpos\_config.json.sample
+
     ```
     # 下载链接: 
         wget https://raw.githubusercontent.com/elastos/Elastos.ELA/master/docs/dpos_config.json.sample 
@@ -53,8 +53,9 @@
 
 #### 1.2 将节点及配置文件拷贝至ela节点运行目录
 
-- 创建节点运行目录 `mkdir ~/node/ela/ `
-- 将ela节点程序、ela-cli、dpos_config.json.sample拷贝至ela节点目录，并将dpos_config.json.sample重命名为config.json
+* 创建节点运行目录 `mkdir ~/node/ela/`
+* 将ela节点程序、ela-cli、dpos\_config.json.sample拷贝至ela节点目录，并将dpos\_config.json.sample重命名为config.json
+
 ```bash
     mv ela ~/node/ela/
     mv ela-cli ~/node/ela/
@@ -79,7 +80,7 @@ cd ~/node/ela/
 ./ela-cli wallet create -p Password
 ```
 
-3. 查看节点公钥
+1. 查看节点公钥
 
 查看keystore.dat文件对应的公钥，该公钥为节点公钥，需要将该公钥提供给CR委员。**CR委员需要将该公钥填入“CR领取节点”页面；CR委员需要在“CR委员会”的“委员管理”的“领取CR节点”页面填入该公钥。点击下一步需要输入支付密码，以保证更新的信息被提交并记录在区块链上。**
 
@@ -92,13 +93,13 @@ cd ~/node/ela/
 
 #### 1.4 修改ela配置文件config.json
 
-- 复制dpos_config.json.sample至ela节点目录，并更名为config.json。
-- 将"IPAddress"修改为服务器公网IP或域名。
-- "RpcConfiguration"为对RPC接口的访问限制
-  - "WhiteIPList"为允许访问本ela节点的IP白名单，"0.0.0.0"表示不限制访问IP
-  - "User"与"Pass"为访问RPC接口的用户名及密码，如设置为""，则无需用户名密码即可访问
-  - "WhiteIPList"与"User"、"Pass"必须同时满足，才能访问RPC接口
-  - **RPC接口具有一定的控制权限，请妥善设置RPC接口访问权限**
+* 复制dpos\_config.json.sample至ela节点目录，并更名为config.json。
+* 将"IPAddress"修改为服务器公网IP或域名。
+* "RpcConfiguration"为对RPC接口的访问限制
+  * "WhiteIPList"为允许访问本ela节点的IP白名单，"0.0.0.0"表示不限制访问IP
+  * "User"与"Pass"为访问RPC接口的用户名及密码，如设置为""，则无需用户名密码即可访问
+  * "WhiteIPList"与"User"、"Pass"必须同时满足，才能访问RPC接口
+  * **RPC接口具有一定的控制权限，请妥善设置RPC接口访问权限**
 
 #### 1.5 运行ela节点
 
@@ -111,7 +112,7 @@ ela节点启动命令中需要输入keystore.dat文件的密码，可以将该�
 echo elastos | nohup ./ela > /dev/null 2>output &
 ```
 
-2. 查询节点信息
+1. 查询节点信息
 
 节点启动后并同步完数据，ela-cli可查看节点高度、版本等信息
 
@@ -157,9 +158,9 @@ echo elastos | nohup ./ela > /dev/null 2>output &
 
 其他查询命令可以查看ela-cli使用文档:
 
-CN:https://github.com/elastos/Elastos.ELA/blob/master/docs/cli_user_guide_CN.md EN:https://github.com/elastos/Elastos.ELA/blob/master/docs/cli_user_guide.md
+CN:https://github.com/elastos/Elastos.ELA/blob/master/docs/cli\_user\_guide\_CN.md EN:https://github.com/elastos/Elastos.ELA/blob/master/docs/cli\_user\_guide.md
 
-3. log分析
+1. log分析
 
 ela节点的log记录与elastos/logs/目录下，其中node目录中为节点同步信息相关log，dpos目录为dpos共识相关log
 
@@ -190,13 +191,13 @@ ela节点的log记录与elastos/logs/目录下，其中node目录中为节点同
 
 #### 2.1 下载节点程序及默认配置文件
 
-- did
+*   did
 
-    ```
+    ````
     # 下载链接:
         $ wget  https://download.elastos.org/elastos-did/elastos-did-v0.3.1/elastos-did-v0.3.1-linux-x86_64.tgz ```
-
-- mainnet_config.json.sample 
+    ````
+*   mainnet\_config.json.sample
 
     ```
     # 下载链接:
@@ -207,8 +208,8 @@ ela节点的log记录与elastos/logs/目录下，其中node目录中为节点同
 
 #### 2.2 将节点及配置文件拷贝至did侧链节点运行目录
 
-- 创建节点运行目录 ` mkdir ~/node/did/ `
-- 将did节点程序、dpos_config.json.sample 拷贝至did侧链节点目录，并将dpos_config.json.sample重命名为config.json
+* 创建节点运行目录 `mkdir ~/node/did/`
+* 将did节点程序、dpos\_config.json.sample 拷贝至did侧链节点目录，并将dpos\_config.json.sample重命名为config.json
 
 ```bash
     mv did ~/node/did/
@@ -216,23 +217,22 @@ ela节点的log记录与elastos/logs/目录下，其中node目录中为节点同
     mv config.json ~/node/did/
 ```
 
-##### 2.2.1 修改配置文件
+**2.2.1 修改配置文件**
 
-- 根据运维需要，修改RpcConfiguration中的"WhiteIPList"、"User"及"Pass"，访问规则与ela的RPC访问限制一致
-- "PayToAddr"为矿工收益地址，务必填写自己保密的账户,不能使用交易所地址
-- "MinerInfo"为矿工名称，请使用注册CR委员的名称
+* 根据运维需要，修改RpcConfiguration中的"WhiteIPList"、"User"及"Pass"，访问规则与ela的RPC访问限制一致
+* "PayToAddr"为矿工收益地址，务必填写自己保密的账户,不能使用交易所地址
+* "MinerInfo"为矿工名称，请使用注册CR委员的名称
 
 #### 2.3 运行did侧链节点
 
-1. 启动did节点
-did节点启动命令:
+1. 启动did节点 did节点启动命令:
 
 ```bash
 # 启动命令
 nohup ./did > /dev/null 2>output &
 ```
 
-2. 查看did节点状态
+1. 查看did节点状态
 
 ```bash
 # 通过RPC接口查看节点状态，需根据配置情况修改Authorization
@@ -243,27 +243,25 @@ curl -X POST \
   -d '{"method":"getnodestate"}'
 ```
 
-其他RPC接口请查阅 DID-RPC文档:https://github.com/elastos/Elastos.ELA.SideChain.ID/blob/master/docs/jsonrpc_apis.md
+其他RPC接口请查阅 DID-RPC文档:https://github.com/elastos/Elastos.ELA.SideChain.ID/blob/master/docs/jsonrpc\_apis.md
 
 ### 3. 搭建eth侧链节点
 
 #### 3.1 下载节点程序及默认配置文件
 
-- eth
+*   eth
 
     ```
     # 下载链接:
         $ wget https://download.elastos.org/elastos-eth/elastos-eth-v0.1.3.2/elastos-eth-v0.1.3.2-linux-x86_64.tgz
     ```
-
-- oracle
+*   oracle
 
     ```
     # 下载链接:
         $ wget https://download.elastos.org/elastos-oracle/elastos-oracle-v0.1.3.4/elastos-oracle-v0.1.3.4.tgz
     ```
-
-- nodejs
+*   nodejs
 
     ```
     # 下载链接:
@@ -272,22 +270,23 @@ curl -X POST \
 
 #### 3.2 将节点及配置文件拷贝至eth侧链节点运行目录
 
-1. 创建节点运行目录 ` mkdir ~/node/eth/ `
-2. 创建节点数据目录 ` mkdir -p ~/node/eth/data/ `
-3. 创建日志目录 `mkdir -p  ~/node/eth/logs/ `
-4. 将geth节点程序拷贝至eth侧链节点目录 ` mv geth ~/node/eth/ `
-5. 将oracle解压重命名至eth侧链节点目录 
+1. 创建节点运行目录 `mkdir ~/node/eth/`
+2. 创建节点数据目录 `mkdir -p ~/node/eth/data/`
+3. 创建日志目录 `mkdir -p ~/node/eth/logs/`
+4. 将geth节点程序拷贝至eth侧链节点目录 `mv geth ~/node/eth/`
+5. 将oracle解压重命名至eth侧链节点目录
 
 ```
  mv elastos-oracle-v0.1.3.4 oracle  
  mv oracle/ ~/node/eth/
 ```
-6. 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至eth侧链节点目录 ` cp ~/node/ela/keystore.dat ~/node/eth/ `
-7. 并将keystore.dat 密码存入到文件中 ` echo Password > ~/node/eth/ela.txt `
 
-##### 3.2.1 创建矿工账户
+1. 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至eth侧链节点目录 `cp ~/node/ela/keystore.dat ~/node/eth/`
+2. 并将keystore.dat 密码存入到文件中 `echo Password > ~/node/eth/ela.txt`
 
-1. eth侧链节点目录下生成矿工账户，命令: ` ./geth --datadir "~/node/eth/data/" account new `
+**3.2.1 创建矿工账户**
+
+1. eth侧链节点目录下生成矿工账户，命令: `./geth --datadir "~/node/eth/data/" account new`
 2. 查看账户生成是否成功
 
 ```bash
@@ -295,22 +294,22 @@ cd ~/node/eth/data/keystore/
 
 # 如出现UTC--2019-08-03T08-08-42.293003000Z--72064cd776e12d7163d329cc0* 格式表示创建成功
 ```
-3. 将密码写入本地文件，命令: `echo password > ~/node/eth/eth.txt `
+
+1. 将密码写入本地文件，命令: `echo password > ~/node/eth/eth.txt`
 
 #### 3.3 安装oracle依赖包
 
 1. 没有python2.7,安装python2.7: `sudo apt-get install -yq python-minimal python-dev make g++`
 2. 安装nodejs,下载链接: `wget https://npm.taobao.org/mirrors/node/v10.13.0/node-v10.13.0-linux-x64.tar.gz`
-3. 解压文件拷贝至eth侧链目录， 路径: ~/node/eth/
+3. 解压文件拷贝至eth侧链目录， 路径: \~/node/eth/
 4. 安装web3: `npm install web3@1.2.1 --save -g`
 5. 安装pm2: `npm install pm2@3.0.0 -g`
 6. 安装express: `sudo npm install express@4.16.0`
-7. 将node_modules依赖包目录拷贝至eth侧链节点目录 ` mv node_modules  ~/node/extern/ `
+7. 将node\_modules依赖包目录拷贝至eth侧链节点目录 `mv node_modules ~/node/extern/`
 
 #### 3.4 运行eth侧链节点
 
-1. 启动geth节点
-geth节点启动命令:
+1. 启动geth节点 geth节点启动命令:
 
 ```bash
 # 启动命令
@@ -329,13 +328,13 @@ nohup ./geth --datadir ~/node/eth/data \
     >>~/node/eth/logs/geth.log 2>&1 &
 ```
 
-2. 查看eth节点高度
+1. 查看eth节点高度
 
 ```bash
 curl -H "Content-Type: application/json" -X POST -d '{"method":"eth_blockNumber", "id":1}'  http://127.0.0.1:20636  
 ```
-其他RPC接口请查阅ETH-RPC文档:https://eth.wiki/json-rpc/API
 
+其他RPC接口请查阅ETH-RPC文档:https://eth.wiki/json-rpc/API
 
 #### 启动oracle服务
 
@@ -347,35 +346,31 @@ export PATH=~/node/extern/node-v10.13.0-linux-x64/bin:$PATH
 $ nohup node ~/node/eth/oracle/crosschain_oracle.js \
     1>～/node/eth/oracle/logs/oracle_out.log \
     2>～/node/eth/oracle/logs/oracle_err.log &
-
 ```
 
-2. 查看oracle进程
+1. 查看oracle进程
 
 ```bash
 $ ps aux |grep crosschain_oracle
 ```
 
-
 ### 4. 搭建EID侧链节点
 
 #### 4.1 下载节点程序及默认配置文件
 
-- eid
+*   eid
 
     ```
     # 下载链接:
         $ wget https://download.elastos.org/elastos-eid/elastos-eid-v0.1.0/elastos-eid-v0.1.0-linux-x86_64.tgz
     ```
-
-- oracle
+*   oracle
 
     ```
     # 下载链接:
         $ wget https://download.elastos.org/elastos-eid-oracle/elastos-eid-oracle-v0.1.0/elastos-eid-oracle-v0.1.0.tgz
     ```
-
-- nodejs
+*   nodejs
 
     ```
     # 下载链接:
@@ -384,22 +379,23 @@ $ ps aux |grep crosschain_oracle
 
 #### 4.2 将节点及配置文件拷贝至eid侧链节点运行目录
 
-1. 创建节点运行目录 ` mkdir ~/node/eid/ `
-2. 创建节点数据目录 ` mkdir -p ~/node/eid/data/ `
-3. 创建日志目录 `mkdir -p  ~/node/eid/logs/ `
-4. 将geth节点程序拷贝至eid侧链节点目录 ` mv geth ~/node/eid/ `
-5. 将oracle解压重命名至eid侧链节点目录 
+1. 创建节点运行目录 `mkdir ~/node/eid/`
+2. 创建节点数据目录 `mkdir -p ~/node/eid/data/`
+3. 创建日志目录 `mkdir -p ~/node/eid/logs/`
+4. 将geth节点程序拷贝至eid侧链节点目录 `mv geth ~/node/eid/`
+5. 将oracle解压重命名至eid侧链节点目录
 
 ```
  mv elastos-eid-oracle-v0.1.0 oracle  
  mv oracle/ ~/node/eid/
 ```
-6. 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至eid侧链节点目录 ` cp ~/node/ela/keystore.dat ~/node/eid/ `
-7. 并将keystore.dat 密码存入到文件中 ` echo Password > ~/node/eid/ela.txt `
 
-##### 4.2.1 创建矿工账户
+1. 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至eid侧链节点目录 `cp ~/node/ela/keystore.dat ~/node/eid/`
+2. 并将keystore.dat 密码存入到文件中 `echo Password > ~/node/eid/ela.txt`
 
-1. eid侧链节点目录下生成矿工账户，命令: ` ./geth --datadir "~/node/eid/data/" account new `
+**4.2.1 创建矿工账户**
+
+1. eid侧链节点目录下生成矿工账户，命令: `./geth --datadir "~/node/eid/data/" account new`
 2. 查看账户生成是否成功
 
 ```bash
@@ -407,22 +403,22 @@ cd ~/node/eid/data/keystore/
 
 # 如出现UTC--2019-08-03T08-08-42.293003000Z--72064cd776e12d7163d329cc0* 格式表示创建成功
 ```
-3. 将密码写入本地文件，命令: `echo password > ~/node/eid/eid.txt `
+
+1. 将密码写入本地文件，命令: `echo password > ~/node/eid/eid.txt`
 
 #### 4.3 安装oracle依赖包,ETH节点已安装oracle依赖包eid节点则无需安装
 
 1. 没有python2.7,安装python2.7: `sudo apt-get install -yq python-minimal python-dev make g++`
 2. 安装nodejs,下载链接: `wget https://npm.taobao.org/mirrors/node/v10.13.0/node-v10.13.0-linux-x64.tar.gz`
-3. 解压文件拷贝至eth侧链目录， 路径: ~/node/eth/
+3. 解压文件拷贝至eth侧链目录， 路径: \~/node/eth/
 4. 安装web3: `npm install web3@1.2.1 --save -g`
 5. 安装pm2: `npm install pm2@3.0.0 -g`
 6. 安装express: `sudo npm install express@4.16.0`
-7. 将node_modules依赖包目录拷贝至eth侧链节点目录 ` mv node_modules  ~/node/extern/ `
+7. 将node\_modules依赖包目录拷贝至eth侧链节点目录 `mv node_modules ~/node/extern/`
 
 #### 4.4 运行eid侧链节点
 
-1. 启动eid节点
-eid节点启动命令:
+1. 启动eid节点 eid节点启动命令:
 
 ```bash
 # 启动命令
@@ -442,14 +438,13 @@ nohup ./eid --datadir ~/node/eid/data \
     >>~/node/eid/logs/geth.log 2>&1 &
 ```
 
-2. 查看eid节点高度
+1. 查看eid节点高度
 
 ```bash
 curl -H "Content-Type: application/json" -X POST -d '{"method":"eth_blockNumber", "id":1}'  http://127.0.0.1:20646  
 ```
 
 其他RPC接口请查阅ETH-RPC文档:https://eth.wiki/json-rpc/API
-
 
 #### 启动eid-oracle服务
 
@@ -461,10 +456,9 @@ export PATH=~/node/extern/node-v10.13.0-linux-x64/bin:$PATH
 $ nohup node crosschain_eid.js \
     1>～/node/eid/eid-oracle/logs/eid-oracle_out.log \
     2>～/node/eid/eid-oracle/logs/eid-oracle_err.log &
-
 ```
 
-2. 查看eid-oracle进程
+1. 查看eid-oracle进程
 
 ```bash
 $ ps aux |grep crosschain_eid
@@ -474,27 +468,26 @@ $ ps aux |grep crosschain_eid
 
 #### 5.1 下载节点程序及默认配置文件
 
-- arbiter
+*   arbiter
 
     ```
     # 下载链接:
         $ wget https://download.elastos.org/elastos-arbiter/elastos-arbiter-v0.2.3/elastos-arbiter-v0.2.3-linux-x86_64.tgz 
     ```
-    
-- coinfig.json
-    ``` 
+*   coinfig.json
+
+    ```
     # 下载链接:
         $ wget https://raw.githubusercontent.com/elastos/Elastos.ELA.Arbiter/master/docs/mainnet_config.json.sample 
     # 配置文件的参数说明，请参考:
         https://github.com/elastos/Elastos.ELA.Arbiter/blob/master/docs/config.json.md
     ```
 
-
 #### 5.2 将节点及配置文件拷贝至arbiter仲裁人节点运行目录
 
-- 创建节点运行目录，建议节点路径: ~/node/arbiter/
-- 将arbiter节点、ela-cli、mainnet_config.json.sample拷贝至did侧链节点目录，并将mainnet_config.json.sample重命名为config.json
-- 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至arbiter节点目录，并充值主链账户大于10ELA,用来侧链出块
+* 创建节点运行目录，建议节点路径: \~/node/arbiter/
+* 将arbiter节点、ela-cli、mainnet\_config.json.sample拷贝至did侧链节点目录，并将mainnet\_config.json.sample重命名为config.json
+* 将ELA节点目录下的keystore.dat（dpos节点账户）拷贝至arbiter节点目录，并充值主链账户大于10ELA,用来侧链出块
 
 #### 5.3 创建次账户
 
@@ -561,21 +554,18 @@ $ ps aux |grep crosschain_eid
     }
   }
 }
-
 ```
-
 
 #### 5.5 运行arbiter节点
 
-1. 启动arbiter节点
-arbiter节点启动命令:
+1. 启动arbiter节点 arbiter节点启动命令:
 
 ```bash
 # 启动命令
 nohup ./arbiter > /dev/null 2>output &
 ```
 
-2. 查看arbiter同步状态
+1. 查看arbiter同步状态
 
 ```bash
 # 查看同步ela节点高度
@@ -586,30 +576,30 @@ curl  -H  "Content-Type: application/json" -X POST -d '{"method":"getsidechainbl
 curl  -H  "Content-Type: application/json" -X POST -d '{"method":"getsidechainblockheight", "params":{"hash":"6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a"}}'  http://127.0.0.1:20536
 ```
 
-其他RPC接口请查阅Arbiter-RPC文档:https://github.com/elastos/Elastos.ELA.Arbiter/blob/master/docs/jsonrpc_apis.md
+其他RPC接口请查阅Arbiter-RPC文档:https://github.com/elastos/Elastos.ELA.Arbiter/blob/master/docs/jsonrpc\_apis.md
 
 ### 6. 搭建carrier节点
 
 #### 6.1 下载节点安装包
 
-- carrier
-  
-     ``` https://github.com/elastos/Elastos.NET.Carrier.Bootstrap/releases/download/release-v5.2.3/elastos-carrier-bootstrap-5.2.623351-linux-x86_64-Debug.deb ```
+*   carrier
+
+    `https://github.com/elastos/Elastos.NET.Carrier.Bootstrap/releases/download/release-v5.2.3/elastos-carrier-bootstrap-5.2.623351-linux-x86_64-Debug.deb`
 
 #### 6.2 将节点安装包拷贝至carrier节点运行目录
 
-- 创建节点运行目录，建议节点路径: ~/node/carrier/
-- 将carrier节点安装包拷贝至carrier节点目录
+* 创建节点运行目录，建议节点路径: \~/node/carrier/
+* 将carrier节点安装包拷贝至carrier节点目录
 
 #### 6.3 运行carrier节点
 
-##### 6.3.1 启动carrier节点
+**6.3.1 启动carrier节点**
 
 ```bash
 $ sudo dpkg -i ~/node/carrier/elastos-carrier-bootstrap-5.2.623351-linux-x86_64-Debug.deb
 ```
 
-##### 6.3.2 查看carrier节点状态
+**6.3.2 查看carrier节点状态**
 
 ```bash
 $ sudo systemctl status ela-bootstrapd
@@ -617,13 +607,13 @@ $ sudo systemctl status ela-bootstrapd
 
 如果carrier节点正常运行, 会有如下打印：
 
- **active (running)**.
+**active (running)**.
 
-##### 6.3.3 配置文件
+**6.3.3 配置文件**
 
 配置文件: /etc/elastos/bootstrapd.conf
 
-如果服务器无法获取到公网IP，则需要手动修改配置文件，将external_ip设置为真实的公网IP
+如果服务器无法获取到公网IP，则需要手动修改配置文件，将external\_ip设置为真实的公网IP
 
 ```
 turn = {

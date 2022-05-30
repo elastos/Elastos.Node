@@ -39,6 +39,6 @@ $ ~/node/node.sh status
 
 Now the initial **setup is complete**.
 
-For a more detailed setup and usage, please refer to [Elastos Supernode Guide](step-by-step-setup/).
+For a more detailed setup and usage, please refer to [Elastos Supernode Guide](step-by-step-setup.md).
 
 Any issues, please contact the blockchain Dev team.

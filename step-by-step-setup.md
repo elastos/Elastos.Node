@@ -1,4 +1,4 @@
-# 4. Step-by-Step Setup
+# Step-by-Step Setup
 
 ## 1. Install the script
 

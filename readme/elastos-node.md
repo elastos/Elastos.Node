@@ -2,7 +2,6 @@
 
 The Elastos blockchain consists of several components: the mainchain, multiple sidechains etc.
 
-\
 Elastos Networks
 
 * MainNet

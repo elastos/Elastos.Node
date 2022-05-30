@@ -1,0 +1,29 @@
+# Installing Elastos Arbiter
+
+```bash
+$ ~/node/node.sh arbiter init
+```
+
+```bash
+Finding the latest arbiter release...
+INFO: Latest version: v0.3.1
+Downloading https://download.elastos.io/elastos-arbiter/elastos-arbiter-v0.3.1/elastos-arbiter-v0.3.1-linux-x86_64.tgz...
+###################################################################### 100.0%
+Extracting elastos-arbiter-v0.3.1-linux-x86_64.tgz...
+'/home/ubuntu/node/.node-upload/arbiter/arbiter' -> '/home/ubuntu/node/arbiter/arbiter'
+Creating arbiter config file...
+Copying ela keystore...
+'/home/ubuntu/node/ela/keystore.dat' -> '/home/ubuntu/node/arbiter/keystore.dat'
+Updating arbiter config file...
+Generating random userpass for arbiter RPC interface...
+```
+
+Please enter an address to receive block rewards on the DID sidechain. Here you can enter an address of the ELA main chain copied from Essentials.
+
+```bash
+Please input an ELA address to receive awards.
+? PayToAddr: ......
+Updating arbiter config file...
+INFO: arbiter config file: /home/ubuntu/node/arbiter/config.json
+OK: arbiter initialized
+```

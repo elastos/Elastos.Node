@@ -1,4 +1,4 @@
-# Elastos Supernode Usage
+# Tarball Setup
 
 ## 1. 安装
 
@@ -158,4 +158,3 @@ TODO
 ### 3.3. Diagnostic
 
 TODO
-
