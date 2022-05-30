@@ -74,4 +74,4 @@ user@target-server $ echo $?
 user@target-server $ ~/node/node.sh
 ```
 
-For a more detailed setup and usage, please refer to [Elastos Supernode Guide](step-by-step-setup.md).
+For a more detailed setup and usage, please refer to [Elastos Supernode Guide](../step-by-step-setup.md).
