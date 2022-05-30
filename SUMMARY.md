@@ -25,7 +25,7 @@
   * [Stopping Programs](step-by-step-setup/stopping-programs.md)
   * [Updating Programs](step-by-step-setup/updating-programs.md)
 * [Appendix](appendix/README.md)
-  * [FAQ](faq.md)
+  * [FAQs](appendix/faqs.md)
   * [Troubleshooting](appendix/troubleshooting.md)
   * [API References](appendix/api-references.md)
   * [Binary Release](appendix/binary-release.md)
