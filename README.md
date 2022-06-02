@@ -10,6 +10,6 @@ Hello, please refer to the following docs to set up and run an [**Elastos node**
 * [_Manually Setup_](archives/manually-setup.md) _(Archived) - For the advanced user who wishes to know the very detail of the node_
 * __[_Build from the Source Code_](archives/elastos\_supernode\_build.md) _(Archived) - For the developer who wishes to build a node from the ground up_
 * __[_Security_](archives/security.md) _(Archived) - For the system administrator who manages the environment and the operation_
-* [_FAQ_](appendix/faq.md) _(WIP) - Frequently asked questions_
+* [_FAQ_](appendix/faq.md) _(WIP...) - Frequently asked questions_
 
 Welcome feedback!

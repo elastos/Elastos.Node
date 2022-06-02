@@ -1,4 +1,4 @@
-# Three-Steps Setup
+# Quick Setup
 
 ### 1. Download the automatic script
 
@@ -39,6 +39,11 @@ $ ~/node/node.sh status
 
 Now the initial **setup is complete**.
 
-For a more detailed setup and usage, please refer to [Elastos Supernode Guide](step-by-step-setup.md).
+For a more detailed setup and usage, please refer to [the longer edition](step-by-step-setup.md).
 
-Any issues, please contact the blockchain Dev team.
+What's next:
+
+* [See the status](step-by-step-setup/program-version-and-status.md)
+* [Use the client to connect](besides-setup/running-the-client.md)
+
+Any issues, please contact the blockchain Dev team via [Elastos Discord](https://discord.com/invite/Rcnz2pQkZS).

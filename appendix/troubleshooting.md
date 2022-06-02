@@ -1,8 +1,8 @@
 ---
-description: '[this page needs further fix and editing]'
+description: WIP...
 ---
 
-# Troubleshootings
+# Troubleshooting
 
 ### How to restore node synchronization?
 
@@ -11,6 +11,8 @@ The node cannot be started normally or is highly out of sync due to factors such
 1. Check if the node version is up to date
 2. Check if memory and hard disk are sufficient
 3. There may be data errors, you need to shut down the node and delete the data to resynchronize. Here is an example of deploying the script path rule
+
+**Warning: be extremely careful about deleting any files in your servers, especially if it is a business setup. Consult the developer if you are not sure and think twice before the operation.**
 
 *   ELA
 
