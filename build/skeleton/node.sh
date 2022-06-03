@@ -6,18 +6,18 @@
 echo_warn()
 {
     if [ -t 1 ]; then
-        echo -e "\033[1;33mWARNING:\033[0m $1"
+        echo -e "\033[1;33mWARNING:\033[0m $1" 1>&2
     else
-        echo "WARNING: $1"
+        echo "WARNING: $1" 1>&2
     fi
 }
 
 echo_error()
 {
     if [ -t 1 ]; then
-        echo -e "\033[1;31mERROR:\033[0m $1"
+        echo -e "\033[1;31mERROR:\033[0m $1" 1>&2
     else
-        echo "ERROR: $1"
+        echo "ERROR: $1" 1>&2
     fi
 }
 
@@ -111,7 +111,7 @@ mem_usage()
     fi
 
     if [ "$(uname -s)" == "Linux" ]; then
-        pmap $1 | tail -1 | sed 's/.* //'
+        pmap $1 | tail -1 | sed 's/.* //' | numfmt --from=iec --to=iec
     elif [ "$(uname -s)" == "Darwin" ]; then
         vmmap $1 | grep 'Physical footprint:' | sed 's/.* //'
     fi
@@ -123,15 +123,12 @@ disk_usage()
         return
     fi
 
-    du -sh $1 | sed 's/\t.*//'
+    du -sh $1 | sed 's/^ *//;s/\t.*$//'
 }
 
 status_head()
 {
-    if [ "$3" == "Running" ]; then
-        echo
-    fi
-
+    echo
     if [ -t 1 ]; then
         if [ "$3" == "Running" ]; then
             local FG_COLOR=2
@@ -199,6 +196,11 @@ gen_pass()
 compress_log()
 {
     if [ "$1" == "" ]; then
+        return
+    fi
+
+    ls "$1" 1>/dev/null 2>/dev/null
+    if [ "$?" != "0" ]; then
         return
     fi
 
@@ -346,50 +348,50 @@ chain_prepare_stage()
 #
 all_start()
 {
-    carrier_start
-    ela_start
-    did_start
-    esc_start
-    esc-oracle_start
-    eid_start
-    eid-oracle_start
-    arbiter_start
+    carrier_installed    && carrier_start
+    ela_installed        && ela_start
+    did_installed        && did_start
+    esc_installed        && esc_start
+    esc-oracle_installed && esc-oracle_start
+    eid_installed        && eid_start
+    eid-oracle_installed && eid-oracle_start
+    arbiter_installed    && arbiter_start
 }
 
 all_stop()
 {
-    arbiter_stop
-    eid-oracle_stop
-    eid_stop
-    esc-oracle_stop
-    esc_stop
-    did_stop
-    ela_stop
-    carrier_stop
+    arbiter_installed    && arbiter_stop
+    eid-oracle_installed && eid-oracle_stop
+    eid_installed        && eid_stop
+    esc-oracle_installed && esc-oracle_stop
+    esc_installed        && esc_stop
+    did_installed        && did_stop
+    ela_installed        && ela_stop
+    carrier_installed    && carrier_stop
 }
 
 all_status()
 {
-    ela_status
-    did_status
-    esc_status
-    esc-oracle_status
-    eid_status
-    eid-oracle_status
-    arbiter_status
-    carrier_status
+    ela_installed        && ela_status
+    did_installed        && did_status
+    esc_installed        && esc_status
+    esc-oracle_installed && esc-oracle_status
+    eid_installed        && eid_status
+    eid-oracle_installed && eid-oracle_status
+    arbiter_installed    && arbiter_status
+    carrier_installed    && carrier_status
 }
 
 all_upgrade()
 {
-    ela_upgrade
-    did_upgrade
-    esc_upgrade
-    esc-oracle_upgrade
-    eid_upgrade
-    eid-oracle_upgrade
-    arbiter_upgrade
-    carrier_upgrade
+    ela_installed        && ela_upgrade
+    did_installed        && did_upgrade
+    esc_installed        && esc_upgrade
+    esc-oracle_installed && esc-oracle_upgrade
+    eid_installed        && eid_upgrade
+    eid-oracle_installed && eid-oracle_upgrade
+    arbiter_installed    && arbiter_upgrade
+    carrier_installed    && carrier_upgrade
 }
 
 all_init()
@@ -406,13 +408,14 @@ all_init()
 
 all_compress_log()
 {
-    ela_compress_log
-    did_compress_log
-    esc_compress_log
-    esc-oracle_compress_log
-    eid_compress_log
-    eid-oracle_compress_log
-    arbiter_compress_log
+    ela_installed        && ela_compress_log
+    did_installed        && did_compress_log
+    esc_installed        && esc_compress_log
+    esc-oracle_installed && esc-oracle_compress_log
+    eid_installed        && eid_compress_log
+    eid-oracle_installed && eid-oracle_compress_log
+    arbiter_installed    && arbiter_compress_log
+
 }
 
 #
@@ -457,6 +460,15 @@ ela_stop()
     ela_status
 }
 
+ela_installed()
+{
+    if [ -f $SCRIPT_PATH/ela/ela ]; then
+        true
+    else
+        false
+    fi
+}
+
 ela_ver()
 {
     if [ -f $SCRIPT_PATH/ela/ela ]; then
@@ -464,6 +476,44 @@ ela_ver()
     else
         echo "ela N/A"
     fi
+}
+
+ela_client()
+{
+    if [ ! -f $SCRIPT_PATH/ela/ela-cli ]; then
+        return
+    fi
+
+    local ELA_RPC_USER=$(cat $SCRIPT_PATH/ela/config.json | \
+        jq -r '.Configuration.RpcConfiguration.User')
+    local ELA_RPC_PASS=$(cat $SCRIPT_PATH/ela/config.json | \
+        jq -r '.Configuration.RpcConfiguration.Pass')
+
+    local ELA_RPC_PORT=20336
+
+    local ELA_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $ELA_RPC_PORT \
+        --rpcuser $ELA_RPC_USER --rpcpassword $ELA_RPC_PASS"
+
+    $ELA_CLI $*
+}
+
+ela_jsonrpc()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    local ELA_RPC_USER=$(cat $SCRIPT_PATH/ela/config.json | \
+        jq -r '.Configuration.RpcConfiguration.User')
+    local ELA_RPC_PASS=$(cat $SCRIPT_PATH/ela/config.json | \
+        jq -r '.Configuration.RpcConfiguration.Pass')
+
+    local ELA_RPC_PORT=20336
+
+    curl -s -H 'Content-Type:application/json' \
+        -X POST --data $1 \
+        -u $ELA_RPC_USER:$ELA_RPC_PASS \
+        http://127.0.0.1:$ELA_RPC_PORT | jq
 }
 
 ela_status()
@@ -476,15 +526,6 @@ ela_status()
         return
     fi
 
-    local ELA_RPC_USER=$(cat $SCRIPT_PATH/ela/config.json | \
-        jq -r '.Configuration.RpcConfiguration.User')
-    local ELA_RPC_PASS=$(cat $SCRIPT_PATH/ela/config.json | \
-        jq -r '.Configuration.RpcConfiguration.Pass')
-
-    local ELA_RPC_PORT=20336
-    local ELA_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $ELA_RPC_PORT \
-        --rpcuser $ELA_RPC_USER --rpcpassword $ELA_RPC_PASS"
-
     local ELA_DISK_USAGE=$(disk_usage $SCRIPT_PATH/ela)
     local ELA_RAM=$(mem_usage $PID)
     local ELA_UPTIME=$(ps -oetime= -p $PID | trim)
@@ -492,11 +533,11 @@ ela_status()
     local ELA_TCP_LISTEN=$(list_tcp $PID)
     local ELA_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
-    local ELA_NUM_PEERS=$($ELA_CLI info getconnectioncount)
+    local ELA_NUM_PEERS=$(ela_client info getconnectioncount)
     if [[ ! "$ELA_NUM_PEERS" =~ ^[0-9]+$ ]]; then
         ELA_NUM_PEERS=0
     fi
-    local ELA_HEIGHT=$($ELA_CLI info getcurrentheight)
+    local ELA_HEIGHT=$(ela_client info getcurrentheight)
     if [[ ! "$ELA_HEIGHT" =~ ^[0-9]+$ ]]; then
         ELA_HEIGHT=N/A
     fi
@@ -699,6 +740,15 @@ did_stop()
     did_status
 }
 
+did_installed()
+{
+    if [ -f $SCRIPT_PATH/did/did ]; then
+        true
+    else
+        false
+    fi
+}
+
 did_ver()
 {
     if [ -f $SCRIPT_PATH/did/did ]; then
@@ -706,6 +756,44 @@ did_ver()
     else
         echo "did N/A"
     fi
+}
+
+did_client()
+{
+    if [ ! -f $SCRIPT_PATH/ela/ela-cli ]; then
+        return
+    fi
+
+    local DID_RPC_USER=$(cat $SCRIPT_PATH/did/config.json | \
+        jq -r '.RPCUser')
+    local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
+        jq -r '.RPCPass')
+
+    local DID_RPC_PORT=20606
+
+    local DID_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $DID_RPC_PORT \
+        --rpcuser $DID_RPC_USER --rpcpassword $DID_RPC_PASS"
+
+    $DID_CLI $*
+}
+
+did_jsonrpc()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    local DID_RPC_USER=$(cat $SCRIPT_PATH/did/config.json | \
+        jq -r '.RPCUser')
+    local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
+        jq -r '.RPCPass')
+
+    local DID_RPC_PORT=20606
+
+    curl -s -H 'Content-Type:application/json' \
+        -X POST --data $1 \
+        -u $DID_RPC_USER:$DID_RPC_PASS \
+        http://127.0.0.1:$DID_RPC_PORT | jq
 }
 
 did_status()
@@ -718,15 +806,6 @@ did_status()
         return
     fi
 
-    local DID_RPC_USER=$(cat $SCRIPT_PATH/did/config.json | \
-        jq -r '.RPCUser')
-    local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
-        jq -r '.RPCPass')
-
-    local DID_RPC_PORT=20606
-    local DID_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $DID_RPC_PORT \
-        --rpcuser $DID_RPC_USER --rpcpassword $DID_RPC_PASS"
-
     local DID_DISK_USAGE=$(disk_usage $SCRIPT_PATH/did)
     local DID_RAM=$(mem_usage $PID)
     local DID_UPTIME=$(ps -oetime= -p $PID | trim)
@@ -734,11 +813,11 @@ did_status()
     local DID_TCP_LISTEN=$(list_tcp $PID)
     local DID_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
-    local DID_NUM_PEERS=$($DID_CLI info getconnectioncount)
+    local DID_NUM_PEERS=$(did_client info getconnectioncount)
     if [[ ! "$DID_NUM_PEERS" =~ ^[0-9]+$ ]]; then
         DID_NUM_PEERS=0
     fi
-    local DID_HEIGHT=$($DID_CLI info getcurrentheight)
+    local DID_HEIGHT=$(did_client info getcurrentheight)
     if [[ ! "$DID_HEIGHT" =~ ^[0-9]+$ ]]; then
         DID_HEIGHT=N/A
     fi
@@ -943,6 +1022,15 @@ esc_stop()
     esc_status
 }
 
+esc_installed()
+{
+    if [ -f $SCRIPT_PATH/esc/esc ]; then
+        true
+    else
+        false
+    fi
+}
+
 esc_ver()
 {
     if [ -f $SCRIPT_PATH/esc/esc ]; then
@@ -950,6 +1038,16 @@ esc_ver()
     else
         echo "esc N/A"
     fi
+}
+
+esc_jsonrpc()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    curl -s -H 'Content-Type:application/json' -X POST --data $1 \
+        http://127.0.0.1:20636 | jq
 }
 
 esc_status()
@@ -970,16 +1068,16 @@ esc_status()
     local ESC_UDP_LISTEN=$(list_udp $PID)
     local ESC_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
-    local ESC_NUM_PEERS=$(curl -s -H 'Content-Type: application/json' \
-        -X POST --data '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
-        http://127.0.0.1:20636 | jq -r '.result')
+    local ESC_NUM_PEERS=$(esc_jsonrpc \
+        '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
+        | jq -r '.result')
     ESC_NUM_PEERS=$(($ESC_NUM_PEERS))
     if [[ ! "$ESC_NUM_PEERS" =~ ^[0-9]+$ ]]; then
         ESC_NUM_PEERS=0
     fi
-    local ESC_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
-        -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-        http://127.0.0.1:20636 | jq -r '.result')
+    local ESC_HEIGHT=$(esc_jsonrpc \
+        '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+        | jq -r '.result')
     ESC_HEIGHT=$(($ESC_HEIGHT))
     if [[ ! "$ESC_HEIGHT" =~ ^[0-9]+$ ]]; then
         ESC_HEIGHT=N/A
@@ -1154,6 +1252,15 @@ esc-oracle_stop()
         echo
     fi
     esc-oracle_status
+}
+
+esc-oracle_installed()
+{
+    if [ -f $SCRIPT_PATH/esc/esc-oracle/crosschain_oracle.js ]; then
+        true
+    else
+        false
+    fi
 }
 
 esc-oracle_ver()
@@ -1339,6 +1446,15 @@ eid_stop()
     eid_status
 }
 
+eid_installed()
+{
+    if [ -f $SCRIPT_PATH/eid/eid ]; then
+        true
+    else
+        false
+    fi
+}
+
 eid_ver()
 {
     if [ -f $SCRIPT_PATH/eid/eid ]; then
@@ -1346,6 +1462,16 @@ eid_ver()
     else
         echo "eid N/A"
     fi
+}
+
+eid_jsonrpc()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    curl -s -H 'Content-Type:application/json' -X POST --data $1 \
+        http://127.0.0.1:20646 | jq
 }
 
 eid_status()
@@ -1366,16 +1492,16 @@ eid_status()
     local EID_UDP_LISTEN=$(list_udp $PID)
     local EID_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
-    local EID_NUM_PEERS=$(curl -s -H 'Content-Type: application/json' \
-        -X POST --data '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
-        http://127.0.0.1:20646 | jq -r '.result')
+    local EID_NUM_PEERS=$(eid_jsonrpc \
+        '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
+        | jq -r '.result')
     EID_NUM_PEERS=$(($EID_NUM_PEERS))
     if [[ ! "$EID_NUM_PEERS" =~ ^[0-9]+$ ]]; then
         EID_NUM_PEERS=0
     fi
-    local EID_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
-        -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-        http://127.0.0.1:20646 | jq -r '.result')
+    local EID_HEIGHT=$(eid_jsonrpc \
+        '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+        | jq -r '.result')
     EID_HEIGHT=$(($EID_HEIGHT))
     if [[ ! "$EID_HEIGHT" =~ ^[0-9]+$ ]]; then
         EID_HEIGHT=N/A
@@ -1552,6 +1678,15 @@ eid-oracle_stop()
     eid-oracle_status
 }
 
+eid-oracle_installed()
+{
+    if [ -f $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js ]; then
+        true
+    else
+        false
+    fi
+}
+
 eid-oracle_ver()
 {
     if [ -f $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js ]; then
@@ -1710,6 +1845,15 @@ arbiter_stop()
     arbiter_status
 }
 
+arbiter_installed()
+{
+    if [ -f $SCRIPT_PATH/arbiter/arbiter ]; then
+        true
+    else
+        false
+    fi
+}
+
 arbiter_ver()
 {
     if [ -f $SCRIPT_PATH/arbiter/arbiter ]; then
@@ -1717,6 +1861,25 @@ arbiter_ver()
     else
         echo "arbiter N/A"
     fi
+}
+
+arbiter_jsonrpc()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    local ARBITER_RPC_USER=$(cat $SCRIPT_PATH/arbiter/config.json | \
+        jq -r '.Configuration.RpcConfiguration.User')
+    local ARBITER_RPC_PASS=$(cat $SCRIPT_PATH/arbiter/config.json | \
+        jq -r '.Configuration.RpcConfiguration.Pass')
+
+    local ARBITER_RPC_PORT=20536
+
+    curl -s -H 'Content-Type:application/json' \
+        -X POST --data $1 \
+        -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
+        http://127.0.0.1:$ARBITER_RPC_PORT | jq
 }
 
 arbiter_status()
@@ -1729,16 +1892,6 @@ arbiter_status()
         return
     fi
 
-    local ARBITER_RPC_USER=$(cat $SCRIPT_PATH/arbiter/config.json | \
-        jq -r '.Configuration.RpcConfiguration.User')
-    local ARBITER_RPC_PASS=$(cat $SCRIPT_PATH/arbiter/config.json | \
-        jq -r '.Configuration.RpcConfiguration.Pass')
-
-    local ARBITER_RPC_PORT=20536
-
-    local ARBITER_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $ARBITER_RPC_PORT \
-        --rpcuser $ARBITER_RPC_USER --rpcpassword $ARBITER_RPC_PASS"
-
     local ARBITER_DISK_USAGE=$(disk_usage $SCRIPT_PATH/arbiter)
     local ARBITER_RAM=$(mem_usage $PID)
     local ARBITER_UPTIME=$(ps -oetime= -p $PID | trim)
@@ -1746,37 +1899,31 @@ arbiter_status()
     local ARBITER_TCP_LISTEN=$(list_tcp $PID)
     local ARBITER_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
 
-    local ARBITER_SPV_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
-        -X POST --data '{"method":"getspvheight"}' \
-        -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
-        http://127.0.0.1:$ARBITER_RPC_PORT | jq -r '.result')
+    local ARBITER_SPV_HEIGHT=$(arbiter_jsonrpc '{"method":"getspvheight"}' | jq -r '.result')
     if [[ ! "$ARBITER_SPV_HEIGHT" =~ ^[0-9]+$ ]]; then
         ARBITER_SPV_HEIGHT=N/A
     fi
 
     local DID_GENESIS=56be936978c261b2e649d58dbfaf3f23d4a868274f5522cd2adb4308a955c4a3
-    local ARBITER_DID_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
-        -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$DID_GENESIS\"}}" \
-        -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
-        http://127.0.0.1:$ARBITER_RPC_PORT | jq -r '.result')
+    local ARBITER_DID_HEIGHT=$(arbiter_jsonrpc \
+        "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$DID_GENESIS\"}}" \
+        | jq -r '.result')
     if [[ ! "$ARBITER_DID_HEIGHT" =~ ^[0-9]+$ ]]; then
         ARBITER_DID_HEIGHT=N/A
     fi
 
     local ESC_GENESIS=6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a
-    local ARBITER_ESC_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
-        -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$ESC_GENESIS\"}}" \
-        -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
-        http://127.0.0.1:$ARBITER_RPC_PORT | jq -r '.result')
+    local ARBITER_ESC_HEIGHT=$(arbiter_jsonrpc \
+        "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$ESC_GENESIS\"}}" \
+        | jq -r '.result')
     if [[ ! "$ARBITER_ESC_HEIGHT" =~ ^[0-9]+$ ]]; then
         ARBITER_ESC_HEIGHT=N/A
     fi
 
     local EID_GENESIS=7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567
-    local ARBITER_EID_HEIGHT=$(curl -s -H 'Content-Type: application/json' \
-        -X POST --data "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$EID_GENESIS\"}}" \
-        -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
-        http://127.0.0.1:$ARBITER_RPC_PORT | jq -r '.result')
+    local ARBITER_EID_HEIGHT=$(arbiter_jsonrpc \
+        "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$EID_GENESIS\"}}" \
+        | jq -r '.result')
     if [[ ! "$ARBITER_EID_HEIGHT" =~ ^[0-9]+$ ]]; then
         ARBITER_EID_HEIGHT=N/A
     fi
@@ -2033,6 +2180,15 @@ carrier_stop()
     carrier_status
 }
 
+carrier_installed()
+{
+    if [ -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
+        true
+    else
+        false
+    fi
+}
+
 carrier_ver()
 {
     if [ -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
@@ -2222,27 +2378,24 @@ EOF
 usage()
 {
     echo "Usage: $SCRIPT_NAME [CHAIN] COMMAND [OPTIONS]"
-    echo "Manage Elastos Node ($SCRIPT_PATH) [mainnet]"
+    echo "Manage Elastos Node ($SCRIPT_PATH) [$CHAIN_TYPE]"
     echo
     echo "Available Chains:"
     echo
-    echo "  ela"
-    echo "  did"
-    echo "  esc"
-    echo "  esc-oracle"
-    echo "  eid"
-    echo "  eid-oracle"
-    echo "  arbiter"
-    echo "  carrier"
+    for i in $(grep "^[^ ]\+_ver(" $BASH_SOURCE | sed 's/(.*$//'); do
+    printf "  %-16s%s\n" $(${i})
+    done
     echo
     echo "Available Commands:"
     echo
-    echo "  start"
-    echo "  stop"
-    echo "  status"
-    echo "  upgrade [-y] [-n]"
-    echo "  init"
-    echo "  compress_log"
+    echo "  start           Start chain daemon"
+    echo "  stop            Stop chain daemon"
+    echo "  status          Print chain daemon status"
+    echo "  client          Run chain client"
+    echo "  jsonrpc         Call JSON-RPC API"
+    echo "  upgrade         Install or update chain"
+    echo "  init            Install and configure chain"
+    echo "  compress_log    Compress log files to save disk space"
     echo
 }
 
@@ -2253,6 +2406,7 @@ SCRIPT_PATH=$(cd $(dirname $BASH_SOURCE); pwd)
 SCRIPT_NAME=$(basename $BASH_SOURCE)
 
 check_env
+CHAIN_TYPE=mainnet
 
 if [ "$1" == "" ]; then
     usage
@@ -2294,6 +2448,8 @@ else
     elif [ "$2" != "start"   ] && \
          [ "$2" != "stop"    ] && \
          [ "$2" != "status"  ] && \
+         [ "$2" != "client"  ] && \
+         [ "$2" != "jsonrpc" ] && \
          [ "$2" != "upgrade" ] && \
          [ "$2" != "init"    ] && \
          [ "$2" != "compress_log" ]; then
