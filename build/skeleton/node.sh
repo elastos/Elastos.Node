@@ -101,7 +101,7 @@ extip()
 
 trim()
 {
-    sed -e 's/^[ \t]*//' -e 's/[ \t]*$//'
+    sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
 }
 
 mem_usage()
@@ -128,7 +128,6 @@ disk_usage()
 
 status_head()
 {
-    echo
     if [ -t 1 ]; then
         if [ "$3" == "Running" ]; then
             local FG_COLOR=2
@@ -296,9 +295,9 @@ chain_prepare_stage()
 
     if [ "$YES_TO_ALL" == "" ]; then
         local ANSWER
-        read -p "Proceed upgrade (No/Yes)? " ANSWER
+        read -p "Proceed update (No/Yes)? " ANSWER
         if [ "$ANSWER" != "Yes" ]; then
-            echo "Upgrading canceled"
+            echo "Updating canceled"
             return 3
         fi
     fi
@@ -384,14 +383,14 @@ all_status()
 
 all_upgrade()
 {
-    ela_installed        && ela_upgrade
-    did_installed        && did_upgrade
-    esc_installed        && esc_upgrade
-    esc-oracle_installed && esc-oracle_upgrade
-    eid_installed        && eid_upgrade
-    eid-oracle_installed && eid-oracle_upgrade
-    arbiter_installed    && arbiter_upgrade
-    carrier_installed    && carrier_upgrade
+    ela_installed        && ela_update
+    did_installed        && did_update
+    esc_installed        && esc_update
+    esc-oracle_installed && esc-oracle_update
+    eid_installed        && eid_update
+    eid-oracle_installed && eid-oracle_update
+    arbiter_installed    && arbiter_update
+    carrier_installed    && carrier_update
 }
 
 all_init()
@@ -520,13 +519,29 @@ ela_status()
 {
     local ELA_VER=$(ela_ver)
 
+    local ELA_DISK_USAGE=$(disk_usage $SCRIPT_PATH/ela)
+
+    if [ -f ~/.config/elastos/ela.txt ]; then
+        cd $SCRIPT_PATH/ela
+        local ELA_ADDRESS=$(cat ~/.config/elastos/ela.txt | \
+            ./ela-cli wallet account | sed -n '3 s/ .*$//p')
+        local ELA_PUB_KEY=$(cat ~/.config/elastos/ela.txt | \
+            ./ela-cli wallet account | sed -n '3 s/^.* //p')
+    else
+        local ELA_ADDRESS=N/A
+        local ELA_PUB_KEY=N/A
+    fi
+
     local PID=$(pgrep -x ela)
     if [ "$PID" == "" ]; then
-        status_head $ELA_VER Stopped
+        status_head $ELA_VER     Stopped
+        status_info "Disk"       "$ELA_DISK_USAGE"
+        status_info "Address"    "$ELA_ADDRESS"
+        status_info "Public Key" "$ELA_PUB_KEY"
+        echo
         return
     fi
 
-    local ELA_DISK_USAGE=$(disk_usage $SCRIPT_PATH/ela)
     local ELA_RAM=$(mem_usage $PID)
     local ELA_UPTIME=$(ps -oetime= -p $PID | trim)
     local ELA_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
@@ -543,15 +558,18 @@ ela_status()
     fi
 
     status_head $ELA_VER Running
-    status_info "Disk"      "$ELA_DISK_USAGE"
-    status_info "PID"       "$PID"
-    status_info "RAM"       "$ELA_RAM"
-    status_info "Uptime"    "$ELA_UPTIME"
-    status_info "#Files"    "$ELA_NUM_FILES"
-    status_info "TCP Ports" "$ELA_TCP_LISTEN"
-    status_info "#TCP"      "$ELA_NUM_TCPS"
-    status_info "#Peers"    "$ELA_NUM_PEERS"
-    status_info "Height"    "$ELA_HEIGHT"
+    status_info "Disk"       "$ELA_DISK_USAGE"
+    status_info "Address"    "$ELA_ADDRESS"
+    status_info "Public Key" "$ELA_PUB_KEY"
+    status_info "PID"        "$PID"
+    status_info "RAM"        "$ELA_RAM"
+    status_info "Uptime"     "$ELA_UPTIME"
+    status_info "#Files"     "$ELA_NUM_FILES"
+    status_info "TCP Ports"  "$ELA_TCP_LISTEN"
+    status_info "#TCP"       "$ELA_NUM_TCPS"
+    status_info "#Peers"     "$ELA_NUM_PEERS"
+    status_info "Height"     "$ELA_HEIGHT"
+    echo
 }
 
 ela_compress_log()
@@ -560,13 +578,13 @@ ela_compress_log()
     compress_log $SCRIPT_PATH/ela/elastos/logs/node
 }
 
-ela_upgrade()
+ela_update()
 {
     unset OPTIND
     while getopts "ny" OPTION; do
         case $OPTION in
             n)
-                local NO_START_AFTER_UPGRADE=1
+                local NO_START_AFTER_UPDATE=1
                 ;;
             y)
                 local YES_TO_ALL=1
@@ -594,7 +612,7 @@ ela_upgrade()
     # Start program, if 1 and 2
     # 1. ela was Running before the upgrade
     # 2. user prefer not start ela explicitly
-    if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         ela_start
     fi
 }
@@ -607,7 +625,7 @@ ela_init()
 
     if [ ! -f ${SCRIPT_PATH}/ela/ela ] || \
        [ ! -f ${SCRIPT_PATH}/ela/ela-cli ]; then
-        ela_upgrade -y
+        ela_update -y
     fi
 
     if [ -f ${SCRIPT_PATH}/ela/.init ]; then
@@ -800,13 +818,16 @@ did_status()
 {
     local DID_VER=$(did_ver)
 
+    local DID_DISK_USAGE=$(disk_usage $SCRIPT_PATH/did)
+
     local PID=$(pgrep -x did)
     if [ "$PID" == "" ]; then
         status_head $DID_VER Stopped
+        status_info "Disk" "$DID_DISK_USAGE"
+        echo
         return
     fi
 
-    local DID_DISK_USAGE=$(disk_usage $SCRIPT_PATH/did)
     local DID_RAM=$(mem_usage $PID)
     local DID_UPTIME=$(ps -oetime= -p $PID | trim)
     local DID_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
@@ -832,6 +853,7 @@ did_status()
     status_info "#TCP"      "$DID_NUM_TCPS"
     status_info "#Peers"    "$DID_NUM_PEERS"
     status_info "Height"    "$DID_HEIGHT"
+    echo
 }
 
 did_compress_log()
@@ -839,13 +861,13 @@ did_compress_log()
     compress_log $SCRIPT_PATH/did/elastos_did/logs
 }
 
-did_upgrade()
+did_update()
 {
     unset OPTIND
     while getopts "ny" OPTION; do
         case $OPTION in
             n)
-                local NO_START_AFTER_UPGRADE=1
+                local NO_START_AFTER_UPDATE=1
                 ;;
             y)
                 local YES_TO_ALL=1
@@ -869,7 +891,7 @@ did_upgrade()
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/did $DIR_DEPLOY/
 
-    if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         did_start
     fi
 }
@@ -879,7 +901,7 @@ did_init()
     local DID_CONFIG=${SCRIPT_PATH}/did/config.json
 
     if [ ! -f ${SCRIPT_PATH}/did/did ]; then
-        did_upgrade -y
+        did_update -y
     fi
 
     if [ -f ${SCRIPT_PATH}/did/.init ]; then
@@ -1054,13 +1076,16 @@ esc_status()
 {
     local ESC_VER=$(esc_ver)
 
+    local ESC_DISK_USAGE=$(disk_usage $SCRIPT_PATH/esc)
+
     local PID=$(pgrep -x esc)
     if [ "$PID" == "" ]; then
         status_head $ESC_VER Stopped
+        status_info "Disk" "$ESC_DISK_USAGE"
+        echo
         return
     fi
 
-    local ESC_DISK_USAGE=$(disk_usage $SCRIPT_PATH/esc)
     local ESC_RAM=$(mem_usage $PID)
     local ESC_UPTIME=$(ps -oetime= -p $PID | trim)
     local ESC_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
@@ -1094,6 +1119,7 @@ esc_status()
     status_info "UDP Ports" "$ESC_UDP_LISTEN"
     status_info "#Peers"    "$ESC_NUM_PEERS"
     status_info "Height"    "$ESC_HEIGHT"
+    echo
 }
 
 esc_compress_log()
@@ -1103,13 +1129,13 @@ esc_compress_log()
     compress_log $SCRIPT_PATH/esc/logs
 }
 
-esc_upgrade()
+esc_update()
 {
     unset OPTIND
     while getopts "ny" OPTION; do
         case $OPTION in
             n)
-                local NO_START_AFTER_UPGRADE=1
+                local NO_START_AFTER_UPDATE=1
                 ;;
             y)
                 local YES_TO_ALL=1
@@ -1134,7 +1160,7 @@ esc_upgrade()
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/esc $DIR_DEPLOY/
 
-    if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         esc_start
         esc-oracle_start
     fi
@@ -1151,7 +1177,7 @@ esc_init()
     local ESC_KEYSTORE_PASS_FILE=~/.config/elastos/esc.txt
 
     if [ ! -f ${SCRIPT_PATH}/esc/esc ]; then
-        esc_upgrade -y
+        esc_update -y
     fi
 
     if [ -f $SCRIPT_PATH/esc/.init ]; then
@@ -1213,8 +1239,8 @@ esc-oracle_start()
 {
     export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
 
-    if [ ! -f $SCRIPT_PATH/esc/esc-oracle/crosschain_oracle.js ]; then
-        echo "ERROR: $SCRIPT_PATH/esc/esc-oracle/crosschain_oracle.js is not exist"
+    if [ ! -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
+        echo "ERROR: $SCRIPT_PATH/esc-oracle/crosschain_oracle.js is not exist"
         return
     fi
 
@@ -1225,15 +1251,15 @@ esc-oracle_start()
     fi
 
     echo "Starting esc-oracle..."
-    cd $SCRIPT_PATH/esc/esc-oracle
-    mkdir -p $SCRIPT_PATH/esc/esc-oracle/logs
+    cd $SCRIPT_PATH/esc-oracle
+    mkdir -p $SCRIPT_PATH/esc-oracle/logs
 
     export env=mainnet
 
     echo "env: $env"
     nohup $SHELL -c "node crosschain_oracle.js \
-        2>$SCRIPT_PATH/esc/esc-oracle/logs/esc-oracle_err.log \
-        | rotatelogs $SCRIPT_PATH/esc/esc-oracle/logs/esc-oracle_out-%Y-%m-%d-%H_%M_%S.log 20M" &
+        2>$SCRIPT_PATH/esc-oracle/logs/esc-oracle_err.log \
+        | rotatelogs $SCRIPT_PATH/esc-oracle/logs/esc-oracle_out-%Y-%m-%d-%H_%M_%S.log 20M" &
 
     sleep 1
     esc-oracle_status
@@ -1256,7 +1282,7 @@ esc-oracle_stop()
 
 esc-oracle_installed()
 {
-    if [ -f $SCRIPT_PATH/esc/esc-oracle/crosschain_oracle.js ]; then
+    if [ -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
         true
     else
         false
@@ -1265,8 +1291,8 @@ esc-oracle_installed()
 
 esc-oracle_ver()
 {
-    if [ -f $SCRIPT_PATH/esc/esc-oracle/crosschain_oracle.js ]; then
-        echo "esc-oracle $(cat $SCRIPT_PATH/esc/esc-oracle/*.js | shasum | cut -c 1-7)"
+    if [ -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
+        echo "esc-oracle $(cat $SCRIPT_PATH/esc-oracle/*.js | shasum | cut -c 1-7)"
     else
         echo "esc-oracle N/A"
     fi
@@ -1276,13 +1302,16 @@ esc-oracle_status()
 {
     local ESC_ORACLE_VER=$(esc-oracle_ver)
 
+    local ESC_ORACLE_DISK_USAGE=$(disk_usage $SCRIPT_PATH/esc-oracle)
+
     local PID=$(pgrep -fx 'node crosschain_oracle.js')
     if [ "$PID" == "" ]; then
         status_head $ESC_ORACLE_VER Stopped
+        status_info "Disk" "$ESC_ORACLE_DISK_USAGE"
+        echo
         return
     fi
 
-    local ESC_ORACLE_DISK_USAGE=$(disk_usage $SCRIPT_PATH/esc/esc-oracle)
     local ESC_ORACLE_RAM=$(mem_usage $PID)
     local ESC_ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
     local ESC_ORACLE_TCP_LISTEN=$(list_tcp $PID)
@@ -1297,20 +1326,21 @@ esc-oracle_status()
     status_info "#Files"    "$ESC_ORACLE_NUM_FILES"
     status_info "TCP Ports" "$ESC_ORACLE_TCP_LISTEN"
     status_info "#TCP"      "$ESC_ORACLE_NUM_TCPS"
+    echo
 }
 
 esc-oracle_compress_log()
 {
-    compress_log $SCRIPT_PATH/esc/esc-oracle/logs/esc-oracle_out-\*.log
+    compress_log $SCRIPT_PATH/esc-oracle/logs/esc-oracle_out-\*.log
 }
 
-esc-oracle_upgrade()
+esc-oracle_update()
 {
     unset OPTIND
     while getopts "ny" OPTION; do
         case $OPTION in
             n)
-                local NO_START_AFTER_UPGRADE=1
+                local NO_START_AFTER_UPDATE=1
                 ;;
             y)
                 local YES_TO_ALL=1
@@ -1324,7 +1354,7 @@ esc-oracle_upgrade()
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/esc-oracle
-    local DIR_DEPLOY=$SCRIPT_PATH/esc/esc-oracle
+    local DIR_DEPLOY=$SCRIPT_PATH/esc-oracle
 
     local PID=$(pgrep -fx 'node crosschain_oracle.js')
     if [ $PID ]; then
@@ -1334,7 +1364,7 @@ esc-oracle_upgrade()
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/*.js $DIR_DEPLOY/
 
-    if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         esc-oracle_start
     fi
 }
@@ -1346,11 +1376,11 @@ esc-oracle_init()
         return
     fi
 
-    if [ ! -f $SCRIPT_PATH/esc/esc-oracle/crosschain_oracle.js ]; then
-        esc-oracle_upgrade -y
+    if [ ! -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
+        esc-oracle_update -y
     fi
 
-    if [ -f $SCRIPT_PATH/esc/esc-oracle/.init ]; then
+    if [ -f $SCRIPT_PATH/esc-oracle/.init ]; then
         echo_error "esc-oracle has already been initialized"
         return
     fi
@@ -1365,11 +1395,11 @@ esc-oracle_init()
 
     export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
 
-    mkdir -p $SCRIPT_PATH/esc/esc-oracle
-    cd $SCRIPT_PATH/esc/esc-oracle
+    mkdir -p $SCRIPT_PATH/esc-oracle
+    cd $SCRIPT_PATH/esc-oracle
     npm install web3 express
 
-    touch ${SCRIPT_PATH}/esc/esc-oracle/.init
+    touch ${SCRIPT_PATH}/esc-oracle/.init
     echo_ok "esc-oracle initialized"
     echo
 }
@@ -1478,13 +1508,16 @@ eid_status()
 {
     local EID_VER=$(eid_ver)
 
+    local EID_DISK_USAGE=$(disk_usage $SCRIPT_PATH/eid)
+
     local PID=$(pgrep -x eid)
     if [ "$PID" == "" ]; then
         status_head $EID_VER Stopped
+        status_info "Disk" "$EID_DISK_USAGE"
+        echo
         return
     fi
 
-    local EID_DISK_USAGE=$(disk_usage $SCRIPT_PATH/eid)
     local EID_RAM=$(mem_usage $PID)
     local EID_UPTIME=$(ps -oetime= -p $PID | trim)
     local EID_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
@@ -1518,6 +1551,7 @@ eid_status()
     status_info "UDP Ports" "$EID_UDP_LISTEN"
     status_info "#Peers"    "$EID_NUM_PEERS"
     status_info "Height"    "$EID_HEIGHT"
+    echo
 }
 
 eid_compress_log()
@@ -1527,13 +1561,13 @@ eid_compress_log()
     compress_log $SCRIPT_PATH/eid/logs
 }
 
-eid_upgrade()
+eid_update()
 {
     unset OPTIND
     while getopts "ny" OPTION; do
         case $OPTION in
             n)
-                local NO_START_AFTER_UPGRADE=1
+                local NO_START_AFTER_UPDATE=1
                 ;;
             y)
                 local YES_TO_ALL=1
@@ -1558,7 +1592,7 @@ eid_upgrade()
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/eid $DIR_DEPLOY/
 
-    if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         eid_start
         eid-oracle_start
     fi
@@ -1575,7 +1609,7 @@ eid_init()
     local EID_KEYSTORE_PASS_FILE=~/.config/elastos/eid.txt
 
     if [ ! -f ${SCRIPT_PATH}/eid/eid ]; then
-        eid_upgrade -y
+        eid_update -y
     fi
 
     if [ -f $SCRIPT_PATH/eid/.init ]; then
@@ -1637,8 +1671,8 @@ eid-oracle_start()
 {
     export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
 
-    if [ ! -f $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js ]; then
-        echo "ERROR: $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js is not exist"
+    if [ ! -f $SCRIPT_PATH/eid-oracle/crosschain_eid.js ]; then
+        echo "ERROR: $SCRIPT_PATH/eid-oracle/crosschain_eid.js is not exist"
         return
     fi
 
@@ -1649,15 +1683,15 @@ eid-oracle_start()
     fi
 
     echo "Starting eid-oracle..."
-    cd $SCRIPT_PATH/eid/eid-oracle
-    mkdir -p $SCRIPT_PATH/eid/eid-oracle/logs
+    cd $SCRIPT_PATH/eid-oracle
+    mkdir -p $SCRIPT_PATH/eid-oracle/logs
 
     export env=mainnet
 
     echo "env: $env"
     nohup $SHELL -c "node crosschain_eid.js \
-        2>$SCRIPT_PATH/eid/eid-oracle/logs/eid-oracle_err.log \
-        | rotatelogs $SCRIPT_PATH/eid/eid-oracle/logs/eid-oracle_out-%Y-%m-%d-%H_%M_%S.log 20M" &
+        2>$SCRIPT_PATH/eid-oracle/logs/eid-oracle_err.log \
+        | rotatelogs $SCRIPT_PATH/eid-oracle/logs/eid-oracle_out-%Y-%m-%d-%H_%M_%S.log 20M" &
 
     sleep 1
     eid-oracle_status
@@ -1680,7 +1714,7 @@ eid-oracle_stop()
 
 eid-oracle_installed()
 {
-    if [ -f $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js ]; then
+    if [ -f $SCRIPT_PATH/eid-oracle/crosschain_eid.js ]; then
         true
     else
         false
@@ -1689,8 +1723,8 @@ eid-oracle_installed()
 
 eid-oracle_ver()
 {
-    if [ -f $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js ]; then
-        echo "eid-oracle $(cat $SCRIPT_PATH/eid/eid-oracle/*.js | shasum | cut -c 1-7)"
+    if [ -f $SCRIPT_PATH/eid-oracle/crosschain_eid.js ]; then
+        echo "eid-oracle $(cat $SCRIPT_PATH/eid-oracle/*.js | shasum | cut -c 1-7)"
     else
         echo "eid-oracle N/A"
     fi
@@ -1700,13 +1734,16 @@ eid-oracle_status()
 {
     local EID_ORACLE_VER=$(eid-oracle_ver)
 
+    local EID_ORACLE_DISK_USAGE=$(disk_usage $SCRIPT_PATH/eid-oracle)
+
     local PID=$(pgrep -fx 'node crosschain_eid.js')
     if [ "$PID" == "" ]; then
         status_head $EID_ORACLE_VER Stopped
+        status_info "Disk" "$EID_ORACLE_DISK_USAGE"
+        echo
         return
     fi
 
-    local EID_ORACLE_DISK_USAGE=$(disk_usage $SCRIPT_PATH/eid/eid-oracle)
     local EID_ORACLE_RAM=$(mem_usage $PID)
     local EID_ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
     local EID_ORACLE_TCP_LISTEN=$(list_tcp $PID)
@@ -1721,20 +1758,21 @@ eid-oracle_status()
     status_info "#Files"    "$EID_ORACLE_NUM_FILES"
     status_info "TCP Ports" "$EID_ORACLE_TCP_LISTEN"
     status_info "#TCP"      "$EID_ORACLE_NUM_TCPS"
+    echo
 }
 
 eid-oracle_compress_log()
 {
-    compress_log $SCRIPT_PATH/eid/eid-oracle/logs/eid-oracle_out-\*.log
+    compress_log $SCRIPT_PATH/eid-oracle/logs/eid-oracle_out-\*.log
 }
 
-eid-oracle_upgrade()
+eid-oracle_update()
 {
     unset OPTIND
     while getopts "ny" OPTION; do
         case $OPTION in
             n)
-                local NO_START_AFTER_UPGRADE=1
+                local NO_START_AFTER_UPDATE=1
                 ;;
             y)
                 local YES_TO_ALL=1
@@ -1748,7 +1786,7 @@ eid-oracle_upgrade()
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/eid-oracle
-    local DIR_DEPLOY=$SCRIPT_PATH/eid/eid-oracle
+    local DIR_DEPLOY=$SCRIPT_PATH/eid-oracle
 
     local PID=$(pgrep -fx 'node crosschain_eid.js')
     if [ $PID ]; then
@@ -1758,7 +1796,7 @@ eid-oracle_upgrade()
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/*.js $DIR_DEPLOY/
 
-    if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         eid-oracle_start
     fi
 }
@@ -1770,11 +1808,11 @@ eid-oracle_init()
         return
     fi
 
-    if [ ! -f $SCRIPT_PATH/eid/eid-oracle/crosschain_eid.js ]; then
-        eid-oracle_upgrade -y
+    if [ ! -f $SCRIPT_PATH/eid-oracle/crosschain_eid.js ]; then
+        eid-oracle_update -y
     fi
 
-    if [ -f $SCRIPT_PATH/eid/eid-oracle/.init ]; then
+    if [ -f $SCRIPT_PATH/eid-oracle/.init ]; then
         echo_error "eid-oracle has already been initialized"
         return
     fi
@@ -1789,11 +1827,11 @@ eid-oracle_init()
 
     export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
 
-    mkdir -p $SCRIPT_PATH/eid/eid-oracle
-    cd $SCRIPT_PATH/eid/eid-oracle
+    mkdir -p $SCRIPT_PATH/eid-oracle
+    cd $SCRIPT_PATH/eid-oracle
     npm install web3 express
 
-    touch ${SCRIPT_PATH}/eid/eid-oracle/.init
+    touch ${SCRIPT_PATH}/eid-oracle/.init
     echo_ok "eid-oracle initialized"
     echo
 }
@@ -1886,13 +1924,16 @@ arbiter_status()
 {
     local ARBITER_VER=$(arbiter_ver)
 
+    local ARBITER_DISK_USAGE=$(disk_usage $SCRIPT_PATH/arbiter)
+
     local PID=$(pgrep -x arbiter)
     if [ "$PID" == "" ]; then
         status_head $ARBITER_VER Stopped
+        status_info "Disk" "$ARBITER_DISK_USAGE"
+        echo
         return
     fi
 
-    local ARBITER_DISK_USAGE=$(disk_usage $SCRIPT_PATH/arbiter)
     local ARBITER_RAM=$(mem_usage $PID)
     local ARBITER_UPTIME=$(ps -oetime= -p $PID | trim)
     local ARBITER_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
@@ -1940,6 +1981,7 @@ arbiter_status()
     status_info "DID Height" "$ARBITER_DID_HEIGHT"
     status_info "ESC Height" "$ARBITER_ESC_HEIGHT"
     status_info "EID Height" "$ARBITER_EID_HEIGHT"
+    echo
 }
 
 arbiter_compress_log()
@@ -1948,13 +1990,13 @@ arbiter_compress_log()
     compress_log $SCRIPT_PATH/arbiter/elastos_arbiter/logs/spv
 }
 
-arbiter_upgrade()
+arbiter_update()
 {
     unset OPTIND
     while getopts "ny" OPTION; do
         case $OPTION in
             n)
-                local NO_START_AFTER_UPGRADE=1
+                local NO_START_AFTER_UPDATE=1
                 ;;
             y)
                 local YES_TO_ALL=1
@@ -1978,7 +2020,7 @@ arbiter_upgrade()
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/arbiter $DIR_DEPLOY/
 
-    if [ $PID ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         arbiter_start
     fi
 }
@@ -1993,11 +2035,11 @@ arbiter_init()
         echo_error "did not initialized"
         return
     fi
-    if [ ! -f $SCRIPT_PATH/esc/esc-oracle/.init ]; then
+    if [ ! -f $SCRIPT_PATH/esc-oracle/.init ]; then
         echo_error "esc-oracle not initialized"
         return
     fi
-    if [ ! -f $SCRIPT_PATH/eid/eid-oracle/.init ]; then
+    if [ ! -f $SCRIPT_PATH/eid-oracle/.init ]; then
         echo_error "eid-oracle not initialized"
         return
     fi
@@ -2007,7 +2049,7 @@ arbiter_init()
     local ARBITER_CONFIG=${SCRIPT_PATH}/arbiter/config.json
 
     if [ ! -f ${SCRIPT_PATH}/arbiter/arbiter ]; then
-        arbiter_upgrade -y
+        arbiter_update -y
     fi
 
     if [ -f $SCRIPT_PATH/arbiter/.init ]; then
@@ -2202,14 +2244,17 @@ carrier_status()
 {
     local CARRIER_VER=$(carrier_ver)
 
+    local CARRIER_DISK_USAGE=$(disk_usage $SCRIPT_PATH/carrier)
+
     # the child process only
     local PID=$(pgrep -x -n ela-bootstrapd)
     if [ "$PID" == "" ]; then
         status_head $CARRIER_VER Stopped
+        status_info "Disk" "$CARRIER_DISK_USAGE"
+        echo
         return
     fi
 
-    local CARRIER_DISK_USAGE=$(disk_usage $SCRIPT_PATH/carrier)
     local CARRIER_RAM=$(pmap $PID | tail -1 | sed 's/.* //')
     local CARRIER_UPTIME=$(ps --pid $PID -oetime:1=)
     local CARRIER_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l)
@@ -2226,15 +2271,16 @@ carrier_status()
     status_info "TCP Ports" "$CARRIER_TCP_LISTEN"
     status_info "#TCP"      "$CARRIER_NUM_TCPS"
     status_info "UDP Ports" "$CARRIER_UDP_LISTEN"
+    echo
 }
 
-carrier_upgrade()
+carrier_update()
 {
     unset OPTIND
     while getopts "ny" OPTION; do
         case $OPTION in
             n)
-                local NO_START_AFTER_UPGRADE=1
+                local NO_START_AFTER_UPDATE=1
                 ;;
             y)
                 local YES_TO_ALL=1
@@ -2259,7 +2305,7 @@ carrier_upgrade()
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/usr/bin/ela-bootstrapd $DIR_DEPLOY/
 
-    if [ "$PID" ] && [ "$NO_START_AFTER_UPGRADE" == "" ]; then
+    if [ "$PID" ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         carrier_start
     fi
 }
@@ -2269,7 +2315,7 @@ carrier_init()
     local CARRIER_CONFIG=${SCRIPT_PATH}/carrier/bootstrapd.conf
 
     if [ ! -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
-        carrier_upgrade -y
+        carrier_update -y
     fi
 
     if [ -f ${SCRIPT_PATH}/carrier/.init ]; then
@@ -2393,7 +2439,7 @@ usage()
     echo "  status          Print chain daemon status"
     echo "  client          Run chain client"
     echo "  jsonrpc         Call JSON-RPC API"
-    echo "  upgrade         Install or update chain"
+    echo "  update          Install or update chain"
     echo "  init            Install and configure chain"
     echo "  compress_log    Compress log files to save disk space"
     echo
@@ -2422,10 +2468,16 @@ if [ "$1" == "init"    ] || \
    [ "$1" == "start"   ] || \
    [ "$1" == "stop"    ] || \
    [ "$1" == "status"  ] || \
-   [ "$1" == "upgrade" ] || \
+   [ "$1" == "update"  ] || [ "$1" == "upgrade" ] || \
    [ "$1" == "compress_log" ]; then
     # operate on all chains
-    all_$1
+    COMMAND=$1
+    # command aliases
+    if [ "$COMMAND" == "upgrade" ]; then
+        COMMAND=update
+    fi
+
+    all_$COMMAND
 else
     # operate on a single chain
 
@@ -2443,20 +2495,25 @@ else
     CHAIN_NAME=$1
 
     if [ "$2" == "" ]; then
-        echo "ERROR: no command specified"
-        exit
-    elif [ "$2" != "start"   ] && \
-         [ "$2" != "stop"    ] && \
-         [ "$2" != "status"  ] && \
-         [ "$2" != "client"  ] && \
-         [ "$2" != "jsonrpc" ] && \
-         [ "$2" != "upgrade" ] && \
-         [ "$2" != "init"    ] && \
-         [ "$2" != "compress_log" ]; then
+        # no command specified
+        COMMAND=status
+    elif [ "$2" == "start"   ] || \
+         [ "$2" == "stop"    ] || \
+         [ "$2" == "status"  ] || \
+         [ "$2" == "client"  ] || \
+         [ "$2" == "jsonrpc" ] || \
+         [ "$2" == "update"  ] || [ "$2" == "upgrade" ] || \
+         [ "$2" == "init"    ] || \
+         [ "$2" == "compress_log" ]; then
+        COMMAND=$2
+    else
         echo "ERROR: do not support command: $2"
         exit
     fi
-    COMMAND=$2
+    # command aliases
+    if [ "$COMMAND" == "upgrade" ]; then
+        COMMAND=update
+    fi
 
     shift 2
 
