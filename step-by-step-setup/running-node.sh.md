@@ -14,27 +14,33 @@ Manage Elastos Node (/home/ubuntu/node) [mainnet]
 
 Available Chains:
 
-  ela
-  did
-  esc
-  esc-oracle
-  eid
-  eid-oracle
-  arbiter
-  carrier
+  ela             N/A
+  did             N/A
+  esc             N/A
+  esc-oracle      N/A
+  eid             N/A
+  eid-oracle      N/A
+  arbiter         N/A
+  carrier         N/A
 
 Available Commands:
 
-  start
-  stop
-  status
-  upgrade [-y] [-n]
-  init
-  compress_log
+  start           Start chain daemon
+  stop            Stop chain daemon
+  status          Print chain daemon status
+  client          Run chain client
+  jsonrpc         Call JSON-RPC API
+  update          Install or update chain
+  init            Install and configure chain
+  compress_log    Compress log files to save disk space
 ```
 
-The first argument **CHAIN** specifies the chain (program) name, and the second one, **COMMAND** specifies the action to perform.
+Currently, the only supported Elastos network is MainNet.
+
+The first argument **CHAIN** specifies the chain (program) name.
+
+The second one, **COMMAND** specifies the action to perform.
+
+The N/A means a chain has not been installed.
 
 Please be notified that the CHAIN argument is optional. If it is absent, all chains will be issued COMMAND.
-
-Currently, the only supported Elastos network is MainNet.

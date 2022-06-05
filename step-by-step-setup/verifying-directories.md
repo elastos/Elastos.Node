@@ -10,7 +10,7 @@ $ sudo apt-get install -y tree
 Currently, if all things work well, we have the following directory.
 
 ```bash
-$ tree -L 3 ~/node
+$ tree -L 2 ~/node
 ~/node                              # root
 ├── arbiter                         # arbiter folder
 │   ├── arbiter                     # arbiter program
@@ -32,8 +32,10 @@ $ tree -L 3 ~/node
 ├── eid                             # eid folder
 │   ├── data                        # running data and logs (*)
 │   ├── eid                         # daemon and client program
-│   ├── eid-oracle                  # eid-oracle folder
 │   └── logs                        # log files (*)
+│
+├── eid-oracle                      # eid-oracle folder
+│   └── *.js
 │
 ├── ela                             # ela folder
 │   ├── config.json                 # config file
@@ -45,8 +47,10 @@ $ tree -L 3 ~/node
 ├── esc                             # esc folder
 │   ├── data                        # running data and logs (*)
 │   ├── esc                         # daemon and client program
-│   ├── esc-oracle                  # esc-oracle folder
 │   └── logs                        # log files (*)
+│
+├── esc-oracle                      # esc-oracle folder
+│   └── *.js
 │
 ├── extern
 │   └── node-v14.17.0-linux-x64     # nodejs required by esc-oracle and eid-oracle

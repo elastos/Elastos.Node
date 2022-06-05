@@ -27,17 +27,19 @@ TCP Ports:  IPv4_*:20338 IPv6_*:20338 IPv4_*:20339 IPv6_*:20339 IPv4_*:20336
 Height:     173154
 ```
 
-| Status Item | Description                               |
-| ----------- | ----------------------------------------- |
-| Disk        | The disk usage in human-readable format   |
-| PID         | Process id                                |
-| RAM         | The memory usage in human-readable format |
-| Uptime      | How long the program has been running     |
-| #Files      | How many file descriptors opened          |
-| TCP Ports   | The TCP ports listened                    |
-| #TCP        | How to many tcp connections               |
-| #Peers      | How many peers connected                  |
-| Height      | The height of the chain                   |
+| Status Item | Description                                         |
+| ----------- | --------------------------------------------------- |
+| Disk        | The disk usage in human-readable format             |
+| PID         | Process id                                          |
+| RAM         | The memory usage in human-readable format           |
+| Uptime      | How long the program has been running               |
+| #Files      | How many file descriptors opened                    |
+| TCP Ports   | The TCP ports listened                              |
+| #TCP        | How to many tcp connections                         |
+| #Peers      | How many peers connected                            |
+| Height      | The height of the chain                             |
+| Address     | The ELA address of the first account in keystore    |
+| Public Key  | The ELA public key of the first account in keystore |
 
 Please note that not all chains/programs have the same set of Status Items. For example, if some programs don't open a TCP port, its status output will not have TCP-related metrics. If some program is not a chain, for example, ESC-Oracle, the status will not have Peer and Height related.
 

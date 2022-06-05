@@ -8,7 +8,9 @@ The **compress\_log** will gzip the old log files to save disk space. It will no
 
 ```
 $ ./node/node.sh esc compress_log
-[ ... the output ... ]
+Compressing log files in /home/ubuntu/node/esc/data/geth/logs/dpos...
+Compressing log files in /home/ubuntu/node/esc/data/logs-spv...
+Compressing log files in /home/ubuntu/node/esc/logs...
 ```
 
 If **compress\_log** without specifying chain name, it will do gzip to log files of the installed chains.

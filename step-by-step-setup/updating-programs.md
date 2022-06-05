@@ -1,11 +1,11 @@
 # Updating Programs
 
-### Upgrading a single program
+### Updating a single program
 
-We can **upgrade a single program** (chain). For example, to upgrade Elastos ELA, please run the following command.
+We can **update a single program** (chain). For example, to update Elastos ELA, please run the following command.
 
 ```bash
-$ ~/node/node.sh ela upgrade
+$ ~/node/node.sh ela update
 ```
 
 Step 1: The script will contact the [download server](https://download.elastos.io/elastos-ela/) to find the **latest version**.
@@ -18,7 +18,7 @@ INFO: Latest version: v0.8.3
 Step 2: If you wish to continue, please answer the case-sensitive **Yes**. Any other answers will cancel the operation.
 
 ```bash
-Proceed upgrade (No/Yes)? Yes
+Proceed update (No/Yes)? Yes
 Downloading https://download.elastos.io/elastos-ela/elastos-ela-v0.8.3/elastos-ela-v0.8.3-linux-x86_64.tgz...
 ###################################################################### 100.0%
 Extracting elastos-ela-v0.8.3-linux-x86_64.tgz...
@@ -54,4 +54,4 @@ TCP Ports:  IPv4_*:20338 IPv6_*:20338 IPv4_*:20339 IPv6_*:20339 IPv4_*:20336
 Height:     18313
 ```
 
-Please check the **version** to make sure of a successful program upgrade.
+Please check the **version** to make sure of a successful program update.
