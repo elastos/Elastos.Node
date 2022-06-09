@@ -22,4 +22,4 @@ node.sh supports:
 
 * **Operating System**: Ubuntu Linux x86\_64 18.04 or higher
 * **Elastos Network**: MainNet (will add TestNet support, if developers think this script is useful)
-* ****[**Chains**](overview/programs-supported-by-node.sh.md): Elastos main chain, sidechains, the arbitrator
+* [**Chains**](overview/programs-supported-by-node.sh.md): Elastos main chain, sidechains, the arbitrator

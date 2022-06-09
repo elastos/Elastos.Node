@@ -1,7 +1,3 @@
----
-description: WIP...
----
-
 # Alternative Updating Script
 
-[Node Upgrade Script](https://github.com/elastos/Elastos.ELA.MiscTools)
+[Elastos.ELA.MiscTools](https://github.com/elastos/Elastos.ELA.MiscTools)
