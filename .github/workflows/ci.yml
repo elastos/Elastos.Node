@@ -13,4 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: build
-        run: uname -a
+        run: |
+          cd build
+          ./build.sh master master master master master master master
