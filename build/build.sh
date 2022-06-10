@@ -1,61 +1,23 @@
 #!/bin/bash
 
-setenv()
+chkenv()
 {
     local OS_VER="$(lsb_release -s -i 2>/dev/null)"
     local OS_VER="${OS_VER}_$(lsb_release -s -r 2>/dev/null)"
 
     if [ "$(uname -sm)" != "Linux x86_64" ]; then
-        echo "ERROR: this script requires Ubuntu 16.04 (x86_64) or higher"
+        echo "ERROR: this script requires Ubuntu 18.04 (x86_64) or higher"
         exit
     fi
 
     if [ "$OS_VER" \< "Ubuntu_16.04" ]; then
-        echo "ERROR: this script requires Ubuntu 16.04 (x86_64) or higher"
+        echo "ERROR: this script requires Ubuntu 18.04 (x86_64) or higher"
         exit
     fi
+}
 
-    #
-    # Setup Go Lang
-    #
-    if [ ! -d $DEV_ROOT/build/go ]; then
-        local GO_TGZ_URL=https://dl.google.com/go/go1.13.8.linux-amd64.tar.gz
-        local GO_TGZ_SHA256=0567734d558aef19112f2b2873caa0c600f1b4a5827930eb5a7f35235219e9d8
-        local GO_TGZ=${GO_TGZ_URL##*/}
-
-        cd $DEV_ROOT/build
-        echo "Downloading $GO_TGZ..."
-        curl -O# $GO_TGZ_URL
-        if [ "$?" != "0" ]; then
-            echo "ERROR: failed to download"
-            exit
-        fi
-        if [ "$(shasum -a 256 $GO_TGZ | sed 's/ .*//')" != "$GO_TGZ_SHA256" ]; then
-            echo "ERROR: malformed package"
-            exit
-        fi
-        echo "Expanding $GO_TGZ..."
-        tar xf $GO_TGZ
-        if [ "$?" != "0" ]; then
-            echo "ERROR: failed to extract"
-            exit
-        fi
-    fi
-
-    export GOROOT=$DEV_ROOT/build/go
-    export PATH=$GOROOT/bin:$PATH
-    export GOPATH=$DEV_ROOT
-
-    local GO_VERSION=$(go version 2>/dev/null)
-    if [ "$GO_VERSION" == "go version go1.13.8 linux/amd64" ]; then
-        echo "INFO: found $GO_VERSION"
-    elif [ "$GO_VERSION" == "go version go1.13.8 darwin/amd64" ]; then
-        echo "INFO: found $GO_VERSION"
-    else
-        echo "ERROR: no proper go"
-        exit
-    fi
-
+setenv_carrier()
+{
     # Ref: https://github.com/elastos/Elastos.NET.Carrier.Bootstrap/blob/master/README.md
     local CARRIER_DEPS="build-essential autoconf automake autopoint \
         libtool bison texinfo pkg-config cmake"
@@ -66,6 +28,60 @@ setenv()
             sudo apt-get install -yq $i
         fi
     done
+}
+
+setenv_go()
+{
+    if [ "$1" != "1.13.8" ] && \
+       [ "$1" != "1.16.5" ]; then
+        return
+    fi
+
+    local GO_VER=$1
+
+    export GOROOT=$DEV_ROOT/build/go$GO_VER.linux-amd64
+
+    if [ ! -d $GOROOT ]; then
+        local GO_TGZ_URL=https://dl.google.com/go/go$GO_VER.linux-amd64.tar.gz
+        if [ "$GO_VER" == "1.13.8" ]; then
+            local GO_TGZ_SHA256=0567734d558aef19112f2b2873caa0c600f1b4a5827930eb5a7f35235219e9d8
+        elif [ "$GO_VER" == "1.16.5" ]; then
+            local GO_TGZ_SHA256=b12c23023b68de22f74c0524f10b753e7b08b1504cb7e417eccebdd3fae49061
+        fi
+        local GO_TGZ=${GO_TGZ_URL##*/}
+
+        cd $DEV_ROOT/build
+        echo "Downloading $GO_TGZ..."
+        curl -O# $GO_TGZ_URL
+        if [ "$?" != "0" ]; then
+            echo "ERROR: failed to download"
+            exit
+        fi
+
+        if [ "$(shasum -a 256 $GO_TGZ | sed 's/ .*//')" != "$GO_TGZ_SHA256" ]; then
+            echo "ERROR: malformed package"
+            exit
+        fi
+
+        echo "Expanding $GO_TGZ..."
+        mkdir -pv $GOROOT
+        tar xf $GO_TGZ --strip=1 -C $GOROOT
+        if [ "$?" != "0" ]; then
+            echo "ERROR: failed to extract"
+            exit
+        fi
+    fi
+
+    export PATH=$GOROOT/bin:$PATH
+    export GOPATH=$DEV_ROOT
+
+    local GO_VERSION_OUTPUT=$(go version 2>/dev/null)
+    if [ "$(go version 2>/dev/null)" == "go version go$GO_VER linux/amd64" ]; then
+        echo "INFO: found $GO_VERSION_OUTPUT"
+    else
+        echo "ERROR: no proper go"
+        exit
+    fi
 }
 
 commit_id()
@@ -81,79 +97,94 @@ commit_id()
     echo ${BRANCH_TAG_NAME}-${COMMIT_ID}${DIRTY}
 }
 
+git_clean_up()
+{
+    if [ "$1" == "" ]; then
+        local BRANCH_NAME=master
+    fi
+
+    git clean -fdx
+    git checkout .
+    git checkout master
+    git pull
+    git checkout $BRANCH_NAME
+    git pull
+    git status --ignored
+}
+
 build_ela()
 {
     if [ "$1" == "" ]; then
-        echo "Usage: ${FUNCNAME[0]} Branch|Commit"
+        echo "Usage: ${FUNCNAME[0]} Branch|Commit|Tag"
         echo "Build ela"
         return
     fi
 
     local BRANCH_NAME=$1
 
+    local PATH_OLD=$PATH
+    setenv_go 1.13.8
+
     echo "Building ela..."
 
     if [ ! -d $DEV_ROOT/src/github.com/elastos/Elastos.ELA ]; then
         mkdir -p $DEV_ROOT/src/github.com/elastos
         cd $DEV_ROOT/src/github.com/elastos
-        git clone https://github.com/elastos/Elastos.ELA
+        git clone https://github.com/elastos/Elastos.ELA.git
     fi
 
     echo "Syncing..."
     cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA
-    git clean -fdx
-    git checkout master
-    git pull
-    git checkout $BRANCH_NAME
-    git pull
-    git status --ignored
+    git_clean_up $BRANCH_NAME
     echo "ela: $(commit_id)" >commit.txt
 
     echo "Compiling..."
     make
+    export PATH=$PATH_OLD
 }
 
 build_did()
 {
     if [ "$1" == "" ]; then
-        echo "Usage: ${FUNCNAME[0]} Branch|Commit"
+        echo "Usage: ${FUNCNAME[0]} Branch|Commit|Tag"
         echo "Build did"
         return
     fi
 
     local BRANCH_NAME=$1
 
+    local PATH_OLD=$PATH
+    setenv_go 1.13.8
+
     echo "Building did..."
 
     if [ ! -d $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ID ]; then
         mkdir -p $DEV_ROOT/src/github.com/elastos
         cd $DEV_ROOT/src/github.com/elastos
-        git clone https://github.com/elastos/Elastos.ELA.SideChain.ID
+        git clone https://github.com/elastos/Elastos.ELA.SideChain.ID.git
     fi
 
     echo "Syncing..."
     cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ID
-    git clean -fdx
-    git checkout master
-    git pull
-    git checkout $BRANCH_NAME
-    git pull
-    git status --ignored
+    git_clean_up $BRANCH_NAME
     echo "did: $(commit_id)" >commit.txt
 
     echo "Compiling..."
     make
+    export PATH=$PATH_OLD
 }
 
 build_carrier()
 {
     if [ "$1" == "" ]; then
-        echo "Usage: ${FUNCNAME[0]} Branch|Commit"
+        echo "Usage: ${FUNCNAME[0]} Branch|Commit|Tag"
         echo "Build carrier"
         return
     fi
 
     local BRANCH_NAME=$1
+
+    setenv_carrier
 
     echo "Building carrier..."
 
@@ -165,12 +196,7 @@ build_carrier()
 
     echo "Syncing..."
     cd $DEV_ROOT/src/github.com/elastos/Elastos.NET.Carrier.Bootstrap
-    git clean -fdx
-    git checkout master
-    git pull
-    git checkout $BRANCH_NAME
-    git pull
-    git status --ignored
+    git_clean_up $BRANCH_NAME
     echo "carrier: $(commit_id)" >commit.txt
 
     cd $DEV_ROOT/src/github.com/elastos/Elastos.NET.Carrier.Bootstrap/build
@@ -184,10 +210,14 @@ build_esc()
 {
     if [ "$1" == "" ]; then
         echo "Usage: ${FUNCNAME[0]} Branch|Commit|Tag"
+        echo "Build esc"
         return
     fi
 
     local BRANCH_NAME=$1
+
+    local PATH_OLD=$PATH
+    setenv_go 1.16.5
 
     echo "Building esc..."
 
@@ -200,17 +230,15 @@ build_esc()
 
     echo "Syncing..."
     cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC
-    git clean -fdx
-    git checkout .
-    git checkout master
-    git pull
-    git checkout $BRANCH_NAME
-    git pull
-    git status --ignored
+    git_clean_up $BRANCH_NAME
     echo "esc: $(commit_id)" >commit.txt
 
     echo "Compiling..."
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC
+    export GO111MODULE=off
     make all
+    unset GO111MODULE
+    export PATH=$PATH_OLD
 
     cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC/build/bin
     cp -v geth esc
@@ -221,10 +249,14 @@ build_eid()
 {
     if [ "$1" == "" ]; then
         echo "Usage: ${FUNCNAME[0]} Branch|Commit|Tag"
+        echo "Build eid"
         return
     fi
 
     local BRANCH_NAME=$1
+
+    local PATH_OLD=$PATH
+    setenv_go 1.16.5
 
     echo "Building eid..."
 
@@ -237,17 +269,14 @@ build_eid()
 
     echo "Syncing..."
     cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID
-    git clean -fdx
-    git checkout .
-    git checkout master
-    git pull
-    git checkout $BRANCH_NAME
-    git pull
-    git status --ignored
+    git_clean_up $BRANCH_NAME
     echo "eid: $(commit_id)" >commit.txt
 
     echo "Compiling..."
+    export GO111MODULE=off
     make all
+    unset GO111MODULE
+    export PATH=$PATH_OLD
 
     cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID/build/bin
     cp -v geth eid
@@ -258,10 +287,14 @@ build_arbiter()
 {
     if [ "$1" == "" ]; then
         echo "Usage: ${FUNCNAME[0]} Branch|Commit|Tag"
+        echo "Build arbiter"
         return
     fi
 
     local BRANCH_NAME=$1
+
+    local PATH_OLD=$PATH
+    setenv_go 1.13.8
 
     echo "Building arbiter..."
 
@@ -273,17 +306,12 @@ build_arbiter()
 
     echo "Syncing..."
     cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.Arbiter
-    git clean -fdx
-    git checkout .
-    git checkout master
-    git pull
-    git checkout $BRANCH_NAME
-    git pull
-    git status --ignored
+    git_clean_up $BRANCH_NAME
     echo "arbiter: $(commit_id)" >commit.txt
 
     echo "Compiling..."
     make
+    export PATH=$PATH_OLD
 }
 
 pack()
@@ -291,13 +319,13 @@ pack()
     local BUILD_ID=$(TZ=Asia/Shanghai date '+%Y%m%d-%H%M%S')
 
     local RELEASE_DATE=$(TZ=Asia/Shanghai date '+%Y%m%d')
-    local RELEASE_PLATFORM=$(uname -s)-$(uname -m)
+    local RELEASE_PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)
     # alpha, beta, stable
     local RELEASE_TYPE=alpha
     local RELEASE_VER=${RELEASE_DATE}-${RELEASE_PLATFORM}-${RELEASE_TYPE}
     local RELEASE_DIR=$DEV_ROOT/release/$RELEASE_PLATFORM/$BUILD_ID
 
-    local TGZ=${RELEASE_DIR}/elastos-supernode-${RELEASE_VER}.tgz
+    local TGZ=${RELEASE_DIR}/elastos-node-${RELEASE_VER}.tgz
     local TGZ_DIGEST=${TGZ}.digest
 
     if false; then
@@ -323,34 +351,70 @@ pack()
 
     echo "Copying skeleton..."
     cp -a $DEV_ROOT/build/skeleton $RELEASE_DIR/node
+
     mkdir -p $RELEASE_DIR/node/carrier/
     mkdir -p $RELEASE_DIR/node/ela/
     mkdir -p $RELEASE_DIR/node/did/
     mkdir -p $RELEASE_DIR/node/esc/
+    mkdir -p $RELEASE_DIR/node/esc-oracle/
     mkdir -p $RELEASE_DIR/node/eid/
+    mkdir -p $RELEASE_DIR/node/eid-oracle/
     mkdir -p $RELEASE_DIR/node/arbiter/
 
     echo "Copying binaries..."
-    cp -v $DEV_ROOT/src/github.com/elastos/Elastos.NET.Carrier.Bootstrap/build/linux/src/ela-bootstrapd \
-        $RELEASE_DIR/node/carrier/
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.NET.Carrier.Bootstrap/build/linux/src
+    cp -v ela-bootstrapd $RELEASE_DIR/node/carrier/
 
-    cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA/ela \
-        $RELEASE_DIR/node/ela/
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA
+    cp -v ela     $RELEASE_DIR/node/ela/
+    cp -v ela-cli $RELEASE_DIR/node/ela/
 
-    cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA/ela-cli \
-        $RELEASE_DIR/node/ela/
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ID
+    cp -v did $RELEASE_DIR/node/did/
 
-    cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ID/did \
-        $RELEASE_DIR/node/did/
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC/build/bin
+    cp -v esc $RELEASE_DIR/node/esc/
 
-    cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC/build/bin/esc \
-        $RELEASE_DIR/node/esc/
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.ESC/oracle
+    cp -v \
+        checkillegalevidence.js \
+        common.js \
+        crosschain_oracle.js \
+        ctrt.js \
+        faileddeposittransactions.js \
+        frozen_account.js \
+        getblklogs.js \
+        getblknum.js \
+        getexisttxs.js \
+        getfaileddeposittransactionbyhash.js \
+        getillegalevidencebyheight.js \
+        gettxinfo.js \
+        processedinvalidwithdrawtx.js \
+        receivedInvaliedwithrawtx.js \
+        sendrechargetransaction.js \
+        smallcrosschaintransaction.js \
+        $RELEASE_DIR/node/esc-oracle/
 
-    cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID/build/bin/eid \
-        $RELEASE_DIR/node/eid/
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID/build/bin
+    cp -v eid $RELEASE_DIR/node/eid/
 
-    cp -v $DEV_ROOT/src/github.com/elastos/Elastos.ELA.Arbiter/arbiter \
-        $RELEASE_DIR/node/arbiter/
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.SideChain.EID/oracle
+    cp -v \
+        checkillegalevidence.js \
+        common.js \
+        crosschain_eid.js \
+        ctrt.js \
+        getblklogs.js \
+        getblknum.js \
+        getexisttxs.js \
+        getillegalevidencebyheight.js \
+        gettxinfo.js \
+        sendrechargetransaction.js \
+        $RELEASE_DIR/node/eid-oracle/
+    popd
+
+    cd $DEV_ROOT/src/github.com/elastos/Elastos.ELA.Arbiter
+    cp -v arbiter $RELEASE_DIR/node/arbiter/
 
     echo "Generating version.txt..."
     cd $RELEASE_DIR/node
@@ -384,7 +448,7 @@ pack()
 usage()
 {
     echo "Usage: $0 CARRIER_VER ELA_VER DID_VER ESC_VER EID_VER ARBITER_VER"
-    echo "Build Elastos Supernode bundle package"
+    echo "Build Elastos Node bundle package"
     echo
     echo "Arguments: branch or specific commit of the repositories:"
     echo
@@ -412,13 +476,13 @@ if [ "$6" == "" ]; then
     exit
 fi
 
-setenv
+chkenv
 
 build_carrier $1
-build_ela $2
-build_did $3
-build_esc $4
-build_eid $5
+build_ela     $2
+build_did     $3
+build_esc     $4
+build_eid     $5
 build_arbiter $6
 
 pack
