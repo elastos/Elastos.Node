@@ -1,7 +1,7 @@
 # Overview
 
 [![CI](https://github.com/elastos/Elastos.Node/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/elastos/Elastos.Node/actions/workflows/ci.yml)
-[![Build Status](https://travis-ci.com/elastos/Elastos.ELA.Supernode.svg?branch=master)](https://travis-ci.com/elastos/Elastos.ELA.Supernode)
+[![Build Status](https://app.travis-ci.com/elastos/Elastos.Node.svg?branch=master)](https://app.travis-ci.com/elastos/Elastos.Node)
 
 Hello, please refer to the following docs to set up and run an [**Elastos node**](overview/elastos-node.md).
 
