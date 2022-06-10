@@ -10,7 +10,7 @@ chkenv()
         exit
     fi
 
-    if [ "$OS_VER" \< "Ubuntu_16.04" ]; then
+    if [ "$OS_VER" \< "Ubuntu_18.04" ]; then
         echo "ERROR: this script requires Ubuntu 18.04 (x86_64) or higher"
         exit
     fi
