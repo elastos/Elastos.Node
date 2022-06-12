@@ -431,7 +431,7 @@ pack()
 
     echo "Generating checksum.txt..."
     cd $RELEASE_DIR/node
-    shasum -a 256 $(find . -type f -executable) >checksum.txt
+    shasum -a 256 $(find . -type f -executable -o -name '*.js' | sort) | tee checksum.txt
 
     echo "Packing tarball..."
     cd $RELEASE_DIR
