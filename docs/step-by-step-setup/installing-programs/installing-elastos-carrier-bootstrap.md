@@ -24,4 +24,9 @@ INFO: carrier config file: /home/ubuntu/node/carrier/bootstrapd.conf
 OK: carrier initialized
 ```
 
-\
+The `init` command will try to find the server's public IP automatically, and record the result in carrier config file. You can check it by running: 
+
+```bash
+$ cat ~/node/carrier/bootstrapd.conf | grep external_ip
+```
+
