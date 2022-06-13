@@ -94,6 +94,30 @@ check_env()
     fi
 }
 
+set_path()
+{
+    # bash will not read .profile if .bash_profile exists
+    if [ -f ~/.bash_profile ]; then
+        local PROFILE_FILE=~/.bash_profile
+    elif [ -f ~/.profile ]; then
+        local PROFILE_FILE=~/.profile
+    else
+        touch ~/.profile
+        local PROFILE_FILE=~/.profile
+    fi
+
+    if [ ! -f $PROFILE_FILE ]; then
+        echo "ASSERT: no $PROFILE_FILE found, skip..."
+    fi
+
+    grep "export PATH=$SCRIPT_PATH:\$PATH" $PROFILE_FILE >/dev/null
+    if [ "$?" != "0" ]; then
+        echo "Updating $PROFILE_FILE..."
+        echo "export PATH=$SCRIPT_PATH:\$PATH" >>$PROFILE_FILE
+        echo_info "please re-login to make PATH effective"
+    fi
+}
+
 extip()
 {
     curl -s https://checkip.amazonaws.com
@@ -254,6 +278,40 @@ list_udp()
     echo
 }
 
+nodejs_setenv()
+{
+    if [ "$(uname -s)-$(uname -m)" == "Linux-x86_64" ]; then
+        local NODEJS_PLATFORM=linux-x64
+    else
+        echo "ERROR: do not support $(uname -s)-$(uname -m)"
+        return
+    fi
+
+    local NODEJS_VER=v14.17.0
+    local NODEJS_NAME=node-$NODEJS_VER-$NODEJS_PLATFORM
+    local NODEJS_TGZ=$NODEJS_NAME.tar.xz
+    local NODEJS_URL=https://nodejs.org/download/release/$NODEJS_VER/$NODEJS_TGZ
+
+    if [ $IS_DEBUG ]; then
+        echo "NODEJS_VER:  $NODEJS_VER"
+        echo "NODEJS_NAME: $NODEJS_NAME"
+        echo "NODEJS_TGZ:  $NODEJS_TGZ"
+        echo "NODEJS_URL:  $NODEJS_URL"
+    fi
+
+    if [ ! -d $SCRIPT_PATH/extern/$NODEJS_NAME ]; then
+        mkdir -p $SCRIPT_PATH/extern
+        cd $SCRIPT_PATH/extern
+        echo "Downloading $NODEJS_URL..."
+        curl -O -# $NODEJS_URL
+        tar xf $NODEJS_TGZ
+    fi
+
+    PATH=$SCRIPT_PATH/extern/$NODEJS_NAME/bin:$PATH
+
+    echo "nodejs: $(which node)"
+}
+
 #
 # common chain functions
 #
@@ -381,7 +439,7 @@ all_status()
     carrier_installed    && carrier_status
 }
 
-all_upgrade()
+all_update()
 {
     ela_installed        && ela_update
     did_installed        && did_update
@@ -610,7 +668,7 @@ ela_update()
     cp -v $PATH_STAGE/ela-cli $DIR_DEPLOY/
 
     # Start program, if 1 and 2
-    # 1. ela was Running before the upgrade
+    # 1. ela was Running before the update
     # 2. user prefer not start ela explicitly
     if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         ela_start
@@ -1237,8 +1295,6 @@ esc_init()
 #
 esc-oracle_start()
 {
-    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
-
     if [ ! -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
         echo "ERROR: $SCRIPT_PATH/esc-oracle/crosschain_oracle.js is not exist"
         return
@@ -1257,6 +1313,7 @@ esc-oracle_start()
     export env=mainnet
 
     echo "env: $env"
+    nodejs_setenv
     nohup $SHELL -c "node crosschain_oracle.js \
         2>$SCRIPT_PATH/esc-oracle/logs/esc-oracle_err.log \
         | rotatelogs $SCRIPT_PATH/esc-oracle/logs/esc-oracle_out-%Y-%m-%d-%H_%M_%S.log 20M" &
@@ -1385,15 +1442,7 @@ esc-oracle_init()
         return
     fi
 
-    if [ ! -d $SCRIPT_PATH/extern/node-v14.17.0-linux-x64 ]; then
-        mkdir -p $SCRIPT_PATH/extern
-        cd $SCRIPT_PATH/extern
-        echo "Downloading https://nodejs.org/download/release/v14.17.0/node-v14.17.0-linux-x64.tar.xz..."
-        curl -O -# https://nodejs.org/download/release/v14.17.0/node-v14.17.0-linux-x64.tar.xz
-        tar xf node-v14.17.0-linux-x64.tar.xz
-    fi
-
-    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
+    nodejs_setenv
 
     mkdir -p $SCRIPT_PATH/esc-oracle
     cd $SCRIPT_PATH/esc-oracle
@@ -1669,8 +1718,6 @@ eid_init()
 #
 eid-oracle_start()
 {
-    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
-
     if [ ! -f $SCRIPT_PATH/eid-oracle/crosschain_eid.js ]; then
         echo "ERROR: $SCRIPT_PATH/eid-oracle/crosschain_eid.js is not exist"
         return
@@ -1689,6 +1736,7 @@ eid-oracle_start()
     export env=mainnet
 
     echo "env: $env"
+    nodejs_setenv
     nohup $SHELL -c "node crosschain_eid.js \
         2>$SCRIPT_PATH/eid-oracle/logs/eid-oracle_err.log \
         | rotatelogs $SCRIPT_PATH/eid-oracle/logs/eid-oracle_out-%Y-%m-%d-%H_%M_%S.log 20M" &
@@ -1817,15 +1865,7 @@ eid-oracle_init()
         return
     fi
 
-    if [ ! -d $SCRIPT_PATH/extern/node-v14.17.0-linux-x64 ]; then
-        mkdir -p $SCRIPT_PATH/extern
-        cd $SCRIPT_PATH/extern
-        echo "Downloading https://nodejs.org/download/release/v14.17.0/node-v14.17.0-linux-x64.tar.xz..."
-        curl -O -# https://nodejs.org/download/release/v14.17.0/node-v14.17.0-linux-x64.tar.xz
-        tar xf node-v14.17.0-linux-x64.tar.xz
-    fi
-
-    export PATH=$SCRIPT_PATH/extern/node-v14.17.0-linux-x64/bin:$PATH
+    nodejs_setenv
 
     mkdir -p $SCRIPT_PATH/eid-oracle
     cd $SCRIPT_PATH/eid-oracle
@@ -2454,16 +2494,19 @@ SCRIPT_NAME=$(basename $BASH_SOURCE)
 check_env
 CHAIN_TYPE=mainnet
 
+# script commands
 if [ "$1" == "" ]; then
     usage
     exit
-fi
-
-if [ "$1" == "script_update" ]; then
+elif [ "$1" == "set_path" ]; then
+    set_path
+    exit
+elif [ "$1" == "script_update" ]; then
     script_update
     exit
 fi
 
+# chain commands
 if [ "$1" == "init"    ] || \
    [ "$1" == "start"   ] || \
    [ "$1" == "stop"    ] || \
