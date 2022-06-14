@@ -70,7 +70,7 @@ The ELA DPoS supernode did not have normal consensus work within 1440 blocks, an
 Activate Node
 
 ```bash
-$ ~/node/ela/ela-cli wallet buildtx producer activate --nodepublickey nodepublickey
+$ ~/node/ela/ela-cli wallet buildtx activate --nodepublickey nodepublickey
 $ ~/node/ela/ela-cli --rpcuser user123 --rpcpassword pass123 wallet sendtx -f ready_to_send.txn
 ```
 
