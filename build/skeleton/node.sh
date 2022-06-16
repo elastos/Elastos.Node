@@ -39,7 +39,7 @@ echo_ok()
     fi
 }
 
-script_update()
+update_script()
 {
     local SCRIPT_URL=https://raw.githubusercontent.com/elastos/Elastos.ELA.Supernode/master/build/skeleton/node.sh
 
@@ -417,14 +417,14 @@ all_start()
 
 all_stop()
 {
+    carrier_installed    && carrier_stop
     arbiter_installed    && arbiter_stop
+    ela_installed        && ela_stop
+    did_installed        && did_stop
     eid-oracle_installed && eid-oracle_stop
     eid_installed        && eid_stop
     esc-oracle_installed && esc-oracle_stop
     esc_installed        && esc_stop
-    did_installed        && did_stop
-    ela_installed        && ela_stop
-    carrier_installed    && carrier_stop
 }
 
 all_status()
@@ -1136,10 +1136,24 @@ esc_status()
 
     local ESC_DISK_USAGE=$(disk_usage $SCRIPT_PATH/esc)
 
+    if [ -f ~/.config/elastos/esc.txt ]; then
+        cd $SCRIPT_PATH/esc
+        local ESC_KEYSTORE=$(./esc --datadir "$SCRIPT_PATH/esc/data/" \
+            --nousb --verbosity 0 account list | sed -n '1 s/.*keystore:\/\///p')
+        if [ $ESC_KEYSTORE ] && [ -f $ESC_KEYSTORE ]; then
+            local ESC_ADDRESS=$(cat $ESC_KEYSTORE | jq -r .address)
+        else
+            local ESC_ADDRESS=N/A
+        fi
+    else
+        local ESC_ADDRESS=N/A
+    fi
+
     local PID=$(pgrep -x esc)
     if [ "$PID" == "" ]; then
-        status_head $ESC_VER Stopped
-        status_info "Disk" "$ESC_DISK_USAGE"
+        status_head $ESC_VER  Stopped
+        status_info "Disk"    "$ESC_DISK_USAGE"
+        status_info "Address" "$ESC_ADDRESS"
         echo
         return
     fi
@@ -1168,6 +1182,7 @@ esc_status()
 
     status_head $ESC_VER Running
     status_info "Disk"      "$ESC_DISK_USAGE"
+    status_info "Address"   "$ESC_ADDRESS"
     status_info "PID"       "$PID"
     status_info "RAM"       "$ESC_RAM"
     status_info "Uptime"    "$ESC_UPTIME"
@@ -1559,10 +1574,24 @@ eid_status()
 
     local EID_DISK_USAGE=$(disk_usage $SCRIPT_PATH/eid)
 
+    if [ -f ~/.config/elastos/eid.txt ]; then
+        cd $SCRIPT_PATH/eid
+        local EID_KEYSTORE=$(./eid --datadir "$SCRIPT_PATH/eid/data/" \
+            --nousb --verbosity 0 account list | sed -n '1 s/.*keystore:\/\///p')
+        if [ $EID_KEYSTORE ] && [ -f $EID_KEYSTORE ]; then
+            local EID_ADDRESS=$(cat $EID_KEYSTORE | jq -r .address)
+        else
+            local EID_ADDRESS=N/A
+        fi
+    else
+        local EID_ADDRESS=N/A
+    fi
+
     local PID=$(pgrep -x eid)
     if [ "$PID" == "" ]; then
-        status_head $EID_VER Stopped
-        status_info "Disk" "$EID_DISK_USAGE"
+        status_head $EID_VER  Stopped
+        status_info "Disk"    "$EID_DISK_USAGE"
+        status_info "Address" "$EID_ADDRESS"
         echo
         return
     fi
@@ -1591,6 +1620,7 @@ eid_status()
 
     status_head $EID_VER Running
     status_info "Disk"      "$EID_DISK_USAGE"
+    status_info "Address"   "$EID_ADDRESS"
     status_info "PID"       "$PID"
     status_info "RAM"       "$EID_RAM"
     status_info "Uptime"    "$EID_UPTIME"
@@ -2501,8 +2531,8 @@ if [ "$1" == "" ]; then
 elif [ "$1" == "set_path" ]; then
     set_path
     exit
-elif [ "$1" == "script_update" ]; then
-    script_update
+elif [ "$1" == "update_script" ] || [ "$1" == "script_update" ]; then
+    update_script
     exit
 fi
 
