@@ -615,6 +615,30 @@ ela_status()
         ELA_HEIGHT=N/A
     fi
 
+    local ELA_DPOS_NAME=$(ela_jsonrpc '{"method":"listproducers","params":{"state":"all"}}' | \
+        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | .nickname")
+    if [ "$ELA_DPOS_NAME" == "" ]; then
+        ELA_DPOS_NAME=N/A
+    fi
+
+    local ELA_DPOS_STATE=$(ela_jsonrpc '{"method":"listproducers","params":{"state":"all"}}' | \
+        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | .state")
+    if [ "$ELA_DPOS_STATE" == "" ]; then
+        ELA_DPOS_STATE=N/A
+    fi
+
+    local ELA_CRC_NAME=$(ela_jsonrpc '{"method":"listcurrentcrs","params":{"state":"all"}}' | \
+        jq -r ".result.crmembersinfo[] | select(.dpospublickey == \"$ELA_PUB_KEY\") | .nickname")
+    if [ "$ELA_CRC_NAME" == "" ]; then
+        ELA_CRC_NAME=N/A
+    fi
+
+    local ELA_CRC_STATE=$(ela_jsonrpc '{"method":"listcurrentcrs","params":{"state":"all"}}' | \
+        jq -r ".result.crmembersinfo[] | select(.dpospublickey == \"$ELA_PUB_KEY\") | .state")
+    if [ "$ELA_CRC_STATE" == "" ]; then
+        ELA_CRC_STATE=N/A
+    fi
+
     status_head $ELA_VER Running
     status_info "Disk"       "$ELA_DISK_USAGE"
     status_info "Address"    "$ELA_ADDRESS"
@@ -627,6 +651,10 @@ ela_status()
     status_info "#TCP"       "$ELA_NUM_TCPS"
     status_info "#Peers"     "$ELA_NUM_PEERS"
     status_info "Height"     "$ELA_HEIGHT"
+    status_info "DPoS Name"  "$ELA_DPOS_NAME"
+    status_info "DPoS State" "$ELA_DPOS_STATE"
+    status_info "CRC Name"   "$ELA_CRC_NAME"
+    status_info "CRC State"  "$ELA_CRC_STATE"
     echo
 }
 
