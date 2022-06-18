@@ -616,25 +616,25 @@ ela_status()
     fi
 
     local ELA_DPOS_NAME=$(ela_jsonrpc '{"method":"listproducers","params":{"state":"all"}}' | \
-        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | .nickname")
+        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | .nickname" 2>/dev/null)
     if [ "$ELA_DPOS_NAME" == "" ]; then
         ELA_DPOS_NAME=N/A
     fi
 
     local ELA_DPOS_STATE=$(ela_jsonrpc '{"method":"listproducers","params":{"state":"all"}}' | \
-        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | .state")
+        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | .state" 2>/dev/null)
     if [ "$ELA_DPOS_STATE" == "" ]; then
         ELA_DPOS_STATE=N/A
     fi
 
     local ELA_CRC_NAME=$(ela_jsonrpc '{"method":"listcurrentcrs","params":{"state":"all"}}' | \
-        jq -r ".result.crmembersinfo[] | select(.dpospublickey == \"$ELA_PUB_KEY\") | .nickname")
+        jq -r ".result.crmembersinfo[] | select(.dpospublickey == \"$ELA_PUB_KEY\") | .nickname" 2>/dev/null)
     if [ "$ELA_CRC_NAME" == "" ]; then
         ELA_CRC_NAME=N/A
     fi
 
     local ELA_CRC_STATE=$(ela_jsonrpc '{"method":"listcurrentcrs","params":{"state":"all"}}' | \
-        jq -r ".result.crmembersinfo[] | select(.dpospublickey == \"$ELA_PUB_KEY\") | .state")
+        jq -r ".result.crmembersinfo[] | select(.dpospublickey == \"$ELA_PUB_KEY\") | .state" 2>/dev/null)
     if [ "$ELA_CRC_STATE" == "" ]; then
         ELA_CRC_STATE=N/A
     fi
