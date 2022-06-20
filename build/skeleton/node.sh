@@ -177,12 +177,38 @@ status_head()
 status_info()
 {
     if [ -t 1 ]; then
-        printf "$(tput bold)%-12s$(tput sgr0)%s\n" "$1:" "$2"
+        printf "$(tput bold)%-12s$(tput sgr0)" "$1:"
+        if [ "$1" == "DPoS State" ]; then
+            if [ "$2" == "Active" ]; then
+                echo "$(tput setaf 2)$(tput bold)$2$(tput sgr0)"
+            elif [ "$2" == "Canceled" ] || \
+                 [ "$2" == "Illegal"  ] || \
+                 [ "$2" == "Inactive" ] || \
+                 [ "$2" == "Pending"  ] || \
+                 [ "$2" == "Returned" ]; then
+                echo "$(tput setaf 1)$(tput bold)$2$(tput sgr0)"
+            else
+                echo "$2"
+            fi
+        elif [ "$1" == "CRC State" ]; then
+            if [ "$2" == "Elected" ]; then
+                echo "$(tput setaf 2)$(tput bold)$2$(tput sgr0)"
+            elif [ "$2" == "Illegal"    ] || \
+                 [ "$2" == "Impeached"  ] || \
+                 [ "$2" == "Inactive"   ] || \
+                 [ "$2" == "Returned"   ] || \
+                 [ "$2" == "Terminated" ]; then
+                echo "$(tput setaf 1)$(tput bold)$2$(tput sgr0)"
+            else
+                echo "$2"
+            fi
+        else
+            echo "$2"
+        fi
     else
         printf "%-12s%s\n" "$1:" "$2"
     fi
 }
-
 
 gen_pass()
 {
