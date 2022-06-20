@@ -9,7 +9,7 @@ $ ~/node/node.sh script_update
 It will fetch the latest script from the repository, overwrite the old file, and make it executable.
 
 ```bash
-Downloading https://raw.githubusercontent.com/elastos/Elastos.ELA.Supernode/master/build/skeleton/node.sh...
+Downloading https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/node.sh...
 ###################################################################### 100.0%
 OK: $HOME/node/node.sh updated
 ```

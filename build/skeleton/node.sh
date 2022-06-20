@@ -41,7 +41,7 @@ echo_ok()
 
 update_script()
 {
-    local SCRIPT_URL=https://raw.githubusercontent.com/elastos/Elastos.ELA.Supernode/master/build/skeleton/node.sh
+    local SCRIPT_URL=https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/node.sh
 
     local SCRIPT=$SCRIPT_PATH/$(basename $BASH_SOURCE)
     local SCRIPT_TMP=$SCRIPT.tmp

@@ -27,7 +27,7 @@ The generated package contains all the programs and the automatic script to oper
 **List** the build results.
 
 ```bash
-$ ls -1 ~/Elastos.ELA.Supernode/release/linux-x86_64
+$ ls -1 ~/Elastos.Node/release/linux-x86_64
 20220610-141947
 ```
 

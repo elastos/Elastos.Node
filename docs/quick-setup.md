@@ -7,7 +7,7 @@ The following shell command will **download** the current version of the **scrip
 ```bash
 $ mkdir ~/node
 $ cd ~/node
-$ curl -O https://raw.githubusercontent.com/elastos/Elastos.ELA.Supernode/master/build/skeleton/node.sh
+$ curl -O https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/node.sh
 $ chmod a+x node.sh
 ```
 
