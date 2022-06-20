@@ -59,6 +59,14 @@ update_script()
     echo_ok "$SCRIPT updated"
 }
 
+set_env()
+{
+    # ulimit open files: use system setting if it is greater
+    if [ $(ulimit -n) -lt 40960 ]; then
+        ulimit -n 40960
+    fi
+}
+
 check_env()
 {
     #echo "Checking OS Version..."
@@ -804,6 +812,29 @@ EOF
     touch ${SCRIPT_PATH}/ela/.init
     echo_ok "ela initialized"
     echo
+}
+
+ela_activate_dpos()
+{
+    if [ ! -f ~/.config/elastos/ela.txt ]; then
+        return
+    fi
+
+    # TODO: test more prerequisites
+
+    cd $SCRIPT_PATH/ela
+    local ELA_PUB_KEY=$(cat ~/.config/elastos/ela.txt | \
+        ./ela-cli wallet account | sed -n '3 s/^.* //p')
+
+    ./ela-cli wallet buildtx activate \
+        --password $(cat ~/.config/elastos/ela.txt) \
+        --nodepublickey $ELA_PUB_KEY
+
+    ./ela-cli wallet sendtx -f ready_to_send.txn
+
+    # Error message:
+    # [ERROR] map[code:-32603 id:<nil> message:Client authenticate failed]
+    # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid]
 }
 
 #
@@ -2539,6 +2570,7 @@ usage()
     echo "  jsonrpc         Call JSON-RPC API"
     echo "  update          Install or update chain"
     echo "  init            Install and configure chain"
+    echo "  activate_dpos   Activate ELA DPoS"
     echo "  compress_log    Compress log files to save disk space"
     echo
 }
@@ -2549,6 +2581,7 @@ usage()
 SCRIPT_PATH=$(cd $(dirname $BASH_SOURCE); pwd)
 SCRIPT_NAME=$(basename $BASH_SOURCE)
 
+set_env
 check_env
 CHAIN_TYPE=mainnet
 
@@ -2605,7 +2638,8 @@ else
          [ "$2" == "jsonrpc" ] || \
          [ "$2" == "update"  ] || [ "$2" == "upgrade" ] || \
          [ "$2" == "init"    ] || \
-         [ "$2" == "compress_log" ]; then
+         [ "$2" == "activate_dpos" ] || \
+         [ "$2" == "compress_log"  ]; then
         COMMAND=$2
     else
         echo "ERROR: do not support command: $2"
