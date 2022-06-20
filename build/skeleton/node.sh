@@ -149,6 +149,33 @@ mem_usage()
     fi
 }
 
+run_time()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    ps -oetime= -p $PID | trim
+}
+
+num_tcps()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    lsof -n -a -itcp -p $PID 2>/dev/null | wc -l | trim
+}
+
+num_files()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    lsof -n -p $PID 2>/dev/null | wc -l | trim
+}
+
 disk_usage()
 {
     if [ "$1" == "" ]; then
@@ -156,6 +183,30 @@ disk_usage()
     fi
 
     du -sh $1 | sed 's/^ *//;s/\t.*$//'
+}
+
+list_tcp()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    for i in $(lsof -nP -iTCP -sTCP:LISTEN -a -p $1 2>/dev/null | sed '1d' | awk '{ print $5 "_" $9 }'); do
+        echo -n "$i "
+    done
+    echo
+}
+
+list_udp()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    for i in $(lsof -nP -iUDP -a -p $1 2>/dev/null | sed '1d' | awk '{ print $5 "_" $9 }'); do
+        echo -n "$i "
+    done
+    echo
 }
 
 status_head()
@@ -285,31 +336,6 @@ compress_log()
         #    rm -v $i
         #done
     fi
-
-}
-
-list_tcp()
-{
-    if [ "$1" == "" ]; then
-        return
-    fi
-
-    for i in $(lsof -nP -iTCP -sTCP:LISTEN -a -p $1 | sed '1d' | awk '{ print $5 "_" $9 }'); do
-        echo -n "$i "
-    done
-    echo
-}
-
-list_udp()
-{
-    if [ "$1" == "" ]; then
-        return
-    fi
-
-    for i in $(lsof -nP -iUDP -a -p $1 | sed '1d' | awk '{ print $5 "_" $9 }'); do
-        echo -n "$i "
-    done
-    echo
 }
 
 nodejs_setenv()
@@ -635,10 +661,10 @@ ela_status()
     fi
 
     local ELA_RAM=$(mem_usage $PID)
-    local ELA_UPTIME=$(ps -oetime= -p $PID | trim)
-    local ELA_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local ELA_UPTIME=$(run_time $PID)
+    local ELA_NUM_TCPS=$(num_tcps $PID)
     local ELA_TCP_LISTEN=$(list_tcp $PID)
-    local ELA_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+    local ELA_NUM_FILES=$(num_files $PID)
 
     local ELA_NUM_PEERS=$(ela_client info getconnectioncount)
     if [[ ! "$ELA_NUM_PEERS" =~ ^[0-9]+$ ]]; then
@@ -972,10 +998,10 @@ did_status()
     fi
 
     local DID_RAM=$(mem_usage $PID)
-    local DID_UPTIME=$(ps -oetime= -p $PID | trim)
-    local DID_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local DID_UPTIME=$(run_time $PID)
+    local DID_NUM_TCPS=$(num_tcps $PID)
     local DID_TCP_LISTEN=$(list_tcp $PID)
-    local DID_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+    local DID_NUM_FILES=$(num_files $PID)
 
     local DID_NUM_PEERS=$(did_client info getconnectioncount)
     if [[ ! "$DID_NUM_PEERS" =~ ^[0-9]+$ ]]; then
@@ -1244,11 +1270,11 @@ esc_status()
     fi
 
     local ESC_RAM=$(mem_usage $PID)
-    local ESC_UPTIME=$(ps -oetime= -p $PID | trim)
-    local ESC_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local ESC_UPTIME=$(run_time $PID)
+    local ESC_NUM_TCPS=$(num_tcps $PID)
     local ESC_TCP_LISTEN=$(list_tcp $PID)
     local ESC_UDP_LISTEN=$(list_udp $PID)
-    local ESC_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+    local ESC_NUM_FILES=$(num_files $PID)
 
     local ESC_NUM_PEERS=$(esc_jsonrpc \
         '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
@@ -1470,10 +1496,10 @@ esc-oracle_status()
     fi
 
     local ESC_ORACLE_RAM=$(mem_usage $PID)
-    local ESC_ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
+    local ESC_ORACLE_UPTIME=$(run_time $PID)
     local ESC_ORACLE_TCP_LISTEN=$(list_tcp $PID)
-    local ESC_ORACLE_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
-    local ESC_ORACLE_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+    local ESC_ORACLE_NUM_TCPS=$(num_tcps $PID)
+    local ESC_ORACLE_NUM_FILES=$(num_files $PID)
 
     status_head $ESC_ORACLE_VER Running
     status_info "Disk"      "$ESC_ORACLE_DISK_USAGE"
@@ -1682,11 +1708,11 @@ eid_status()
     fi
 
     local EID_RAM=$(mem_usage $PID)
-    local EID_UPTIME=$(ps -oetime= -p $PID | trim)
-    local EID_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local EID_UPTIME=$(run_time $PID)
+    local EID_NUM_TCPS=$(num_tcps $PID)
     local EID_TCP_LISTEN=$(list_tcp $PID)
     local EID_UDP_LISTEN=$(list_udp $PID)
-    local EID_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+    local EID_NUM_FILES=$(num_files $PID)
 
     local EID_NUM_PEERS=$(eid_jsonrpc \
         '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
@@ -1908,10 +1934,10 @@ eid-oracle_status()
     fi
 
     local EID_ORACLE_RAM=$(mem_usage $PID)
-    local EID_ORACLE_UPTIME=$(ps -oetime= -p $PID | trim)
+    local EID_ORACLE_UPTIME=$(run_time $PID)
     local EID_ORACLE_TCP_LISTEN=$(list_tcp $PID)
-    local EID_ORACLE_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
-    local EID_ORACLE_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+    local EID_ORACLE_NUM_TCPS=$(num_tcps $PID)
+    local EID_ORACLE_NUM_FILES=$(num_files $PID)
 
     status_head $EID_ORACLE_VER Running
     status_info "Disk"      "$EID_ORACLE_DISK_USAGE"
@@ -2090,10 +2116,10 @@ arbiter_status()
     fi
 
     local ARBITER_RAM=$(mem_usage $PID)
-    local ARBITER_UPTIME=$(ps -oetime= -p $PID | trim)
-    local ARBITER_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l | trim)
+    local ARBITER_UPTIME=$(run_time $PID)
+    local ARBITER_NUM_TCPS=$(num_tcps $PID)
     local ARBITER_TCP_LISTEN=$(list_tcp $PID)
-    local ARBITER_NUM_FILES=$(lsof -n -p $PID | wc -l | trim)
+    local ARBITER_NUM_FILES=$(num_files $PID)
 
     local ARBITER_SPV_HEIGHT=$(arbiter_jsonrpc '{"method":"getspvheight"}' | jq -r '.result')
     if [[ ! "$ARBITER_SPV_HEIGHT" =~ ^[0-9]+$ ]]; then
@@ -2410,12 +2436,12 @@ carrier_status()
         return
     fi
 
-    local CARRIER_RAM=$(pmap $PID | tail -1 | sed 's/.* //')
-    local CARRIER_UPTIME=$(ps --pid $PID -oetime:1=)
-    local CARRIER_NUM_TCPS=$(lsof -n -a -itcp -p $PID | wc -l)
+    local CARRIER_RAM=$(mem_usage $PID)
+    local CARRIER_UPTIME=$(run_time $PID)
+    local CARRIER_NUM_TCPS=$(num_tcps $PID)
     local CARRIER_TCP_LISTEN=$(list_tcp $PID)
     local CARRIER_UDP_LISTEN=$(list_udp $PID)
-    local CARRIER_NUM_FILES=$(lsof -n -p $PID | wc -l)
+    local CARRIER_NUM_FILES=$(num_files $PID)
 
     status_head $CARRIER_VER Running
     status_info "Disk"      "$CARRIER_DISK_USAGE"
