@@ -136,17 +136,18 @@ trim()
     sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
 }
 
+mem_free()
+{
+    free -m | sed -n '4 s/.* //p'
+}
+
 mem_usage()
 {
     if [ "$1" == "" ]; then
         return
     fi
 
-    if [ "$(uname -s)" == "Linux" ]; then
-        pmap $1 | tail -1 | sed 's/.* //' | numfmt --from=iec --to=iec
-    elif [ "$(uname -s)" == "Darwin" ]; then
-        vmmap $1 | grep 'Physical footprint:' | sed 's/.* //'
-    fi
+    pmap $1 | tail -1 | sed 's/.* //' | numfmt --from=iec --to=iec
 }
 
 run_time()
@@ -1357,6 +1358,11 @@ esc_init()
         return
     fi
 
+    if [ $(mem_free) -lt 512 ]; then
+        echo_error "free memory not enough"
+        return
+    fi
+
     local ESC_KEYSTORE=
     local ESC_KEYSTORE_PASS_FILE=~/.config/elastos/esc.txt
 
@@ -1792,6 +1798,11 @@ eid_init()
 {
     if [ ! -f ${SCRIPT_PATH}/ela/.init ]; then
         echo_error "ela not initialized"
+        return
+    fi
+
+    if [ $(mem_free) -lt 512 ]; then
+        echo_error "free memory not enough"
         return
     fi
 
