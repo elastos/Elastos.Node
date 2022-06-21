@@ -138,7 +138,7 @@ trim()
 
 mem_free()
 {
-    free -m | sed -n '4 s/.* //p'
+    free -mt | sed -n '4 s/.* //p'
 }
 
 mem_usage()
