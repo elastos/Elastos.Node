@@ -609,10 +609,46 @@ ela_client()
 
     local ELA_RPC_PORT=20336
 
-    local ELA_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $ELA_RPC_PORT \
-        --rpcuser $ELA_RPC_USER --rpcpassword $ELA_RPC_PASS"
+    local ELA_CLI="$SCRIPT_PATH/ela/ela-cli"
 
-    $ELA_CLI $*
+    cd $SCRIPT_PATH/ela
+
+    if [ "$1" == "wallet" ]; then
+        if [ "$2" == "delete" ]; then
+            $ELA_CLI $*
+        elif [ "$2" == "create"  ] || [ "$2" == "c" ] || \
+             [ "$2" == "account" ] || [ "$2" == "a" ] || \
+             [ "$2" == "add"     ] || \
+             [ "$2" == "addmultisig" ] || \
+             [ "$2" == "import"  ] || \
+             [ "$2" == "export"  ] || \
+             [ "$2" == "signtx"  ]; then
+            $ELA_CLI $* --password "$(cat ~/.config/elastos/ela.txt)"
+        elif [ "$2" == "balance" ] || [ "$2" == "b" ] || \
+             [ "$2" == "sendtx"  ]; then
+            $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
+                 --rpcpassword $ELA_RPC_PASS $*
+        elif [ "$2" == "buildtx" ]; then
+            if [ "$3" == "withdraw" ] || \
+               [ "$3" == "activate" ] || \
+               [ "$3" == "vote"     ] || \
+               [ "$3" == "crosschain" ]; then
+                $ELA_CLI $* --password "$(cat ~/.config/elastos/ela.txt)"
+            else
+                $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
+                 --rpcpassword $ELA_RPC_PASS $*
+            fi
+        else
+            # showtx, depositaddr, didaddr, crosschainaddr
+            $ELA_CLI $*
+        fi
+    elif [ "$1" == "info" ] || \
+         [ "$1" == "mine" ]; then
+        $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
+            --rpcpassword $ELA_RPC_PASS $*
+    else
+        $ELA_CLI $*
+    fi
 }
 
 ela_jsonrpc()
@@ -628,8 +664,15 @@ ela_jsonrpc()
 
     local ELA_RPC_PORT=20336
 
+    # auto expand single command
+    if [[ $1 =~ ^[a-z]+$ ]] && [ "$2" == "" ]; then
+        local DATA={\"method\":\"$1\"}
+    else
+        local DATA=$1
+    fi
+
     curl -s -H 'Content-Type:application/json' \
-        -X POST --data $1 \
+        -X POST --data $DATA \
         -u $ELA_RPC_USER:$ELA_RPC_PASS \
         http://127.0.0.1:$ELA_RPC_PORT | jq
 }
@@ -642,10 +685,8 @@ ela_status()
 
     if [ -f ~/.config/elastos/ela.txt ]; then
         cd $SCRIPT_PATH/ela
-        local ELA_ADDRESS=$(cat ~/.config/elastos/ela.txt | \
-            ./ela-cli wallet account | sed -n '3 s/ .*$//p')
-        local ELA_PUB_KEY=$(cat ~/.config/elastos/ela.txt | \
-            ./ela-cli wallet account | sed -n '3 s/^.* //p')
+        local ELA_ADDRESS=$(ela_client wallet account | sed -n '3 s/ .*$//p')
+        local ELA_PUB_KEY=$(ela_client wallet account | sed -n '3 s/^.* //p')
     else
         local ELA_ADDRESS=N/A
         local ELA_PUB_KEY=N/A
@@ -876,14 +917,10 @@ ela_activate_dpos()
     # TODO: test more prerequisites
 
     cd $SCRIPT_PATH/ela
-    local ELA_PUB_KEY=$(cat ~/.config/elastos/ela.txt | \
-        ./ela-cli wallet account | sed -n '3 s/^.* //p')
+    local ELA_PUB_KEY=$(ela_client wallet account | sed -n '3 s/^.* //p')
 
-    ./ela-cli wallet buildtx activate \
-        --password $(cat ~/.config/elastos/ela.txt) \
-        --nodepublickey $ELA_PUB_KEY
-
-    ./ela-cli wallet sendtx -f ready_to_send.txn
+    ela_client wallet buildtx activate --nodepublickey $ELA_PUB_KEY
+    ela_client wallet sendtx -f ready_to_send.txn
 
     # Error message:
     # [ERROR] map[code:-32603 id:<nil> message:Client authenticate failed]
@@ -978,8 +1015,14 @@ did_jsonrpc()
 
     local DID_RPC_PORT=20606
 
+    if [[ $1 =~ ^[a-z]+$ ]] && [ "$2" == "" ]; then
+        local DATA={\"method\":\"$1\"}
+    else
+        local DATA=$1
+    fi
+
     curl -s -H 'Content-Type:application/json' \
-        -X POST --data $1 \
+        -X POST --data $DATA \
         -u $DID_RPC_USER:$DID_RPC_PASS \
         http://127.0.0.1:$DID_RPC_PORT | jq
 }
@@ -1232,13 +1275,34 @@ esc_ver()
     fi
 }
 
+esc_client()
+{
+    if [ ! -f $SCRIPT_PATH/esc/esc ]; then
+        echo "ERROR: $SCRIPT_PATH/esc/esc is not exist"
+        return
+    fi
+
+    cd $SCRIPT_PATH/esc
+    if [ "$1" == "" ]; then
+        ./esc --datadir $SCRIPT_PATH/esc/data --help
+    else
+        ./esc --datadir $SCRIPT_PATH/esc/data $*
+    fi
+}
+
 esc_jsonrpc()
 {
     if [ "$1" == "" ]; then
         return
     fi
 
-    curl -s -H 'Content-Type:application/json' -X POST --data $1 \
+    if [[ $1 =~ ^[_3a-zA-Z]+$ ]] && [ "$2" == "" ]; then
+        local DATA="{\"method\":\"$1\",\"id\":0}"
+    else
+        local DATA=$1
+    fi
+
+    curl -s -H 'Content-Type:application/json' -X POST --data $DATA \
         http://127.0.0.1:20636 | jq
 }
 
@@ -1675,13 +1739,34 @@ eid_ver()
     fi
 }
 
+eid_client()
+{
+    if [ ! -f $SCRIPT_PATH/eid/eid ]; then
+        echo "ERROR: $SCRIPT_PATH/eid/eid is not exist"
+        return
+    fi
+
+    cd $SCRIPT_PATH/eid
+    if [ "$1" == "" ]; then
+        ./eid --datadir $SCRIPT_PATH/eid/data --help
+    else
+        ./eid --datadir $SCRIPT_PATH/eid/data $*
+    fi
+}
+
 eid_jsonrpc()
 {
     if [ "$1" == "" ]; then
         return
     fi
 
-    curl -s -H 'Content-Type:application/json' -X POST --data $1 \
+    if [[ $1 =~ ^[_3a-zA-Z]+$ ]] && [ "$2" == "" ]; then
+        local DATA="{\"method\":\"$1\",\"id\":0}"
+    else
+        local DATA=$1
+    fi
+
+    curl -s -H 'Content-Type:application/json' -X POST --data $DATA \
         http://127.0.0.1:20646 | jq
 }
 
@@ -2106,8 +2191,14 @@ arbiter_jsonrpc()
 
     local ARBITER_RPC_PORT=20536
 
+    if [[ $1 =~ ^[a-z]+$ ]] && [ "$2" == "" ]; then
+        local DATA={\"method\":\"$1\"}
+    else
+        local DATA=$1
+    fi
+
     curl -s -H 'Content-Type:application/json' \
-        -X POST --data $1 \
+        -X POST --data $DATA \
         -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
         http://127.0.0.1:$ARBITER_RPC_PORT | jq
 }
