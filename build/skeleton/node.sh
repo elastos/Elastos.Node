@@ -741,10 +741,18 @@ ela_status()
         ELA_CRC_STATE=N/A
     fi
 
+    local ELA_BALANCE=$(ela_client wallet balance | awk 'NR == 3 {print $3}')
+    if [ "$ELA_BALANCE" == "" ]; then
+        ELA_BALANCE=N/A
+    elif [[ $ELA_BALANCE =~ [^.0-9] ]]; then
+        ELA_BALANCE=N/A
+    fi
+
     status_head $ELA_VER Running
     status_info "Disk"       "$ELA_DISK_USAGE"
     status_info "Address"    "$ELA_ADDRESS"
     status_info "Public Key" "$ELA_PUB_KEY"
+    status_info "Balance"    "$ELA_BALANCE"
     status_info "PID"        "$PID"
     status_info "RAM"        "$ELA_RAM"
     status_info "Uptime"     "$ELA_UPTIME"
@@ -843,7 +851,7 @@ ela_init()
   "Configuration": {
     "DPoSConfiguration": {
       "EnableArbiter": true,
-      "IPAddress": "127.0.0.1"
+      "IPAddress": "$(extip)"
     },
     "EnableRPC": true,
     "RpcConfiguration": {
@@ -868,8 +876,6 @@ EOF
         if [ "$?" == "0" ]; then
             mv $ELA_CONFIG.tmp $ELA_CONFIG
         fi
-
-        sed -i -e "s/\"IPAddress\":.*/\"IPAddress\": \"$(extip)\"/" $ELA_CONFIG
     fi
 
     echo "Creating ela keystore..."
@@ -1356,9 +1362,18 @@ esc_status()
         ESC_HEIGHT=N/A
     fi
 
+    local ESC_BALANCE=$(esc_client \
+        attach --exec 'web3.fromWei(eth.getBalance(eth.coinbase),"ether")')
+    if [ "$ESC_BALANCE" == "" ]; then
+        ESC_BALANCE=N/A
+    elif [[ $ESC_BALANCE =~ [^.0-9] ]]; then
+        ESC_BALANCE=N/A
+    fi
+
     status_head $ESC_VER Running
     status_info "Disk"      "$ESC_DISK_USAGE"
     status_info "Address"   "$ESC_ADDRESS"
+    status_info "Balance"   "$ESC_BALANCE"
     status_info "PID"       "$PID"
     status_info "RAM"       "$ESC_RAM"
     status_info "Uptime"    "$ESC_UPTIME"
@@ -1820,9 +1835,18 @@ eid_status()
         EID_HEIGHT=N/A
     fi
 
+    local EID_BALANCE=$(eid_client \
+        attach --exec 'web3.fromWei(eth.getBalance(eth.coinbase),"ether")')
+    if [ "$EID_BALANCE" == "" ]; then
+        EID_BALANCE=N/A
+    elif [[ $EID_BALANCE =~ [^.0-9] ]]; then
+        EID_BALANCE=N/A
+    fi
+
     status_head $EID_VER Running
     status_info "Disk"      "$EID_DISK_USAGE"
     status_info "Address"   "$EID_ADDRESS"
+    status_info "Balance"   "$EID_BALANCE"
     status_info "PID"       "$PID"
     status_info "RAM"       "$EID_RAM"
     status_info "Uptime"    "$EID_UPTIME"
