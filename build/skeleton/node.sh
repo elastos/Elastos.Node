@@ -2403,6 +2403,9 @@ arbiter_init()
         "SyncStartHeight": 6551000,
         "ExchangeRate": 1.0,
         "GenesisBlock": "6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a",
+        "SupportQuickRecharge": true,
+        "SupportInvalidDeposit": true,
+        "SupportInvalidWithdraw": true,
         "PowChain": false
       },
       {
