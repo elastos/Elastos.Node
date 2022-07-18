@@ -88,10 +88,15 @@ check_env()
         echo_warn "it is better to run as a normal user without sudo permission"
     fi
 
-    jq --version 1>/dev/null 2>/dev/null
-    if [ "$?" != "0" ]; then
+    if [ "$(which jq)" == "" ]; then
         echo_error "cannot find jq (https://github.com/stedolan/jq)"
         echo_info "sudo apt-get install -y jq"
+        exit
+    fi
+
+    if [ "$(which lsof)" == "" ]; then
+        echo_error "cannot find lsof"
+        echo_info "sudo apt-get install -y lsof"
         exit
     fi
 
@@ -179,7 +184,8 @@ num_files()
 
 disk_usage()
 {
-    if [ "$1" == "" ]; then
+    if [ "$1" == "" ] || [ ! -d "$1" ]; then
+        echo N/A
         return
     fi
 
@@ -308,7 +314,7 @@ compress_log()
         return
     fi
 
-    ls "$1" 1>/dev/null 2>/dev/null
+    ls $1 1>/dev/null 2>/dev/null
     if [ "$?" != "0" ]; then
         return
     fi
@@ -674,7 +680,7 @@ ela_jsonrpc()
     curl -s -H 'Content-Type:application/json' \
         -X POST --data $DATA \
         -u $ELA_RPC_USER:$ELA_RPC_PASS \
-        http://127.0.0.1:$ELA_RPC_PORT | jq
+        http://127.0.0.1:$ELA_RPC_PORT | jq .
 }
 
 ela_status()
@@ -1030,7 +1036,7 @@ did_jsonrpc()
     curl -s -H 'Content-Type:application/json' \
         -X POST --data $DATA \
         -u $DID_RPC_USER:$DID_RPC_PASS \
-        http://127.0.0.1:$DID_RPC_PORT | jq
+        http://127.0.0.1:$DID_RPC_PORT | jq .
 }
 
 did_status()
@@ -1238,7 +1244,7 @@ esc_start()
             --lightserv 10 \
             --rpc \
             --rpcaddr '0.0.0.0' \
-            --rpcapi 'admin,eth,txpool,web3' \
+            --rpcapi 'admin,eth,net,txpool,web3' \
             --rpcvhosts '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
@@ -1291,6 +1297,9 @@ esc_client()
     cd $SCRIPT_PATH/esc
     if [ "$1" == "" ]; then
         ./esc --datadir $SCRIPT_PATH/esc/data --help
+    elif [ "$1" == "attach" ] &&
+         [ ! -S $SCRIPT_PATH/esc/data/geth.ipc ]; then
+        return
     else
         ./esc --datadir $SCRIPT_PATH/esc/data $*
     fi
@@ -1309,7 +1318,7 @@ esc_jsonrpc()
     fi
 
     curl -s -H 'Content-Type:application/json' -X POST --data $DATA \
-        http://127.0.0.1:20636 | jq
+        http://127.0.0.1:20636 | jq .
 }
 
 esc_status()
@@ -1653,6 +1662,13 @@ esc-oracle_init()
         return
     fi
 
+    if [ "$(which make)" == "" ] || \
+       [ "$(which gcc)"  == "" ] || \
+       [ "$(which g++)"  == "" ]; then
+        echo_error "requires make, gcc, g++"
+        return
+    fi
+
     nodejs_setenv
 
     mkdir -p $SCRIPT_PATH/esc-oracle
@@ -1711,7 +1727,7 @@ eid_start()
             --lightserv 10 \
             --rpc \
             --rpcaddr '0.0.0.0' \
-            --rpcapi 'admin,eth,txpool,web3' \
+            --rpcapi 'admin,eth,net,txpool,web3' \
             --rpcvhosts '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/eid/logs/eid-%Y-%m-%d-%H_%M_%S.log 20M" &
@@ -1764,6 +1780,9 @@ eid_client()
     cd $SCRIPT_PATH/eid
     if [ "$1" == "" ]; then
         ./eid --datadir $SCRIPT_PATH/eid/data --help
+    elif [ "$1" == "attach" ] &&
+         [ ! -S $SCRIPT_PATH/eid/data/geth.ipc ]; then
+        return
     else
         ./eid --datadir $SCRIPT_PATH/eid/data $*
     fi
@@ -1782,7 +1801,7 @@ eid_jsonrpc()
     fi
 
     curl -s -H 'Content-Type:application/json' -X POST --data $DATA \
-        http://127.0.0.1:20646 | jq
+        http://127.0.0.1:20646 | jq .
 }
 
 eid_status()
@@ -2126,6 +2145,13 @@ eid-oracle_init()
         return
     fi
 
+    if [ "$(which make)" == "" ] || \
+       [ "$(which gcc)"  == "" ] || \
+       [ "$(which g++)"  == "" ]; then
+        echo_error "requires make, gcc, g++"
+        return
+    fi
+
     nodejs_setenv
 
     mkdir -p $SCRIPT_PATH/eid-oracle
@@ -2224,7 +2250,7 @@ arbiter_jsonrpc()
     curl -s -H 'Content-Type:application/json' \
         -X POST --data $DATA \
         -u $ARBITER_RPC_USER:$ARBITER_RPC_PASS \
-        http://127.0.0.1:$ARBITER_RPC_PORT | jq
+        http://127.0.0.1:$ARBITER_RPC_PORT | jq .
 }
 
 arbiter_status()
@@ -2388,7 +2414,7 @@ arbiter_init()
           "User": "",
           "Pass": ""
         },
-        "SyncStartHeight": 512990,
+        "SyncStartHeight": 639400,
         "ExchangeRate": 1.0,
         "GenesisBlock": "56be936978c261b2e649d58dbfaf3f23d4a868274f5522cd2adb4308a955c4a3",
         "MiningAddr": "",
@@ -2400,7 +2426,7 @@ arbiter_init()
           "IpAddress": "127.0.0.1",
           "HttpJsonPort": 20632
         },
-        "SyncStartHeight": 6551000,
+        "SyncStartHeight": 13246000,
         "ExchangeRate": 1.0,
         "GenesisBlock": "6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a",
         "SupportQuickRecharge": true,
@@ -2413,6 +2439,7 @@ arbiter_init()
           "IpAddress": "127.0.0.1",
           "HttpJsonPort": 20642
         },
+        "SyncStartHeight": 5932000,
         "ExchangeRate": 1.0,
         "GenesisBlock": "7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567",
         "PowChain": false
