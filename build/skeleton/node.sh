@@ -1231,7 +1231,7 @@ esc_start()
             --pbft.net.port 20639 \
             --rpc \
             --rpcaddr '0.0.0.0' \
-            --rpcapi 'db,eth,miner,net,personal,txpool,web3' \
+            --rpcapi 'db,eth,net,pbft,personal,txpool,web3' \
             --rpcvhosts '*' \
             --syncmode full \
             --unlock '0x$(cat $SCRIPT_PATH/esc/data/keystore/UTC* | jq -r .address)' \
