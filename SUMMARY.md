@@ -1,12 +1,12 @@
 # Table of contents
 
-* [Overview](README.md)
-  * [Elastos Node](docs/overview/elastos-node.md)
-  * [Elastos Node Components](docs/overview/programs-supported-by-node.sh.md)
-  * [Requirements](docs/overview/requirements.md)
+* [ℹ Overview](README.md)
+  * [💻 Elastos Node](docs/overview/elastos-node.md)
+  * [⚙ Elastos Node Components](docs/overview/programs-supported-by-node.sh.md)
+  * [✔ Requirements](docs/overview/requirements.md)
 * [node.sh](docs/what-is-node.sh.md)
-* [Quick Setup](docs/quick-setup.md)
-* [Step-by-Step Setup](docs/step-by-step-setup.md)
+* [⛏ Quick Setup](docs/quick-setup.md)
+* [⚒ Step-by-Step Setup](docs/step-by-step-setup.md)
   * [Checking Environments](docs/step-by-step-setup/checking-environments.md)
   * [Installing node.sh](docs/step-by-step-setup/installing-node.sh.md)
   * [Running node.sh](docs/step-by-step-setup/running-node.sh.md)
@@ -39,4 +39,3 @@
   * [Security](docs/archives/security.md)
   * [Manually Setup](docs/archives/manually-setup.md)
   * [Ways to Setup](docs/archives/ways-to-setup.md)
-
