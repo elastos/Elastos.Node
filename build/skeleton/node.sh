@@ -581,6 +581,7 @@ ela_stop()
         done
         echo
     fi
+    sync
     ela_status
 }
 
@@ -920,6 +921,42 @@ EOF
     echo
 }
 
+ela_transfer()
+{
+    if [ "$3" == "" ]; then
+        echo "Usage: $SCRIPT_NAME ela transfer FROM TO AMOUNT [FEE]"
+        return
+    fi
+
+    local ELA_ADDR_FROM=$1
+    local ELA_ADDR_TO=$2
+    local ELA_AMOUNT=$3
+    local ELA_FEE=$4
+
+    if [ "$ELA_FEE" == "" ]; then
+        local ELA_FEE=0.000001
+    fi
+
+    cd ~/node/ela
+
+    if [ -f to_be_signed.txn ]; then
+        echo "Removing to_be_signed.txn..."
+        rm to_be_signed.txn
+    fi
+
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
+    fi
+
+    ela_client wallet buildtx \
+        --from $ELA_ADDR_FROM --to $ELA_ADDR_TO \
+        --amount $ELA_AMOUNT --fee $ELA_FEE
+
+    ela_client wallet signtx -f to_be_signed.txn
+    ela_client wallet sendtx -f ready_to_send.txn
+}
+
 ela_activate_dpos()
 {
     if [ ! -f ~/.config/elastos/ela.txt ]; then
@@ -974,6 +1011,7 @@ did_stop()
         done
         echo
     fi
+    sync
     did_status
 }
 
@@ -1218,6 +1256,9 @@ esc_start()
     mkdir -p $SCRIPT_PATH/esc/logs/
 
     if [ -f ~/.config/elastos/esc.txt ]; then
+        if [ -f $SCRIPT_PATH/esc/data/miner_address.txt ]; then
+            local ESC_OPTS="$ESC_OPTS --pbft.miner.address $SCRIPT_PATH/esc/data/miner_address.txt"
+        fi
         nohup $SHELL -c "./esc \
             $ESC_OPTS \
             --allow-insecure-unlock \
@@ -1235,6 +1276,9 @@ esc_start()
             --rpcvhosts '*' \
             --syncmode full \
             --unlock '0x$(cat $SCRIPT_PATH/esc/data/keystore/UTC* | jq -r .address)' \
+            --ws \
+            --wsaddr '0.0.0.0' \
+            --wsorigins '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
     else
@@ -1246,6 +1290,9 @@ esc_start()
             --rpcaddr '0.0.0.0' \
             --rpcapi 'admin,eth,net,txpool,web3' \
             --rpcvhosts '*' \
+            --ws \
+            --wsaddr '0.0.0.0' \
+            --wsorigins '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
     fi
@@ -1266,6 +1313,7 @@ esc_stop()
         done
         echo
     fi
+    sync
     esc_status
 }
 
@@ -1502,8 +1550,21 @@ esc_init()
         --nousb --verbosity 0 account list | sed 's/.*keystore:\/\///')
     chmod 600 $ESC_KEYSTORE
 
+    local ESC_MINER_ADDRESS_FILE=$SCRIPT_PATH/esc/data/miner_address.txt
+    echo "You can input an alternative esc reward address. (ENTER to skip)"
+    local ESC_MINER_ADDRESS=
+    read -p '? Miner Address: ' ESC_MINER_ADDRESS
+    if [ "$ESC_MINER_ADDRESS" != "" ]; then
+        mkdir -p $SCRIPT_PATH/esc/data
+        echo $ESC_MINER_ADDRESS | tee $ESC_MINER_ADDRESS_FILE
+        chmod 600 $ESC_MINER_ADDRESS_FILE
+    fi
+
     echo_info "esc keystore file: $ESC_KEYSTORE"
     echo_info "esc keystore password file: $ESC_KEYSTORE_PASS_FILE"
+    if [ -f $ESC_MINER_ADDRESS_FILE ]; then
+        echo_info "esc miner address file: $ESC_MINER_ADDRESS_FILE"
+    fi
 
     touch ${SCRIPT_PATH}/esc/.init
     echo_ok "esc initialized"
@@ -1749,6 +1810,7 @@ eid_stop()
         done
         echo
     fi
+    sync
     eid_status
 }
 
@@ -2207,6 +2269,7 @@ arbiter_stop()
         done
         echo
     fi
+    sync
     arbiter_status
 }
 
@@ -2779,6 +2842,7 @@ usage()
     echo "  update          Install or update chain"
     echo "  init            Install and configure chain"
     echo "  activate_dpos   Activate ELA DPoS"
+    echo "  transfer        Transfer crypto"
     echo "  compress_log    Compress log files to save disk space"
     echo
 }
@@ -2847,6 +2911,7 @@ else
          [ "$2" == "update"  ] || [ "$2" == "upgrade" ] || \
          [ "$2" == "init"    ] || \
          [ "$2" == "activate_dpos" ] || \
+         [ "$2" == "transfer"      ] || \
          [ "$2" == "compress_log"  ]; then
         COMMAND=$2
     else
