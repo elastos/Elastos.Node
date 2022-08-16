@@ -338,10 +338,42 @@ compress_log()
         for i in $(ls -1 $LOG_PAT | sort -r | sed 1d); do
             gzip -v $i
         done
-        #echo "Removing log files in $LOG_DIR..."
-        #for i in $(ls -1 $LOG_PAT.gz | sort -r | sed '1,20d'); do
-        #    rm -v $i
-        #done
+    fi
+}
+
+remove_log()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    ls $1 1>/dev/null 2>/dev/null
+    if [ "$?" != "0" ]; then
+        return
+    fi
+
+    if [ -d "$1" ]; then
+        local LOG_DIR="$1"
+        local LOG_PAT=\*.log
+    else
+        local LOG_DIR=$(dirname "$1")
+        local LOG_PAT=$(basename "$1")
+    fi
+
+    if [ "$IS_DEBUG" ]; then
+        echo "LOG_DIR: $LOG_DIR"
+        echo "LOG_PAT: $LOG_PAT"
+    fi
+
+    if [ -d $LOG_DIR ]; then
+        echo "Removing log files in $LOG_DIR..."
+        cd $LOG_DIR
+        for i in $(ls -1 $LOG_PAT | sort -r | sed 1d); do
+            rm -v $i
+        done
+        for i in $(ls -1 $LOG_PAT.gz); do
+            rm -v $i
+        done
     fi
 }
 
