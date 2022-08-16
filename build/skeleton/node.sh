@@ -539,6 +539,17 @@ all_compress_log()
     eid_installed        && eid_compress_log
     eid-oracle_installed && eid-oracle_compress_log
     arbiter_installed    && arbiter_compress_log
+}
+
+all_remove_log()
+{
+    ela_installed        && ela_remove_log
+    did_installed        && did_remove_log
+    esc_installed        && esc_remove_log
+    esc-oracle_installed && esc-oracle_remove_log
+    eid_installed        && eid_remove_log
+    eid-oracle_installed && eid-oracle_remove_log
+    arbiter_installed    && arbiter_remove_log
 
 }
 
@@ -781,6 +792,12 @@ ela_compress_log()
     compress_log $SCRIPT_PATH/ela/elastos/logs/node
 }
 
+ela_remove_log()
+{
+    remove_log $SCRIPT_PATH/ela/elastos/logs/dpos
+    remove_log $SCRIPT_PATH/ela/elastos/logs/node
+}
+
 ela_update()
 {
     unset OPTIND
@@ -935,6 +952,11 @@ ela_transfer()
 
     if [ "$ELA_FEE" == "" ]; then
         local ELA_FEE=0.000001
+    fi
+
+    if [ "$ELA_AMOUNT" == "All" ]; then
+        local ELA_AMOUNT=$(ela_client wallet balance | awk 'NR == 3 {print $3}')
+        local ELA_AMOUNT=$(echo "$ELA_AMOUNT-$ELA_FEE" | bc)
     fi
 
     cd ~/node/ela
@@ -1124,6 +1146,11 @@ did_compress_log()
     compress_log $SCRIPT_PATH/did/elastos_did/logs
 }
 
+did_remove_log()
+{
+    remove_log $SCRIPT_PATH/did/elastos_did/logs
+}
+
 did_update()
 {
     unset OPTIND
@@ -1245,7 +1272,7 @@ esc_start()
         return
     fi
 
-    local PID=$(pgrep -x esc)
+    local PID=$(pgrep -f '^\./esc .*--rpc ')
     if [ "$PID" != "" ]; then
         esc_status
         return
@@ -1303,7 +1330,7 @@ esc_start()
 
 esc_stop()
 {
-    local PID=$(pgrep -x esc)
+    local PID=$(pgrep -f '^\./esc .*--rpc ')
     if [ "$PID" != "" ]; then
         echo "Stopping esc..."
         kill -s SIGINT $PID
@@ -1349,7 +1376,7 @@ esc_client()
          [ ! -S $SCRIPT_PATH/esc/data/geth.ipc ]; then
         return
     else
-        ./esc --datadir $SCRIPT_PATH/esc/data $*
+        ./esc --datadir $SCRIPT_PATH/esc/data --nousb $*
     fi
 }
 
@@ -1380,7 +1407,7 @@ esc_status()
         local ESC_KEYSTORE=$(./esc --datadir "$SCRIPT_PATH/esc/data/" \
             --nousb --verbosity 0 account list | sed -n '1 s/.*keystore:\/\///p')
         if [ $ESC_KEYSTORE ] && [ -f $ESC_KEYSTORE ]; then
-            local ESC_ADDRESS=$(cat $ESC_KEYSTORE | jq -r .address)
+            local ESC_ADDRESS=0x$(cat $ESC_KEYSTORE | jq -r .address)
         else
             local ESC_ADDRESS=N/A
         fi
@@ -1388,7 +1415,7 @@ esc_status()
         local ESC_ADDRESS=N/A
     fi
 
-    local PID=$(pgrep -x esc)
+    local PID=$(pgrep -f '^\./esc .*--rpc ')
     if [ "$PID" == "" ]; then
         status_head $ESC_VER  Stopped
         status_info "Disk"    "$ESC_DISK_USAGE"
@@ -1420,10 +1447,10 @@ esc_status()
     fi
 
     local ESC_BALANCE=$(esc_client \
-        attach --exec 'web3.fromWei(eth.getBalance(eth.coinbase),"ether")')
+        attach --exec "web3.fromWei(eth.getBalance('$ESC_ADDRESS'),'ether')")
     if [ "$ESC_BALANCE" == "" ]; then
         ESC_BALANCE=N/A
-    elif [[ $ESC_BALANCE =~ [^.0-9] ]]; then
+    elif [[ $ESC_BALANCE =~ [^.0-9e-] ]]; then
         ESC_BALANCE=N/A
     fi
 
@@ -1450,6 +1477,13 @@ esc_compress_log()
     compress_log $SCRIPT_PATH/esc/logs
 }
 
+esc_remove_log()
+{
+    remove_log $SCRIPT_PATH/esc/data/geth/logs/dpos
+    remove_log $SCRIPT_PATH/esc/data/logs-spv
+    remove_log $SCRIPT_PATH/esc/logs
+}
+
 esc_update()
 {
     unset OPTIND
@@ -1472,7 +1506,7 @@ esc_update()
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/esc
     local DIR_DEPLOY=$SCRIPT_PATH/esc
 
-    local PID=$(pgrep -x esc)
+    local PID=$(pgrep -f '^\./esc .*--rpc ')
     if [ $PID ]; then
         esc-oracle_stop
         esc_stop
@@ -1569,6 +1603,44 @@ esc_init()
     touch ${SCRIPT_PATH}/esc/.init
     echo_ok "esc initialized"
     echo
+}
+
+esc_transfer()
+{
+    if [ "$3" == "" ]; then
+        echo "Usage: $SCRIPT_NAME esc transfer FROM TO AMOUNT [FEE]"
+        return
+    fi
+
+    local ESC_ADDR_FROM=$1
+    local ESC_ADDR_TO=$2
+    local ESC_AMOUNT=$3
+    local ESC_FEE=$4
+
+    if [ "$ESC_FEE" == "" ]; then
+        local ESC_FEE=21000
+    fi
+    local ESC_GAS_PRICE=$(esc_client attach --exec "eth.gasPrice")
+    local ESC_FEE_WEI=$(echo $ESC_FEE*$ESC_GAS_PRICE | bc)
+
+    if [ "$ESC_AMOUNT" == "All" ]; then
+        local ESC_AMOUNT_WEI=$(esc_client attach --exec "eth.getBalance('$ESC_ADDR_FROM')")
+        local ESC_AMOUNT_WEI=$(echo "$ESC_AMOUNT_WEI-$ESC_FEE_WEI" | bc)
+    else
+        local ESC_AMOUNT_WEI=$(echo "$ESC_AMOUNT*10^18" | bc)
+    fi
+
+    if [ "$IS_DEBUG" ]; then
+        echo "ESC_ADDR_FROM:  $ESC_ADDR_FROM"
+        echo "ESC_ADDR_TO:    $ESC_ADDR_TO"
+        echo "ESC_AMOUNT:     $ESC_AMOUNT"
+        echo "ESC_AMOUNT_WEI: $ESC_AMOUNT_WEI"
+        echo "ESC_FEE:        $ESC_FEE"
+        echo "ESC_GAS_PRICE:  $ESC_GAS_PRICE"
+        echo "ESC_FEE_WEI:    $ESC_FEE_WEI"
+    fi
+
+    esc_client attach --exec "eth.sendTransaction({from:'$ESC_ADDR_FROM',to:'$ESC_ADDR_TO',value:$ESC_AMOUNT_WEI,gas:$ESC_FEE,gasPrice:$ESC_GAS_PRICE})"
 }
 
 #
@@ -1672,6 +1744,11 @@ esc-oracle_compress_log()
     compress_log $SCRIPT_PATH/esc-oracle/logs/esc-oracle_out-\*.log
 }
 
+esc-oracle_remove_log()
+{
+    remove_log $SCRIPT_PATH/esc-oracle/logs/esc-oracle_out-\*.log
+}
+
 esc-oracle_update()
 {
     unset OPTIND
@@ -1751,7 +1828,7 @@ eid_start()
         return
     fi
 
-    local PID=$(pgrep -x eid)
+    local PID=$(pgrep -f '^\./eid .*--rpc ')
     if [ "$PID" != "" ]; then
         eid_status
         return
@@ -1800,7 +1877,7 @@ eid_start()
 
 eid_stop()
 {
-    local PID=$(pgrep -x eid)
+    local PID=$(pgrep -f '^\./eid .*--rpc ')
     if [ "$PID" != "" ]; then
         echo "Stopping eid..."
         kill -s SIGINT $PID
@@ -1846,7 +1923,7 @@ eid_client()
          [ ! -S $SCRIPT_PATH/eid/data/geth.ipc ]; then
         return
     else
-        ./eid --datadir $SCRIPT_PATH/eid/data $*
+        ./eid --datadir $SCRIPT_PATH/eid/data --nousb $*
     fi
 }
 
@@ -1877,7 +1954,7 @@ eid_status()
         local EID_KEYSTORE=$(./eid --datadir "$SCRIPT_PATH/eid/data/" \
             --nousb --verbosity 0 account list | sed -n '1 s/.*keystore:\/\///p')
         if [ $EID_KEYSTORE ] && [ -f $EID_KEYSTORE ]; then
-            local EID_ADDRESS=$(cat $EID_KEYSTORE | jq -r .address)
+            local EID_ADDRESS=0x$(cat $EID_KEYSTORE | jq -r .address)
         else
             local EID_ADDRESS=N/A
         fi
@@ -1885,7 +1962,7 @@ eid_status()
         local EID_ADDRESS=N/A
     fi
 
-    local PID=$(pgrep -x eid)
+    local PID=$(pgrep -f '^\./eid .*--rpc ')
     if [ "$PID" == "" ]; then
         status_head $EID_VER  Stopped
         status_info "Disk"    "$EID_DISK_USAGE"
@@ -1917,10 +1994,10 @@ eid_status()
     fi
 
     local EID_BALANCE=$(eid_client \
-        attach --exec 'web3.fromWei(eth.getBalance(eth.coinbase),"ether")')
+        attach --exec "web3.fromWei(eth.getBalance('$EID_ADDRESS'),'ether')")
     if [ "$EID_BALANCE" == "" ]; then
         EID_BALANCE=N/A
-    elif [[ $EID_BALANCE =~ [^.0-9] ]]; then
+    elif [[ $EID_BALANCE =~ [^.0-9e-] ]]; then
         EID_BALANCE=N/A
     fi
 
@@ -1947,6 +2024,13 @@ eid_compress_log()
     compress_log $SCRIPT_PATH/eid/logs
 }
 
+eid_remove_log()
+{
+    remove_log $SCRIPT_PATH/eid/data/geth/logs/dpos
+    remove_log $SCRIPT_PATH/eid/data/logs-spv
+    remove_log $SCRIPT_PATH/eid/logs
+}
+
 eid_update()
 {
     unset OPTIND
@@ -1969,7 +2053,7 @@ eid_update()
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/eid
     local DIR_DEPLOY=$SCRIPT_PATH/eid
 
-    local PID=$(pgrep -x eid)
+    local PID=$(pgrep -f '^\./eid .*--rpc ')
     if [ $PID ]; then
         eid-oracle_stop
         eid_stop
@@ -2053,6 +2137,44 @@ eid_init()
     touch ${SCRIPT_PATH}/eid/.init
     echo_ok "eid initialized"
     echo
+}
+
+eid_transfer()
+{
+    if [ "$3" == "" ]; then
+        echo "Usage: $SCRIPT_NAME eid transfer FROM TO AMOUNT [FEE]"
+        return
+    fi
+
+    local EID_ADDR_FROM=$1
+    local EID_ADDR_TO=$2
+    local EID_AMOUNT=$3
+    local EID_FEE=$4
+
+    if [ "$EID_FEE" == "" ]; then
+        local EID_FEE=21000
+    fi
+    local EID_GAS_PRICE=$(eid_client attach --exec "eth.gasPrice")
+    local EID_FEE_WEI=$(echo $EID_FEE*$EID_GAS_PRICE | bc)
+
+    if [ "$EID_AMOUNT" == "All" ]; then
+        local EID_AMOUNT_WEI=$(eid_client attach --exec "eth.getBalance('$EID_ADDR_FROM')")
+        local EID_AMOUNT_WEI=$(echo "$EID_AMOUNT_WEI-$EID_FEE_WEI" | bc)
+    else
+        local EID_AMOUNT_WEI=$(echo "$EID_AMOUNT*10^18" | bc)
+    fi
+
+    if [ "$IS_DEBUG" ]; then
+        echo "EID_ADDR_FROM:  $EID_ADDR_FROM"
+        echo "EID_ADDR_TO:    $EID_ADDR_TO"
+        echo "EID_AMOUNT:     $EID_AMOUNT"
+        echo "EID_AMOUNT_WEI: $EID_AMOUNT_WEI"
+        echo "EID_FEE:        $EID_FEE"
+        echo "EID_GAS_PRICE:  $EID_GAS_PRICE"
+        echo "EID_FEE_WEI:    $EID_FEE_WEI"
+    fi
+
+    eid_client attach --exec "eth.sendTransaction({from:'$EID_ADDR_FROM',to:'$EID_ADDR_TO',value:$EID_AMOUNT_WEI,gas:$EID_FEE,gasPrice:$EID_GAS_PRICE})"
 }
 
 #
@@ -2154,6 +2276,11 @@ eid-oracle_status()
 eid-oracle_compress_log()
 {
     compress_log $SCRIPT_PATH/eid-oracle/logs/eid-oracle_out-\*.log
+}
+
+eid-oracle_remove_log()
+{
+    remove_log $SCRIPT_PATH/eid-oracle/logs/eid-oracle_out-\*.log
 }
 
 eid-oracle_update()
@@ -2384,6 +2511,12 @@ arbiter_compress_log()
 {
     compress_log $SCRIPT_PATH/arbiter/elastos_arbiter/logs/arbiter
     compress_log $SCRIPT_PATH/arbiter/elastos_arbiter/logs/spv
+}
+
+arbiter_remove_log()
+{
+    remove_log $SCRIPT_PATH/arbiter/elastos_arbiter/logs/arbiter
+    remove_log $SCRIPT_PATH/arbiter/elastos_arbiter/logs/spv
 }
 
 arbiter_update()
@@ -2844,6 +2977,7 @@ usage()
     echo "  activate_dpos   Activate ELA DPoS"
     echo "  transfer        Transfer crypto"
     echo "  compress_log    Compress log files to save disk space"
+    echo "  remove_log      Remove log files"
     echo
 }
 
@@ -2875,7 +3009,8 @@ if [ "$1" == "init"    ] || \
    [ "$1" == "stop"    ] || \
    [ "$1" == "status"  ] || \
    [ "$1" == "update"  ] || [ "$1" == "upgrade" ] || \
-   [ "$1" == "compress_log" ]; then
+   [ "$1" == "compress_log" ] || \
+   [ "$1" == "remove_log" ]; then
     # operate on all chains
     COMMAND=$1
     # command aliases
@@ -2912,7 +3047,8 @@ else
          [ "$2" == "init"    ] || \
          [ "$2" == "activate_dpos" ] || \
          [ "$2" == "transfer"      ] || \
-         [ "$2" == "compress_log"  ]; then
+         [ "$2" == "compress_log"  ] || \
+         [ "$2" == "remove_log"    ]; then
         COMMAND=$2
     else
         echo "ERROR: do not support command: $2"
