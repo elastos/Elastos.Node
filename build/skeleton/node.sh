@@ -335,7 +335,7 @@ compress_log()
     if [ -d $LOG_DIR ]; then
         echo "Compressing log files in $LOG_DIR..."
         cd $LOG_DIR
-        for i in $(ls -1 $LOG_PAT | sort -r | sed 1d); do
+        for i in $(ls -1 $LOG_PAT 2>/dev/null | sort -r | sed 1d); do
             gzip -v $i
         done
     fi
@@ -368,10 +368,10 @@ remove_log()
     if [ -d $LOG_DIR ]; then
         echo "Removing log files in $LOG_DIR..."
         cd $LOG_DIR
-        for i in $(ls -1 $LOG_PAT | sort -r | sed 1d); do
+        for i in $(ls -1 $LOG_PAT 2>/dev/null | sort -r | sed 1d); do
             rm -v $i
         done
-        for i in $(ls -1 $LOG_PAT.gz); do
+        for i in $(ls -1 $LOG_PAT.gz 2>/dev/null); do
             rm -v $i
         done
     fi
@@ -681,9 +681,11 @@ ela_client()
         elif [ "$2" == "buildtx" ]; then
             if [ "$3" == "withdraw" ] || \
                [ "$3" == "activate" ] || \
-               [ "$3" == "vote"     ] || \
-               [ "$3" == "crosschain" ]; then
+               [ "$3" == "vote"     ]; then
                 $ELA_CLI $* --password "$(cat ~/.config/elastos/ela.txt)"
+            elif [ "$3" == "crosschain" ]; then
+                $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
+                 --rpcpassword $ELA_RPC_PASS $*
             else
                 $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
                  --rpcpassword $ELA_RPC_PASS $*
@@ -970,10 +972,10 @@ EOF
     echo
 }
 
-ela_transfer()
+ela_send()
 {
     if [ "$3" == "" ]; then
-        echo "Usage: $SCRIPT_NAME ela transfer FROM TO AMOUNT [FEE]"
+        echo "Usage: $SCRIPT_NAME ela send FROM TO AMOUNT [FEE]"
         return
     fi
 
@@ -1004,6 +1006,72 @@ ela_transfer()
     fi
 
     ela_client wallet buildtx \
+        --from $ELA_ADDR_FROM --to $ELA_ADDR_TO \
+        --amount $ELA_AMOUNT --fee $ELA_FEE
+
+    ela_client wallet signtx -f to_be_signed.txn
+    ela_client wallet sendtx -f ready_to_send.txn
+}
+
+ela_transfer()
+{
+    if [ "$3" == "" ]; then
+        echo "Usage: $SCRIPT_NAME ela transfer SIDECHAIN FROM TO AMOUNT [FEE]"
+        return
+    fi
+
+    local SIDECHAIN=$1
+    local ELA_ADDR_FROM=$2
+    local ELA_ADDR_TO=$3
+    local ELA_AMOUNT=$4
+    local ELA_FEE=$5
+
+    if [ "$SIDECHAIN" == "esc" ]; then
+        if [ "$CHAIN_TYPE" == "mainnet" ]; then
+            local SADDRESS=XVbCTM7vqM1qHKsABSFH4xKN1qbp7ijpWf
+        elif [ "$CHAIN_TYPE" == "testnet" ]; then
+            local SADDRESS=XWCiyXM1bQyGTawoaYKx9PjRkMUGGocWub
+        else
+            echo "ERROR: do not support $CHAIN_TYPE"
+            return
+        fi
+    elif [ "$SIDECHAIN" == "eid" ]; then
+        if [ "$CHAIN_TYPE" == "mainnet" ]; then
+            local SADDRESS=XUgTgCnUEqMUKLFAg3KhGv1nnt9nn8i3wi
+        elif [ "$CHAIN_TYPE" == "testnet" ]; then
+            local SADDRESS=XPsgiVQC3WucBYDL2DmPixj74Aa9aG3et8
+        else
+            echo "ERROR: do not support $CHAIN_TYPE"
+            return
+        fi
+    else
+        echo "ERROR: do not support sidechain $SIDECHAIN"
+        return
+    fi
+
+    if [ "$ELA_FEE" == "" ]; then
+        local ELA_FEE=0.000001
+    fi
+
+    if [ "$ELA_AMOUNT" == "All" ]; then
+        local ELA_AMOUNT=$(ela_client wallet balance | awk 'NR == 3 {print $3}')
+        local ELA_AMOUNT=$(echo "$ELA_AMOUNT-$ELA_FEE" | bc)
+    fi
+
+    cd ~/node/ela
+
+    if [ -f to_be_signed.txn ]; then
+        echo "Removing to_be_signed.txn..."
+        rm to_be_signed.txn
+    fi
+
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
+    fi
+
+    ela_client wallet buildtx crosschain \
+        --saddress $SADDRESS \
         --from $ELA_ADDR_FROM --to $ELA_ADDR_TO \
         --amount $ELA_AMOUNT --fee $ELA_FEE
 
@@ -1637,10 +1705,10 @@ esc_init()
     echo
 }
 
-esc_transfer()
+esc_send()
 {
     if [ "$3" == "" ]; then
-        echo "Usage: $SCRIPT_NAME esc transfer FROM TO AMOUNT [FEE]"
+        echo "Usage: $SCRIPT_NAME esc send FROM TO AMOUNT [FEE]"
         return
     fi
 
@@ -2171,10 +2239,10 @@ eid_init()
     echo
 }
 
-eid_transfer()
+eid_send()
 {
     if [ "$3" == "" ]; then
-        echo "Usage: $SCRIPT_NAME eid transfer FROM TO AMOUNT [FEE]"
+        echo "Usage: $SCRIPT_NAME eid send FROM TO AMOUNT [FEE]"
         return
     fi
 
@@ -3007,7 +3075,8 @@ usage()
     echo "  update          Install or update chain"
     echo "  init            Install and configure chain"
     echo "  activate_dpos   Activate ELA DPoS"
-    echo "  transfer        Transfer crypto"
+    echo "  send            Send crypto"
+    echo "  transfer        Send crypto crosschain"
     echo "  compress_log    Compress log files to save disk space"
     echo "  remove_log      Remove log files"
     echo
@@ -3078,6 +3147,7 @@ else
          [ "$2" == "update"  ] || [ "$2" == "upgrade" ] || \
          [ "$2" == "init"    ] || \
          [ "$2" == "activate_dpos" ] || \
+         [ "$2" == "send"          ] || \
          [ "$2" == "transfer"      ] || \
          [ "$2" == "compress_log"  ] || \
          [ "$2" == "remove_log"    ]; then
