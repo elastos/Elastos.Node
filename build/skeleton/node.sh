@@ -107,6 +107,71 @@ check_env()
     fi
 }
 
+init_config()
+{
+    local CONFIG_FILE=~/.config/elastos/${SCRIPT_NAME%.*}.json
+
+    if [ -f $CONFIG_FILE ]; then
+        echo_error "$CONFIG_FILE exist"
+        exit
+    fi
+
+    echo "Please select the network:"
+    echo
+    echo "  1. MainNet"
+    echo "  2. TestNet"
+
+    local SELECT=
+    while true; do
+        echo
+        read -p '? Your option: [1] ' SELECT
+
+        if [ "$SELECT" == "" ] || [ "$SELECT" == "1" ]; then
+            local CHAIN_TYPE=mainnet
+            break
+        elif [ "$SELECT" == "2" ]; then
+            local CHAIN_TYPE=testnet
+            break
+        else
+            echo_error "no such option: $SELECT"
+            continue
+        fi
+    done
+
+    mkdir -p  $(dirname $CONFIG_FILE)
+    chmod 700 $(dirname $CONFIG_FILE)
+
+    touch $CONFIG_FILE
+    chmod 600 $CONFIG_FILE
+    cat <<EOF >$CONFIG_FILE
+{
+    "chain-type": "$CHAIN_TYPE"
+}
+EOF
+
+    echo_info "config file: $CONFIG_FILE"
+}
+
+load_config()
+{
+    local CONFIG_FILE=~/.config/elastos/${SCRIPT_NAME%.*}.json
+
+    if [ ! -f $CONFIG_FILE ]; then
+        init_config
+        exit
+    fi
+
+    export CHAIN_TYPE=$(cat $CONFIG_FILE | jq -r '.["chain-type"]')
+
+    if [ "$CHAIN_TYPE" != "mainnet" ] && \
+       [ "$CHAIN_TYPE" != "testnet" ]; then
+
+        echo_error "no chain type selected"
+        echo_info "Please edit $CONFIG_FILE and set chain-type as mainnet or testnet"
+        exit
+    fi
+}
+
 set_path()
 {
     # bash will not read .profile if .bash_profile exists
@@ -411,6 +476,18 @@ nodejs_setenv()
     echo "nodejs: $(which node)"
 }
 
+get_elastos_ver_latest()
+{
+    # URL_PREFIX
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    curl -s "$1/?F=1" | grep '\[DIR\]' \
+        | sed -e 's/.*href="//' -e 's/".*//' -e 's/.*-//' -e 's/\/$//' \
+        | sort -Vr | head -n 1
+}
+
 #
 # common chain functions
 #
@@ -438,10 +515,17 @@ chain_prepare_stage()
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/$CHAIN_NAME
 
     echo "Finding the latest $CHAIN_NAME release..."
-    local URL_PREFIX=https://download.elastos.io/elastos-$CHAIN_NAME
-    local VER_LATEST=$(curl -s "$URL_PREFIX/?F=1" | grep '\[DIR\]' \
-        | sed -e 's/.*href="//' -e 's/".*//' -e 's/.*-//' -e 's/\/$//' \
-        | sort -Vr | head -n 1)
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local URL_PREFIX=https://download.elastos.io/elastos-$CHAIN_NAME
+        local VER_LATEST=$(get_elastos_ver_latest $URL_PREFIX)
+    else
+        local URL_PREFIX=https://download-beta.elastos.io/elastos-$CHAIN_NAME
+        local VER_LATEST=$(get_elastos_ver_latest $URL_PREFIX)
+        if [ "$VER_LATEST" == "" ] ; then
+            local URL_PREFIX=https://download.elastos.io/elastos-$CHAIN_NAME
+            local VER_LATEST=$(get_elastos_ver_latest $URL_PREFIX)
+        fi
+    fi
 
     if [ "$VER_LATEST" == "" ]; then
         echo "ERROR: no VER_LATEST found"
@@ -657,7 +741,14 @@ ela_client()
     local ELA_RPC_PASS=$(cat $SCRIPT_PATH/ela/config.json | \
         jq -r '.Configuration.RpcConfiguration.Pass')
 
-    local ELA_RPC_PORT=20336
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local ELA_RPC_PORT=20336
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local ELA_RPC_PORT=21336
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
 
     local ELA_CLI="$SCRIPT_PATH/ela/ela-cli"
 
@@ -714,7 +805,14 @@ ela_jsonrpc()
     local ELA_RPC_PASS=$(cat $SCRIPT_PATH/ela/config.json | \
         jq -r '.Configuration.RpcConfiguration.Pass')
 
-    local ELA_RPC_PORT=20336
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local ELA_RPC_PORT=20336
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local ELA_RPC_PORT=21336
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
 
     # auto expand single command
     if [[ $1 =~ ^[a-z]+$ ]] && [ "$2" == "" ]; then
@@ -873,6 +971,11 @@ ela_update()
 
 ela_init()
 {
+    if [ "$CHAIN_TYPE" == "testnet" ]; then
+        echo "TODO: testnet support"
+        return
+    fi
+
     local ELA_CONFIG=${SCRIPT_PATH}/ela/config.json
     local ELA_KEYSTORE=${SCRIPT_PATH}/ela/keystore.dat
     local ELA_KEYSTORE_PASS_FILE=~/.config/elastos/ela.txt
@@ -1090,6 +1193,11 @@ ela_activate_dpos()
     cd $SCRIPT_PATH/ela
     local ELA_PUB_KEY=$(ela_client wallet account | sed -n '3 s/^.* //p')
 
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
+    fi
+
     ela_client wallet buildtx activate --nodepublickey $ELA_PUB_KEY
     ela_client wallet sendtx -f ready_to_send.txn
 
@@ -1166,7 +1274,12 @@ did_client()
     local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
         jq -r '.RPCPass')
 
-    local DID_RPC_PORT=20606
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local DID_RPC_PORT=20606
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
 
     local DID_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $DID_RPC_PORT \
         --rpcuser $DID_RPC_USER --rpcpassword $DID_RPC_PASS"
@@ -1185,7 +1298,12 @@ did_jsonrpc()
     local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
         jq -r '.RPCPass')
 
-    local DID_RPC_PORT=20606
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local DID_RPC_PORT=20606
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
 
     if [[ $1 =~ ^[a-z]+$ ]] && [ "$2" == "" ]; then
         local DATA={\"method\":\"$1\"}
@@ -1288,6 +1406,11 @@ did_update()
 
 did_init()
 {
+    if [ "$CHAIN_TYPE" == "testnet" ]; then
+        echo "TODO: testnet support"
+        return
+    fi
+
     local DID_CONFIG=${SCRIPT_PATH}/did/config.json
 
     if [ ! -f ${SCRIPT_PATH}/did/did ]; then
@@ -1369,6 +1492,13 @@ esc_start()
 {
     if [ ! -f $SCRIPT_PATH/esc/esc ]; then
         echo "ERROR: $SCRIPT_PATH/esc/esc is not exist"
+        return
+    fi
+
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local ESC_OPTS=
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
         return
     fi
 
@@ -1763,7 +1893,12 @@ esc-oracle_start()
     cd $SCRIPT_PATH/esc-oracle
     mkdir -p $SCRIPT_PATH/esc-oracle/logs
 
-    export env=mainnet
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        export env=mainnet
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
 
     echo "env: $env"
     nodejs_setenv
@@ -1925,6 +2060,13 @@ eid_start()
 {
     if [ ! -f $SCRIPT_PATH/eid/eid ]; then
         echo "ERROR: $SCRIPT_PATH/eid/eid is not exist"
+        return
+    fi
+
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local EID_OPTS=
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
         return
     fi
 
@@ -2297,7 +2439,12 @@ eid-oracle_start()
     cd $SCRIPT_PATH/eid-oracle
     mkdir -p $SCRIPT_PATH/eid-oracle/logs
 
-    export env=mainnet
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        export env=mainnet
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
 
     echo "env: $env"
     nodejs_setenv
@@ -2529,7 +2676,12 @@ arbiter_jsonrpc()
     local ARBITER_RPC_PASS=$(cat $SCRIPT_PATH/arbiter/config.json | \
         jq -r '.Configuration.RpcConfiguration.Pass')
 
-    local ARBITER_RPC_PORT=20536
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local ARBITER_RPC_PORT=20536
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
 
     if [[ $1 =~ ^[a-z]+$ ]] && [ "$2" == "" ]; then
         local DATA={\"method\":\"$1\"}
@@ -2576,7 +2728,12 @@ arbiter_status()
         ARBITER_DID_HEIGHT=N/A
     fi
 
-    local ESC_GENESIS=6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local ESC_GENESIS=6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
     local ARBITER_ESC_HEIGHT=$(arbiter_jsonrpc \
         "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$ESC_GENESIS\"}}" \
         | jq -r '.result')
@@ -2584,7 +2741,12 @@ arbiter_status()
         ARBITER_ESC_HEIGHT=N/A
     fi
 
-    local EID_GENESIS=7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local EID_GENESIS=7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567
+    else
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
     local ARBITER_EID_HEIGHT=$(arbiter_jsonrpc \
         "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$EID_GENESIS\"}}" \
         | jq -r '.result')
@@ -2656,6 +2818,10 @@ arbiter_update()
 
 arbiter_init()
 {
+    if [ "$CHAIN_TYPE" == "testnet" ]; then
+        echo "TODO: testnet support"
+        return
+    fi
     if [ ! -f $SCRIPT_PATH/ela/.init ]; then
         echo_error "ela not initialized"
         return
@@ -3090,7 +3256,7 @@ SCRIPT_NAME=$(basename $BASH_SOURCE)
 
 set_env
 check_env
-CHAIN_TYPE=mainnet
+load_config
 
 # script commands
 if [ "$1" == "" ]; then
