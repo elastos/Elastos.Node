@@ -291,7 +291,7 @@ status_head()
         else
             local FG_COLOR=8
         fi
-        printf "$(tput smul)%-12s%-16s$(tput setaf $FG_COLOR)$(tput bold)%s$(tput sgr0)\n" $1 $2 $3
+        printf "$(tput smul)%-12s%-20s$(tput setaf $FG_COLOR)$(tput bold)%s$(tput sgr0)\n" $1 $2 $3
     else
         printf "%-12s%-16s%s\n" $1 $2 $3
     fi
@@ -971,11 +971,6 @@ ela_update()
 
 ela_init()
 {
-    if [ "$CHAIN_TYPE" == "testnet" ]; then
-        echo "TODO: testnet support"
-        return
-    fi
-
     local ELA_CONFIG=${SCRIPT_PATH}/ela/config.json
     local ELA_KEYSTORE=${SCRIPT_PATH}/ela/keystore.dat
     local ELA_KEYSTORE_PASS_FILE=~/.config/elastos/ela.txt
@@ -1007,7 +1002,30 @@ ela_init()
 
     if [ ! -f $ELA_CONFIG ]; then
         echo "Creating ela config file..."
-        cat >$ELA_CONFIG <<EOF
+
+        if [ "$CHAIN_TYPE" == "testnet" ]; then
+            cat >$ELA_CONFIG <<EOF
+{
+  "Configuration": {
+    "ActiveNet": "testnet",
+    "Magic": 2018111,
+    "DPoSConfiguration": {
+      "EnableArbiter": true,
+      "IPAddress": "$(extip)"
+    },
+    "EnableRPC": true,
+    "RpcConfiguration": {
+      "User": "USER",
+      "Pass": "PASSWORD",
+      "WhiteIPList": [
+        "127.0.0.1"
+      ]
+    }
+  }
+}
+EOF
+        else
+            cat >$ELA_CONFIG <<EOF
 {
   "Configuration": {
     "DPoSConfiguration": {
@@ -1025,6 +1043,7 @@ ela_init()
   }
 }
 EOF
+        fi
 
         echo "Generating random userpass for ela RPC interface..."
         local ELA_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
