@@ -275,7 +275,7 @@ list_udp()
         return
     fi
 
-    for i in $(lsof -nP -iUDP -a -p $1 2>/dev/null | sed '1d' | awk '{ print $5 "_" $9 }'); do
+    for i in $(lsof -nP -iUDP -a -p $1 2>/dev/null | sed '1d' | awk '{ print $5 "_" $9 }' | sort -u); do
         echo -n "$i "
     done
     echo
