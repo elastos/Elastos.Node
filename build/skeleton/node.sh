@@ -291,16 +291,16 @@ status_head()
         else
             local FG_COLOR=8
         fi
-        printf "$(tput smul)%-12s%-20s$(tput setaf $FG_COLOR)$(tput bold)%s$(tput sgr0)\n" $1 $2 $3
+        printf "$(tput smul)%-16s%-20s$(tput setaf $FG_COLOR)$(tput bold)%s$(tput sgr0)\n" $1 $2 $3
     else
-        printf "%-12s%-16s%s\n" $1 $2 $3
+        printf "%-16s%-20s%s\n" $1 $2 $3
     fi
 }
 
 status_info()
 {
     if [ -t 1 ]; then
-        printf "$(tput bold)%-12s$(tput sgr0)" "$1:"
+        printf "$(tput bold)%-16s$(tput sgr0)" "$1:"
         if [ "$1" == "DPoS State" ]; then
             if [ "$2" == "Active" ]; then
                 echo "$(tput setaf 2)$(tput bold)$2$(tput sgr0)"
@@ -329,7 +329,7 @@ status_info()
             echo "$2"
         fi
     else
-        printf "%-12s%s\n" "$1:" "$2"
+        printf "%-16s%s\n" "$1:" "$2"
     fi
 }
 
@@ -774,15 +774,22 @@ ela_client()
                [ "$3" == "activate" ] || \
                [ "$3" == "vote"     ]; then
                 $ELA_CLI $* --password "$(cat ~/.config/elastos/ela.txt)"
-            elif [ "$3" == "crosschain" ]; then
+            elif [ "$3" == "producer" ] || \
+                 [ "$3" == "unstake"  ]; then
                 $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
-                 --rpcpassword $ELA_RPC_PASS $*
+                    --rpcpassword $ELA_RPC_PASS $* \
+                    --password "$(cat ~/.config/elastos/ela.txt)"
+            elif [ "$3" == "crosschain" ] || \
+                 [ "$3" == "dposv2vote" ] || \
+                 [ "$3" == "stake"      ]; then
+                $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
+                    --rpcpassword $ELA_RPC_PASS $*
             else
                 $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
-                 --rpcpassword $ELA_RPC_PASS $*
+                    --rpcpassword $ELA_RPC_PASS $*
             fi
         else
-            # showtx, depositaddr, didaddr, crosschainaddr
+            # showtx, depositaddr, stakeaddress, didaddr, crosschainaddr
             $ELA_CLI $*
         fi
     elif [ "$1" == "info" ] || \
@@ -815,14 +822,14 @@ ela_jsonrpc()
     fi
 
     # auto expand single command
-    if [[ $1 =~ ^[a-z]+$ ]] && [ "$2" == "" ]; then
+    if [[ $1 =~ ^[a-z2]+$ ]] && [ "$2" == "" ]; then
         local DATA={\"method\":\"$1\"}
     else
-        local DATA=$1
+        local DATA=$*
     fi
 
     curl -s -H 'Content-Type:application/json' \
-        -X POST --data $DATA \
+        -X POST --data "$DATA" \
         -u $ELA_RPC_USER:$ELA_RPC_PASS \
         http://127.0.0.1:$ELA_RPC_PORT | jq .
 }
@@ -879,6 +886,20 @@ ela_status()
         ELA_DPOS_STATE=N/A
     fi
 
+    local ELA_ADDRESS_STAKE=$(ela_client wallet stakeaddress $ELA_ADDRESS)
+    local ELA_DPOS_STAKED=$(ela_jsonrpc "{\"method\":\"getvoterights\", \
+        \"params\":{\"stakeaddresses\":[\"$ELA_ADDRESS_STAKE\"]}}" | \
+        jq -r '.result[0].remainvoteright[4]')
+    if [ "$ELA_DPOS_STAKED" == "" ]; then
+        ELA_DPOS_STAKED=N/A
+    fi
+
+    local ELA_DPOS_VOTES=$(ela_jsonrpc '{"method":"listproducers","params":{"state":"all"}}' | \
+        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | .dposv2votes" 2>/dev/null)
+    if [ "$ELA_DPOS_VOTES" == "" ]; then
+        ELA_DPOS_VOTES=N/A
+    fi
+
     local ELA_CRC_NAME=$(ela_jsonrpc '{"method":"listcurrentcrs","params":{"state":"all"}}' | \
         jq -r ".result.crmembersinfo[] | select(.dpospublickey == \"$ELA_PUB_KEY\") | .nickname" 2>/dev/null)
     if [ "$ELA_CRC_NAME" == "" ]; then
@@ -899,22 +920,24 @@ ela_status()
     fi
 
     status_head $ELA_VER Running
-    status_info "Disk"       "$ELA_DISK_USAGE"
-    status_info "Address"    "$ELA_ADDRESS"
-    status_info "Public Key" "$ELA_PUB_KEY"
-    status_info "Balance"    "$ELA_BALANCE"
-    status_info "PID"        "$PID"
-    status_info "RAM"        "$ELA_RAM"
-    status_info "Uptime"     "$ELA_UPTIME"
-    status_info "#Files"     "$ELA_NUM_FILES"
-    status_info "TCP Ports"  "$ELA_TCP_LISTEN"
-    status_info "#TCP"       "$ELA_NUM_TCPS"
-    status_info "#Peers"     "$ELA_NUM_PEERS"
-    status_info "Height"     "$ELA_HEIGHT"
-    status_info "DPoS Name"  "$ELA_DPOS_NAME"
-    status_info "DPoS State" "$ELA_DPOS_STATE"
-    status_info "CRC Name"   "$ELA_CRC_NAME"
-    status_info "CRC State"  "$ELA_CRC_STATE"
+    status_info "Disk"        "$ELA_DISK_USAGE"
+    status_info "Address"     "$ELA_ADDRESS"
+    status_info "Public Key"  "$ELA_PUB_KEY"
+    status_info "Balance"     "$ELA_BALANCE"
+    status_info "PID"         "$PID"
+    status_info "RAM"         "$ELA_RAM"
+    status_info "Uptime"      "$ELA_UPTIME"
+    status_info "#Files"      "$ELA_NUM_FILES"
+    status_info "TCP Ports"   "$ELA_TCP_LISTEN"
+    status_info "#TCP"        "$ELA_NUM_TCPS"
+    status_info "#Peers"      "$ELA_NUM_PEERS"
+    status_info "Height"      "$ELA_HEIGHT"
+    status_info "DPoS Name"   "$ELA_DPOS_NAME"
+    status_info "DPoS State"  "$ELA_DPOS_STATE"
+    status_info "DPoS Staked" "$ELA_DPOS_STAKED"
+    status_info "DPoS Votes"  "$ELA_DPOS_VOTES"
+    status_info "CRC Name"    "$ELA_CRC_NAME"
+    status_info "CRC State"   "$ELA_CRC_STATE"
     echo
 }
 
@@ -1201,6 +1224,140 @@ ela_transfer()
     ela_client wallet sendtx -f ready_to_send.txn
 }
 
+ela_synced()
+{
+    local ELA_BEST_BLOCK_HASH=$(ela_jsonrpc getbestblockhash | jq -r '.result')
+
+    local BEST_BLOCK_SEC=$(ela_jsonrpc "{\"method\":\"getblock\",
+        \"params\":{\"blockhash\":\"$ELA_BEST_BLOCK_HASH\",\"verbosity\":1}}" |
+        jq -r '.result.time')
+
+    local THREE_MIN_BEFORE=$(($(date +%s)-60*3))
+
+    # echo "BEST_BLOCK_SEC:   $BEST_BLOCK_SEC"
+    # echo "THREE_MIN_BEFORE: $THREE_MIN_BEFORE"
+
+    # it is considered fully-synchronized if the best block time is within 3 minutes
+    if [ $BEST_BLOCK_SEC -gt $THREE_MIN_BEFORE ]; then
+        true
+    else
+        false
+    fi
+}
+
+ela_register_dpos()
+{
+    if [ "$CHAIN_TYPE" != "testnet" ]; then
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
+
+    if [ ! -f ~/.config/elastos/ela.txt ]; then
+        return
+    fi
+
+    if ! ela_synced; then
+        echo "ERROR: not fully-synchronized"
+        return
+    fi
+
+    if [ "$3" == "" ]; then
+        echo "Usage: $SCRIPT_NAME ela register_dpos NAME URL BLOCKS [REGION]"
+        return
+    fi
+
+    local DPOS_NAME=$1
+    local DPOS_URL=$2
+
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        if [ $3 -lt 7201 ]; then
+            echo "ERROR: less than 7,201 blocks (around 10 days)"
+            return
+        fi
+    else
+        if [ $3 -lt 21601 ]; then
+            echo "ERROR: less than 21,601 blocks (around 30 days)"
+            return
+        fi
+    fi
+    local DPOS_LOCK=$3
+
+    local ELA_PUB_KEY=$(ela_client wallet account | sed -n '3 s/^.* //p')
+    local IS_EXIST=$(ela_jsonrpc '{"method":"listproducers",
+        "params":{"state":"all"}}' | jq -r ".result.producers[] |
+        select(.nodepublickey == \"$ELA_PUB_KEY\") | .nodepublickey")
+
+    # echo "IS_EXIST: $IS_EXIST"
+
+    if [ "$4" == "" ]; then
+        local DPOS_EXT_IP=$(extip)
+        local DPOS_REGION=$(curl -s https://ipapi.co/$DPOS_EXT_IP/json |
+            jq -r '.country_calling_code')
+        # Calling codes has a prefix +
+        local DPOS_REGION=${DPOS_REGION#+}
+    fi
+
+    echo "DPOS_NAME:   $DPOS_NAME"
+    echo "DPOS_URL:    $DPOS_URL"
+    echo "DPOS_REGION: $DPOS_REGION"
+    echo "DPOS_LOCK:   $DPOS_LOCK"
+
+    if [ "$YES_TO_ALL" == "" ]; then
+        local ANSWER
+        if [ ! $IS_EXIST ]; then
+            read -p "Proceed registration (No/Yes)? " ANSWER
+        else
+            read -p "Proceed updating (No/Yes)? " ANSWER
+        fi
+
+        if [ "$ANSWER" != "Yes" ]; then
+            echo "Canceled"
+            return
+        fi
+    fi
+
+    # TODO: test more prerequisites
+    cd $SCRIPT_PATH/ela
+
+    if [ -f to_be_signed.txn ]; then
+        echo "Removing to_be_signed.txn..."
+        rm to_be_signed.txn
+    fi
+
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
+    fi
+
+    local ELA_HEIGHT=$(ela_client info getcurrentheight)
+    local DPOS_UNTIL=$(($ELA_HEIGHT+$DPOS_LOCK+1))
+
+    echo "ELA_HEIGHT:  $ELA_HEIGHT"
+    echo "DPOS_UNTIL:  $DPOS_UNTIL"
+
+    if [ ! $IS_EXIST ]; then
+        ela_client wallet buildtx producer register v2 \
+            --amount 2000 --fee 0.000001 \
+            --nodepublickey $ELA_PUB_KEY \
+            --nickname $DPOS_NAME --url $DPOS_URL \
+            --location $DPOS_REGION --netaddress 127.0.0.1 \
+            --stakeuntil $DPOS_UNTIL
+    else
+        ela_client wallet buildtx producer update v2 \
+            --fee 0.000001 \
+            --nodepublickey $ELA_PUB_KEY \
+            --nickname $DPOS_NAME --url $DPOS_URL \
+            --location $DPOS_REGION --netaddress 127.0.0.1 \
+            --stakeuntil $DPOS_UNTIL
+    fi
+
+    ela_client wallet signtx -f to_be_signed.txn
+    ela_client wallet sendtx -f ready_to_send.txn
+
+    # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:v2 producer StakeUntil less than DPoSV2DepositCoinMinLockTime]
+    # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:stake time is smaller than before]
+}
+
 ela_activate_dpos()
 {
     if [ ! -f ~/.config/elastos/ela.txt ]; then
@@ -1217,12 +1374,272 @@ ela_activate_dpos()
         rm ready_to_send.txn
     fi
 
-    ela_client wallet buildtx activate --nodepublickey $ELA_PUB_KEY
+    ela_client wallet buildtx | grep -q activate
+    if [ "$?" == "0" ]; then
+        ela_client wallet buildtx activate --nodepublickey $ELA_PUB_KEY
+    else
+        ela_client wallet buildtx producer activate --nodepublickey $ELA_PUB_KEY
+    fi
+
     ela_client wallet sendtx -f ready_to_send.txn
 
     # Error message:
     # [ERROR] map[code:-32603 id:<nil> message:Client authenticate failed]
     # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid]
+}
+
+ela_vote_dpos()
+{
+    if [ "$CHAIN_TYPE" != "testnet" ]; then
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
+
+    if [ ! -f ~/.config/elastos/ela.txt ]; then
+        return
+    fi
+
+    if ! ela_synced; then
+        echo "ERROR: not fully-synchronized"
+        return
+    fi
+
+    if [ "$3" == "" ]; then
+        echo "Usage: $SCRIPT_NAME ela vote_dpos NAME    AMOUNT BLOCKS"
+        echo "Usage: $SCRIPT_NAME ela vote_dpos PUB_KEY AMOUNT BLOCKS"
+        return
+    fi
+
+    local ELA_DPOS_NAME_OR_PUBKEY=$1
+
+    local ELA_DPOS_NAME=
+    local ELA_DPOS_PUBKEY=
+
+    local ELA_DPOS_PUBKEY=$(ela_jsonrpc listproducers |
+        jq -r ".result.producers[] |
+            select(.nickname == \"$ELA_DPOS_NAME_OR_PUBKEY\") |
+            .nodepublickey")
+
+    if [ "$ELA_DPOS_PUBKEY" != "" ]; then
+        local ELA_DPOS_NAME=$ELA_DPOS_NAME_OR_PUBKEY
+    else
+        local ELA_DPOS_NAME=$(ela_jsonrpc listproducers |
+            jq -r ".result.producers[] |
+                select(.nodepublickey == \"$ELA_DPOS_NAME_OR_PUBKEY\") |
+                .nickname")
+
+        if [ "$ELA_DPOS_NAME" != "" ]; then
+            local ELA_DPOS_PUBKEY=$ELA_DPOS_NAME_OR_PUBKEY
+        else
+            echo "ERROR: no such node registered: $ELA_DPOS_NAME_OR_PUBKEY"
+            return
+        fi
+    fi
+
+    local ELA_DPOS_VOTE_AMOUNT=$2
+    local BC_OUT=$(echo "$ELA_DPOS_VOTE_AMOUNT>0" | bc 2>/dev/null)
+    if [ "$BC_OUT" != "1" ]; then
+        echo "ERROR: bad AMOUNT: $ELA_DPOS_VOTE_AMOUNT"
+        return
+    fi
+
+    if [ $3 -lt 7201 ]; then
+        echo "ERROR: less than 7,201 blocks (around 10 days)"
+        return
+    fi
+    if [ $3 -gt 720000 ]; then
+        echo "ERROR: greater than 720,000 blocks (around 100 days)"
+        return
+    fi
+    local ELA_DPOS_BLOCKS_LOCK=$3
+
+    # testnet
+    local ELA_DPOS_STAKEPOOL=STAKEPooLXXXXXXXXXXXXXXXXXXXpP1PQ2
+
+    cd $SCRIPT_PATH/ela
+
+    local ELA_ADDRESS=$(ela_client wallet account | sed -n '3 s/ .*$//p')
+    local ELA_ADDRESS_STAKE=$(ela_client wallet stakeaddress $ELA_ADDRESS)
+    local ELA_STAKED=$(ela_jsonrpc "{\"method\":\"getvoterights\", \
+        \"params\":{\"stakeaddresses\":[\"$ELA_ADDRESS_STAKE\"]}}" | \
+        jq -r '.result[0].remainvoteright[4]')
+
+    if [ "$IS_DEBUG" ]; then
+        echo "ELA_DPOS_NAME:         $ELA_DPOS_NAME"
+        echo "ELA_DPOS_PUBKEY:       $ELA_DPOS_PUBKEY"
+        echo "ELA_DPOS_VOTE_AMOUNT:  $ELA_DPOS_VOTE_AMOUNT"
+        echo "ELA_DPOS_BLOCKS_LOCK:  $ELA_DPOS_BLOCKS_LOCK"
+        echo "ELA_DPOS_STAKEPOOL:    $ELA_DPOS_STAKEPOOL"
+        echo "ELA_ADDRESS:           $ELA_ADDRESS"
+        echo "ELA_ADDRESS_STAKE:     $ELA_ADDRESS_STAKE"
+        echo "ELA_STAKED:            $ELA_STAKED"
+    fi
+
+    local BC_OUT=$(echo "$ELA_DPOS_VOTE_AMOUNT<=$ELA_STAKED" | bc 2>/dev/null)
+    if [ "$BC_OUT" == "1" ]; then
+        echo "INFO: voting rights is enough: $ELA_STAKED"
+    elif [ "$BC_OUT" == "0" ]; then
+        # voting rights not enough"
+        local ELA_STAKE_AMOUNT=$(echo "$ELA_DPOS_VOTE_AMOUNT-$ELA_STAKED" | bc)
+        # echo "INFO: voting rights is not enough, an extra ELA_STAKE_AMOUNT is neeeded"
+        echo "Staking ELA $ELA_STAKE_AMOUNT..."
+        ela_stake_dpos $ELA_STAKE_AMOUNT
+        if [ "$?" == "0" ]; then
+            echo "OK"
+        else
+            echo "ERROR: Please wait for at least one new block before re-invoking"
+        fi
+
+        echo "Waiting enough vote rights..."
+        while true; do
+            local ELA_STAKED=$(ela_jsonrpc "{\"method\":\"getvoterights\", \
+                \"params\":{\"stakeaddresses\":[\"$ELA_ADDRESS_STAKE\"]}}" | \
+                jq -r '.result[0].remainvoteright[4]')
+            local BC_OUT=$(echo "$ELA_DPOS_VOTE_AMOUNT<=$ELA_STAKED" | bc 2>/dev/null)
+            if [ "$BC_OUT" == "1" ]; then
+                echo
+                break
+            fi
+            echo -n .
+            sleep 1
+        done
+    else
+        echo "ERROR: bc"
+        return
+    fi
+
+    if [ -f to_be_signed.txn ]; then
+        echo "Removing to_be_signed.txn..."
+        rm to_be_signed.txn
+    fi
+
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
+    fi
+
+    local ELA_HEIGHT=$(ela_client info getcurrentheight)
+    local ELA_DPOS_STAKE_UNTIL=$(($ELA_HEIGHT+$ELA_DPOS_BLOCKS_LOCK))
+
+    if [ "$IS_DEBUG" ]; then
+        echo "ELA_HEIGHT:            $ELA_HEIGHT"
+        echo "ELA_DPOS_STAKE_UNTIL:  $ELA_DPOS_STAKE_UNTIL"
+    fi
+
+    echo -e "\n[$(date)]" | tee -a vote_dpos.log
+    ela_client wallet buildtx dposv2vote --fee 0.000001 \
+        --candidates $ELA_DPOS_PUBKEY --votes $ELA_DPOS_VOTE_AMOUNT \
+        --stakeuntils $ELA_DPOS_STAKE_UNTIL --votetype 4 | tee -a vote_dpos.log
+
+    ela_client wallet signtx --file to_be_signed.txn
+    ela_client wallet sendtx --file ready_to_send.txn
+
+    # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:invalid DPoS 2.0 votes lock time]
+    # [ERROR] map[code:43001 id:<nil> message:slot Stake verify tx error]
+    # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:DPoSV2 vote rights not enough]
+}
+
+ela_stake_dpos()
+{
+    if [ "$CHAIN_TYPE" != "testnet" ]; then
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
+
+    if [ ! -f ~/.config/elastos/ela.txt ]; then
+        return
+    fi
+
+    if [ "$1" == "" ]; then
+        echo "Usage: $SCRIPT_NAME ela stake_dpos AMOUNT"
+        return
+    fi
+
+    local ELA_STAKE_AMOUNT=$1
+    local BC_OUT=$(echo "$ELA_STAKE_AMOUNT>0" | bc 2>/dev/null)
+    if [ "$BC_OUT" != "1" ]; then
+        echo "ERROR: bad AMOUNT: $ELA_STAKE_AMOUNT"
+        return
+    fi
+
+    if [ "$IS_DEBUG" ]; then
+        echo "ELA_STAKE_AMOUNT: $ELA_STAKE_AMOUNT"
+    fi
+
+    # testnet
+    local ELA_DPOS_STAKEPOOL=STAKEPooLXXXXXXXXXXXXXXXXXXXpP1PQ2
+
+    cd $SCRIPT_PATH/ela
+
+    if [ -f to_be_signed.txn ]; then
+        echo "Removing to_be_signed.txn..."
+        rm to_be_signed.txn
+    fi
+
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
+    fi
+
+    ela_client wallet buildtx stake --amount $ELA_STAKE_AMOUNT \
+        --fee 0.000001 --stakepool $ELA_DPOS_STAKEPOOL
+
+    ela_client wallet signtx -f to_be_signed.txn
+    ela_client wallet sendtx -f ready_to_send.txn
+
+    # [ERROR] map[code:43001 id:<nil> message:slot Stake verify tx error]
+}
+
+ela_unstake_dpos()
+{
+    if [ "$CHAIN_TYPE" != "testnet" ]; then
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
+
+    if [ ! -f ~/.config/elastos/ela.txt ]; then
+        return
+    fi
+
+    if [ "$1" == "" ]; then
+        echo "Usage: $SCRIPT_NAME ela unstake_dpos AMOUNT [ELA_ADDRESS]"
+        return
+    fi
+
+    local ELA_UNSTAKE_AMOUNT=$1
+    local BC_OUT=$(echo "$ELA_UNSTAKE_AMOUNT>0" | bc 2>/dev/null)
+    if [ "$BC_OUT" != "1" ]; then
+        echo "ERROR: bad AMOUNT: $ELA_UNSTAKE_AMOUNT"
+        return
+    fi
+
+    local ELA_ADDRESS=$2
+    if [ "$ELA_ADDRESS" == "" ]; then
+        local ELA_ADDRESS=$(ela_client wallet account | sed -n '3 s/ .*$//p')
+    fi
+
+    if [ "$IS_DEBUG" ]; then
+        echo "ELA_UNSTAKE_AMOUNT: $ELA_UNSTAKE_AMOUNT"
+        echo "ELA_ADDRESS:        $ELA_ADDRESS"
+    fi
+
+    cd $SCRIPT_PATH/ela
+
+    if [ -f to_be_signed.txn ]; then
+        echo "Removing to_be_signed.txn..."
+        rm to_be_signed.txn
+    fi
+
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
+    fi
+
+    ela_client wallet buildtx unstake --amount $ELA_UNSTAKE_AMOUNT \
+        --fee 0.000001 --to $ELA_ADDRESS
+
+    ela_client wallet signtx -f to_be_signed.txn
+    ela_client wallet sendtx -f ready_to_send.txn
 }
 
 #
@@ -3259,7 +3676,11 @@ usage()
     echo "  jsonrpc         Call JSON-RPC API"
     echo "  update          Install or update chain"
     echo "  init            Install and configure chain"
+    echo "  register_dpos   Register ELA DPoS"
     echo "  activate_dpos   Activate ELA DPoS"
+    echo "  vote_dpos       Vote ELA DPoS"
+    echo "  stake_dpos      Stake ELA DPoS"
+    echo "  unstake_dpos    Unstake ELA DPoS"
     echo "  send            Send crypto"
     echo "  transfer        Send crypto crosschain"
     echo "  compress_log    Compress log files to save disk space"
@@ -3331,11 +3752,15 @@ else
          [ "$2" == "jsonrpc" ] || \
          [ "$2" == "update"  ] || [ "$2" == "upgrade" ] || \
          [ "$2" == "init"    ] || \
-         [ "$2" == "activate_dpos" ] || \
-         [ "$2" == "send"          ] || \
-         [ "$2" == "transfer"      ] || \
-         [ "$2" == "compress_log"  ] || \
-         [ "$2" == "remove_log"    ]; then
+         [ "$2" == "register_dpos"   ] || \
+         [ "$2" == "activate_dpos"   ] || \
+         [ "$2" == "vote_dpos"       ] || \
+         [ "$2" == "stake_dpos"      ] || \
+         [ "$2" == "unstake_dpos"    ] || \
+         [ "$2" == "send"            ] || \
+         [ "$2" == "transfer"        ] || \
+         [ "$2" == "compress_log"    ] || \
+         [ "$2" == "remove_log"      ]; then
         COMMAND=$2
     else
         echo "ERROR: do not support command: $2"
@@ -3348,5 +3773,5 @@ else
 
     shift 2
 
-    ${CHAIN_NAME}_${COMMAND} $*
+    ${CHAIN_NAME}_${COMMAND} "$@"
 fi
