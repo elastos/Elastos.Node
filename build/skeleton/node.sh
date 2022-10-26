@@ -886,7 +886,7 @@ ela_status()
         ELA_DPOS_STATE=N/A
     fi
 
-    local ELA_ADDRESS_STAKE=$(ela_client wallet stakeaddress $ELA_ADDRESS)
+    local ELA_ADDRESS_STAKE=$(ela_client wallet stakeaddress $ELA_ADDRESS 2>/dev/null)
     local ELA_DPOS_STAKED=$(ela_jsonrpc "{\"method\":\"getvoterights\", \
         \"params\":{\"stakeaddresses\":[\"$ELA_ADDRESS_STAKE\"]}}" | \
         jq -r '.result[0].remainvoteright[4]')
@@ -895,7 +895,8 @@ ela_status()
     fi
 
     local ELA_DPOS_VOTES=$(ela_jsonrpc '{"method":"listproducers","params":{"state":"all"}}' | \
-        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | .dposv2votes" 2>/dev/null)
+        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | \
+            if .dposv2votes then .dposv2votes else .votes end" 2>/dev/null)
     if [ "$ELA_DPOS_VOTES" == "" ]; then
         ELA_DPOS_VOTES=N/A
     fi
