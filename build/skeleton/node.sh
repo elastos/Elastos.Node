@@ -774,8 +774,9 @@ ela_client()
                [ "$3" == "activate" ] || \
                [ "$3" == "vote"     ]; then
                 $ELA_CLI $* --password "$(cat ~/.config/elastos/ela.txt)"
-            elif [ "$3" == "producer" ] || \
-                 [ "$3" == "unstake"  ]; then
+            elif [ "$3" == "dposv2claimreward" ] || \
+                 [ "$3" == "producer"          ] || \
+                 [ "$3" == "unstake"           ]; then
                 $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
                     --rpcpassword $ELA_RPC_PASS $* \
                     --password "$(cat ~/.config/elastos/ela.txt)"
@@ -901,6 +902,13 @@ ela_status()
         ELA_DPOS_VOTES=N/A
     fi
 
+    local ELA_DPOS_REWARDS=$(ela_jsonrpc dposv2rewardinfo |
+        jq -r ".result[] | select(.address == \"$ELA_ADDRESS\") |
+            .claimable")
+    if [ "$ELA_DPOS_REWARDS" == "" ]; then
+        ELA_DPOS_REWARDS=N/A
+    fi
+
     local ELA_CRC_NAME=$(ela_jsonrpc '{"method":"listcurrentcrs","params":{"state":"all"}}' | \
         jq -r ".result.crmembersinfo[] | select(.dpospublickey == \"$ELA_PUB_KEY\") | .nickname" 2>/dev/null)
     if [ "$ELA_CRC_NAME" == "" ]; then
@@ -921,24 +929,25 @@ ela_status()
     fi
 
     status_head $ELA_VER Running
-    status_info "Disk"        "$ELA_DISK_USAGE"
-    status_info "Address"     "$ELA_ADDRESS"
-    status_info "Public Key"  "$ELA_PUB_KEY"
-    status_info "Balance"     "$ELA_BALANCE"
-    status_info "PID"         "$PID"
-    status_info "RAM"         "$ELA_RAM"
-    status_info "Uptime"      "$ELA_UPTIME"
-    status_info "#Files"      "$ELA_NUM_FILES"
-    status_info "TCP Ports"   "$ELA_TCP_LISTEN"
-    status_info "#TCP"        "$ELA_NUM_TCPS"
-    status_info "#Peers"      "$ELA_NUM_PEERS"
-    status_info "Height"      "$ELA_HEIGHT"
-    status_info "DPoS Name"   "$ELA_DPOS_NAME"
-    status_info "DPoS State"  "$ELA_DPOS_STATE"
-    status_info "DPoS Staked" "$ELA_DPOS_STAKED"
-    status_info "DPoS Votes"  "$ELA_DPOS_VOTES"
-    status_info "CRC Name"    "$ELA_CRC_NAME"
-    status_info "CRC State"   "$ELA_CRC_STATE"
+    status_info "Disk"         "$ELA_DISK_USAGE"
+    status_info "Address"      "$ELA_ADDRESS"
+    status_info "Public Key"   "$ELA_PUB_KEY"
+    status_info "Balance"      "$ELA_BALANCE"
+    status_info "PID"          "$PID"
+    status_info "RAM"          "$ELA_RAM"
+    status_info "Uptime"       "$ELA_UPTIME"
+    status_info "#Files"       "$ELA_NUM_FILES"
+    status_info "TCP Ports"    "$ELA_TCP_LISTEN"
+    status_info "#TCP"         "$ELA_NUM_TCPS"
+    status_info "#Peers"       "$ELA_NUM_PEERS"
+    status_info "Height"       "$ELA_HEIGHT"
+    status_info "DPoS Name"    "$ELA_DPOS_NAME"
+    status_info "DPoS State"   "$ELA_DPOS_STATE"
+    status_info "DPoS Staked"  "$ELA_DPOS_STAKED"
+    status_info "DPoS Votes"   "$ELA_DPOS_VOTES"
+    status_info "DPoS Rewards" "$ELA_DPOS_REWARDS"
+    status_info "CRC Name"     "$ELA_CRC_NAME"
+    status_info "CRC State"    "$ELA_CRC_STATE"
     echo
 }
 
@@ -1641,6 +1650,69 @@ ela_unstake_dpos()
 
     ela_client wallet signtx -f to_be_signed.txn
     ela_client wallet sendtx -f ready_to_send.txn
+}
+
+ela_claim_dpos()
+{
+
+    if [ "$CHAIN_TYPE" != "testnet" ]; then
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
+
+    if [ ! -f ~/.config/elastos/ela.txt ]; then
+        return
+    fi
+
+    if [ "$1" == "" ]; then
+        echo "Usage: $SCRIPT_NAME ela claim_dpos AMOUNT [ELA_ADDRESS]"
+        return
+    fi
+
+    local ELA_CLAIM_AMOUNT=$1
+
+    if [ "$ELA_CLAIM_AMOUNT" == "All" ]; then
+        local ELA_ADDRESS=$(ela_client wallet account | sed -n '3 s/ .*$//p')
+        local ELA_CLAIM_AMOUNT=$(ela_jsonrpc dposv2rewardinfo |
+            jq -r ".result[] | select(.address == \"$ELA_ADDRESS\") |
+                .claimable")
+    fi
+
+    local BC_OUT=$(echo "$ELA_CLAIM_AMOUNT>0" | bc 2>/dev/null)
+    if [ "$BC_OUT" != "1" ]; then
+        echo "ERROR: bad AMOUNT: $ELA_CLAIM_AMOUNT"
+        return
+    fi
+
+    local ELA_ADDRESS=$2
+    if [ "$ELA_ADDRESS" == "" ]; then
+        local ELA_ADDRESS=$(ela_client wallet account | sed -n '3 s/ .*$//p')
+    fi
+
+    if [ "$IS_DEBUG" ]; then
+        echo "ELA_CLAIM_AMOUNT: $ELA_CLAIM_AMOUNT"
+        echo "ELA_ADDRESS:      $ELA_ADDRESS"
+    fi
+
+    cd $SCRIPT_PATH/ela
+
+    if [ -f to_be_signed.txn ]; then
+        echo "Removing to_be_signed.txn..."
+        rm to_be_signed.txn
+    fi
+
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
+    fi
+
+    ela_client wallet buildtx dposv2claimreward \
+        --claimamount $ELA_CLAIM_AMOUNT --fee 0.000001 --to $ELA_ADDRESS
+
+    ela_client wallet signtx -f to_be_signed.txn
+    ela_client wallet sendtx -f ready_to_send.txn
+
+    # Wait for at least 3 blocks to receive the reward.
 }
 
 #
@@ -3682,6 +3754,7 @@ usage()
     echo "  vote_dpos       Vote ELA DPoS"
     echo "  stake_dpos      Stake ELA DPoS"
     echo "  unstake_dpos    Unstake ELA DPoS"
+    echo "  claim_dpos      Claim rewards ELA DPoS"
     echo "  send            Send crypto"
     echo "  transfer        Send crypto crosschain"
     echo "  compress_log    Compress log files to save disk space"
@@ -3758,6 +3831,7 @@ else
          [ "$2" == "vote_dpos"       ] || \
          [ "$2" == "stake_dpos"      ] || \
          [ "$2" == "unstake_dpos"    ] || \
+         [ "$2" == "claim_dpos"      ] || \
          [ "$2" == "send"            ] || \
          [ "$2" == "transfer"        ] || \
          [ "$2" == "compress_log"    ] || \
