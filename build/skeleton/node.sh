@@ -776,13 +776,15 @@ ela_client()
                 $ELA_CLI $* --password "$(cat ~/.config/elastos/ela.txt)"
             elif [ "$3" == "dposv2claimreward" ] || \
                  [ "$3" == "producer"          ] || \
+                 [ "$3" == "returnvotes"       ] || \
                  [ "$3" == "unstake"           ]; then
                 $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
                     --rpcpassword $ELA_RPC_PASS $* \
                     --password "$(cat ~/.config/elastos/ela.txt)"
-            elif [ "$3" == "crosschain" ] || \
-                 [ "$3" == "dposv2vote" ] || \
-                 [ "$3" == "stake"      ]; then
+            elif [ "$3" == "crosschain"    ] || \
+                 [ "$3" == "dposv2vote"    ] || \
+                 [ "$3" == "exchangevotes" ] || \
+                 [ "$3" == "stake"         ]; then
                 $ELA_CLI --rpcport $ELA_RPC_PORT --rpcuser $ELA_RPC_USER \
                     --rpcpassword $ELA_RPC_PASS $*
             else
@@ -822,9 +824,21 @@ ela_jsonrpc()
         return
     fi
 
-    # auto expand single command
     if [[ $1 =~ ^[a-z2]+$ ]] && [ "$2" == "" ]; then
+        # auto-expand the command without parameters
         local DATA={\"method\":\"$1\"}
+    elif [[ $1 =~ ^[a-z2]+$ ]] &&
+         [[ $2 =~ ^[a-z]+$  ]] && [[ $3 =~ ^[[:alnum:]]+ ]] &&
+         [ "$4" == "" ]; then
+        # auto-expand the command with only one parameter
+        local DATA="{\"method\":\"$1\",\"params\":{\"$2\":\"$3\"}}"
+    elif [[ $1 =~ ^[a-z2]+$ ]] &&
+         [[ $2 =~ ^[a-z]+$  ]] && [[ $3 =~ ^[[:alnum:]]+ ]] &&
+         [[ $4 =~ ^[a-z]+$  ]] && [[ $5 =~ ^[[:alnum:]]+ ]] &&
+         [ "$6" == "" ]; then
+        # auto-expand the command with two parameters
+        local DATA="{\"method\": \"$1\",
+            \"params\": {\"$2\":\"$3\",\"$4\":\"$5\"}}"
     else
         local DATA=$*
     fi
@@ -875,48 +889,53 @@ ela_status()
         ELA_HEIGHT=N/A
     fi
 
-    local ELA_DPOS_NAME=$(ela_jsonrpc '{"method":"listproducers","params":{"state":"all"}}' | \
-        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | .nickname" 2>/dev/null)
+    local ELA_DPOS_NAME=$(ela_jsonrpc listproducers state all |
+        jq -r ".result.producers[]? |
+               select(.nodepublickey == \"$ELA_PUB_KEY\") | .nickname")
     if [ "$ELA_DPOS_NAME" == "" ]; then
         ELA_DPOS_NAME=N/A
     fi
 
-    local ELA_DPOS_STATE=$(ela_jsonrpc '{"method":"listproducers","params":{"state":"all"}}' | \
-        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | .state" 2>/dev/null)
+    local ELA_DPOS_STATE=$(ela_jsonrpc listproducers state all |
+        jq -r ".result.producers[]? |
+               select(.nodepublickey == \"$ELA_PUB_KEY\") | .state")
     if [ "$ELA_DPOS_STATE" == "" ]; then
         ELA_DPOS_STATE=N/A
     fi
 
     local ELA_ADDRESS_STAKE=$(ela_client wallet stakeaddress $ELA_ADDRESS 2>/dev/null)
-    local ELA_DPOS_STAKED=$(ela_jsonrpc "{\"method\":\"getvoterights\", \
-        \"params\":{\"stakeaddresses\":[\"$ELA_ADDRESS_STAKE\"]}}" | \
-        jq -r '.result[0].remainvoteright[4]')
-    if [ "$ELA_DPOS_STAKED" == "" ]; then
+    local ELA_DPOS_STAKED=$(ela_jsonrpc "{\"method\":\"getvoterights\",
+        \"params\":{\"stakeaddresses\":[\"$ELA_ADDRESS_STAKE\"]}}" |
+        jq -r '.result[0].remainvoteright[4]'
+    )
+    if [ "$ELA_DPOS_STAKED" == "" ] || [ "$ELA_DPOS_STAKED" == "null" ]; then
         ELA_DPOS_STAKED=N/A
     fi
 
-    local ELA_DPOS_VOTES=$(ela_jsonrpc '{"method":"listproducers","params":{"state":"all"}}' | \
-        jq -r ".result.producers[] | select(.nodepublickey == \"$ELA_PUB_KEY\") | \
-            if .dposv2votes then .dposv2votes else .votes end" 2>/dev/null)
+    local ELA_DPOS_VOTES=$(ela_jsonrpc listproducers state all |
+        jq -r ".result.producers[]? |
+               select(.nodepublickey == \"$ELA_PUB_KEY\") |
+               if .dposv2votes then .dposv2votes else .votes end")
     if [ "$ELA_DPOS_VOTES" == "" ]; then
         ELA_DPOS_VOTES=N/A
     fi
 
     local ELA_DPOS_REWARDS=$(ela_jsonrpc dposv2rewardinfo |
-        jq -r ".result[] | select(.address == \"$ELA_ADDRESS\") |
-            .claimable")
+        jq -r ".result[]? | select(.address == \"$ELA_ADDRESS\") | .claimable")
     if [ "$ELA_DPOS_REWARDS" == "" ]; then
         ELA_DPOS_REWARDS=N/A
     fi
 
-    local ELA_CRC_NAME=$(ela_jsonrpc '{"method":"listcurrentcrs","params":{"state":"all"}}' | \
-        jq -r ".result.crmembersinfo[] | select(.dpospublickey == \"$ELA_PUB_KEY\") | .nickname" 2>/dev/null)
+    local ELA_CRC_NAME=$(ela_jsonrpc listcurrentcrs state all |
+        jq -r ".result.crmembersinfo[]? |
+               select(.dpospublickey == \"$ELA_PUB_KEY\") | .nickname")
     if [ "$ELA_CRC_NAME" == "" ]; then
         ELA_CRC_NAME=N/A
     fi
 
-    local ELA_CRC_STATE=$(ela_jsonrpc '{"method":"listcurrentcrs","params":{"state":"all"}}' | \
-        jq -r ".result.crmembersinfo[] | select(.dpospublickey == \"$ELA_PUB_KEY\") | .state" 2>/dev/null)
+    local ELA_CRC_STATE=$(ela_jsonrpc listcurrentcrs state all |
+        jq -r ".result.crmembersinfo[]? |
+               select(.dpospublickey == \"$ELA_PUB_KEY\") | .state")
     if [ "$ELA_CRC_STATE" == "" ]; then
         ELA_CRC_STATE=N/A
     fi
@@ -966,10 +985,13 @@ ela_remove_log()
 ela_update()
 {
     unset OPTIND
-    while getopts "ny" OPTION; do
+    while getopts "npy" OPTION; do
         case $OPTION in
             n)
                 local NO_START_AFTER_UPDATE=1
+                ;;
+            p)
+                local PURGE_CHECKPOINTS=1
                 ;;
             y)
                 local YES_TO_ALL=1
@@ -993,6 +1015,12 @@ ela_update()
     mkdir -p $DIR_DEPLOY
     cp -v $PATH_STAGE/ela $DIR_DEPLOY/
     cp -v $PATH_STAGE/ela-cli $DIR_DEPLOY/
+
+    if [ $PURGE_CHECKPOINTS ] &&
+       [ -d $SCRIPT_PATH/ela/elastos/data/checkpoints ]; then
+        echo "Removing $SCRIPT_PATH/ela/elastos/data/checkpoints..."
+        rm -rf $SCRIPT_PATH/ela/elastos/data/checkpoints
+    fi
 
     # Start program, if 1 and 2
     # 1. ela was Running before the update
@@ -1238,9 +1266,10 @@ ela_synced()
 {
     local ELA_BEST_BLOCK_HASH=$(ela_jsonrpc getbestblockhash | jq -r '.result')
 
-    local BEST_BLOCK_SEC=$(ela_jsonrpc "{\"method\":\"getblock\",
-        \"params\":{\"blockhash\":\"$ELA_BEST_BLOCK_HASH\",\"verbosity\":1}}" |
-        jq -r '.result.time')
+    local BEST_BLOCK_SEC=$(
+        ela_jsonrpc getblock blockhash $ELA_BEST_BLOCK_HASH verbosity 1 |
+        jq -r '.result.time'
+    )
 
     local THREE_MIN_BEFORE=$(($(date +%s)-60*3))
 
@@ -1293,9 +1322,9 @@ ela_register_dpos()
     local DPOS_LOCK=$3
 
     local ELA_PUB_KEY=$(ela_client wallet account | sed -n '3 s/^.* //p')
-    local IS_EXIST=$(ela_jsonrpc '{"method":"listproducers",
-        "params":{"state":"all"}}' | jq -r ".result.producers[] |
-        select(.nodepublickey == \"$ELA_PUB_KEY\") | .nodepublickey")
+    local IS_EXIST=$(ela_jsonrpc listproducers state all |
+        jq -r ".result.producers[]? |
+               select(.nodepublickey == \"$ELA_PUB_KEY\") | .nodepublickey")
 
     # echo "IS_EXIST: $IS_EXIST"
 
@@ -1470,8 +1499,8 @@ ela_vote_dpos()
 
     local ELA_ADDRESS=$(ela_client wallet account | sed -n '3 s/ .*$//p')
     local ELA_ADDRESS_STAKE=$(ela_client wallet stakeaddress $ELA_ADDRESS)
-    local ELA_STAKED=$(ela_jsonrpc "{\"method\":\"getvoterights\", \
-        \"params\":{\"stakeaddresses\":[\"$ELA_ADDRESS_STAKE\"]}}" | \
+    local ELA_STAKED=$(ela_jsonrpc "{\"method\":\"getvoterights\",
+        \"params\":{\"stakeaddresses\":[\"$ELA_ADDRESS_STAKE\"]}}" |
         jq -r '.result[0].remainvoteright[4]')
 
     if [ "$IS_DEBUG" ]; then
@@ -1502,10 +1531,12 @@ ela_vote_dpos()
 
         echo "Waiting enough vote rights..."
         while true; do
-            local ELA_STAKED=$(ela_jsonrpc "{\"method\":\"getvoterights\", \
-                \"params\":{\"stakeaddresses\":[\"$ELA_ADDRESS_STAKE\"]}}" | \
+            local ELA_STAKED=$(ela_jsonrpc "{\"method\":\"getvoterights\",
+                \"params\":{\"stakeaddresses\":[\"$ELA_ADDRESS_STAKE\"]}}" |
                 jq -r '.result[0].remainvoteright[4]')
-            local BC_OUT=$(echo "$ELA_DPOS_VOTE_AMOUNT<=$ELA_STAKED" | bc 2>/dev/null)
+
+            local BC_OUT=$(echo "$ELA_DPOS_VOTE_AMOUNT<=$ELA_STAKED" |
+                bc 2>/dev/null)
             if [ "$BC_OUT" == "1" ]; then
                 echo
                 break
@@ -1591,7 +1622,7 @@ ela_stake_dpos()
         rm ready_to_send.txn
     fi
 
-    ela_client wallet buildtx stake --amount $ELA_STAKE_AMOUNT \
+    ela_client wallet buildtx exchangevotes --amount $ELA_STAKE_AMOUNT \
         --fee 0.000001 --stakepool $ELA_DPOS_STAKEPOOL
 
     ela_client wallet signtx -f to_be_signed.txn
@@ -1645,7 +1676,7 @@ ela_unstake_dpos()
         rm ready_to_send.txn
     fi
 
-    ela_client wallet buildtx unstake --amount $ELA_UNSTAKE_AMOUNT \
+    ela_client wallet buildtx returnvotes --amount $ELA_UNSTAKE_AMOUNT \
         --fee 0.000001 --to $ELA_ADDRESS
 
     ela_client wallet signtx -f to_be_signed.txn
@@ -1675,7 +1706,7 @@ ela_claim_dpos()
         local ELA_ADDRESS=$(ela_client wallet account | sed -n '3 s/ .*$//p')
         local ELA_CLAIM_AMOUNT=$(ela_jsonrpc dposv2rewardinfo |
             jq -r ".result[] | select(.address == \"$ELA_ADDRESS\") |
-                .claimable")
+                   .claimable")
     fi
 
     local BC_OUT=$(echo "$ELA_CLAIM_AMOUNT>0" | bc 2>/dev/null)
