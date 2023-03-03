@@ -20,7 +20,7 @@ Updating ela config file...
 Creating ela keystore...
 ```
 
-A relatively strong password is required to generate the keystore file (the wallet).
+A relatively strong password is required to generate the keystore file (nodepublickey wallet).
 
 ```
 Please input a password (ENTER to use a random one)
@@ -34,9 +34,7 @@ EUX2Zz1r9bc6GtCHCD1qWfGEKzuY...... 03af7417cfef028a8138394c5fecb708b40b7dd512381
 ---------------------------------- ---------------------------------------------------------
 ```
 
-You must have the public key to vote DPoS supernode or CR Council member.
-
-*(TODO: add links to tutorials)*
+You must update the nodepublickey through the app, and complete the binding of the registered supernode to the server ELA node, in order to participate in the main network node consensus to gain rewards
 
 ```
 INFO: ela config file: /home/ubuntu/node/ela/config.json

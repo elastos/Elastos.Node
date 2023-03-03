@@ -17,7 +17,7 @@ This guide is mostly intended for the user who:
 
 ## Server Hardware Requirements
 
-If you install all the components of the Elastos blockchain:
+If you are a **CRC supernode** or install all the components of the Elastos blockchain:
 
 * **CPU**: **2 cores** or more
 * **RAM**: **32 GB** or more
@@ -27,7 +27,11 @@ If you install all the components of the Elastos blockchain:
 
 A single chain may require fewer resources, for example, you only install the mainchain as a normal verification node.
 
+If you are a **DPOS supernode** or have only ELA nodes installed:
 
+* **CPU**: **2 cores** or more
+* **RAM**: **8 GB** or more
+* **HDD**: **100 GB** or more
 
 ## Server Software Requirements
 
