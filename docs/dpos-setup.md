@@ -10,13 +10,13 @@ After registering the DPoS2.0 node with Essentials, complete the DPoS2.0 node bu
 DPoS nodes only require ELA nodes to be installed
 
 ### Preparation
-1. DPoS Supernode Ops please read[security](archives/security.md)
+1. DPoS Supernode Ops please read [security](archives/security.md)
 2. DPoS Supernode Ops please configure your server according to the server [requirements](overview/requirements.md)
 
 ### ELA node setup
-1. A tool to quickly deploy nodes[node.sh](step-by-step-setup/installing-node.sh.md)
+1. A tool to quickly deploy nodes [node.sh](step-by-step-setup/installing-node.sh.md)
 2. The [ela](step-by-step-setup/installing-programs/installing-elastos-ela.md) node is deployed and the nodepublickey is bound using Essentials
-3. [Start ela](step-by-step-setup/starting-programs.md)node to synchronize block data on the main network
+3. [Start ela](step-by-step-setup/starting-programs.md) node to synchronize block data on the main network
    
 4. Check the status of a node
     The **status** command will show all programs (chains) are **Running**. Watch the **Height** to make sure the chains are **synchronized**.
@@ -31,7 +31,7 @@ $ ~/node/node.sh status
 ### FAQ
 * Node [faq](appendix/faq.md)
 * To find out more [Info](../SUMMARY.md)
-* You can also consult [Gelaxy Tame](https://discord.gg/UAyyVt3Fch)
+* You can also consult [Gelaxy Team](https://discord.gg/UAyyVt3Fch)
 
 
 
