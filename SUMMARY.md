@@ -4,6 +4,7 @@
   * [💻 Elastos Node](docs/overview/elastos-node.md)
   * [⚙ Elastos Node Components](docs/overview/programs-supported-by-node.sh.md)
   * [✔ Requirements](docs/overview/requirements.md)
+* [DPOS2.0 Setup](docs/dpos-setup.md)
 * [node.sh](docs/what-is-node.sh.md)
 * [⛏ Quick Setup](docs/quick-setup.md)
 * [⚒ Step-by-Step Setup](docs/step-by-step-setup.md)
