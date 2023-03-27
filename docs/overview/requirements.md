@@ -27,7 +27,7 @@ If you are a **CRC supernode** or install all the components of the Elastos bloc
 
 A single chain may require fewer resources, for example, you only install the mainchain as a normal verification node.
 
-If you are a **DPOS supernode** or have only ELA nodes installed:
+If you are a **BPoS supernode** or have only ELA nodes installed:
 
 * **CPU**: **2 cores** or more
 * **RAM**: **8 GB** or more
@@ -49,12 +49,12 @@ If you do not need all the chains, please find a required subset by the chain na
 | Chain or Program Name | Protocol and Port Range | Purpose           |
 | --------------------- | ----------------------- | ----------------- |
 | ELA                   | TCP 20338               | ELA P2P           |
-| ELA                   | TCP 20339               | ELA DPoS          |
+| ELA                   | TCP 20339               | ELA BPoS          |
 | DID                   | TCP 20608               | DID P2P           |
 | ESC                   | TCP+UDP 20638           | ESC P2P           |
-| ESC                   | TCP 20639               | ESC DPoS          |
+| ESC                   | TCP 20639               | ESC BPoS          |
 | EID                   | TCP+UDP 20648           | EID P2P           |
-| EID                   | TCP 20649               | EID DPoS          |
+| EID                   | TCP 20649               | EID BPoS          |
 | Arbiter               | TCP 20538               | Arbiter P2P       |
 | Carrier               | UDP 3478                | Carrier P2P       |
 | Carrier               | TCP 33445               | Carrier TCP Relay |
