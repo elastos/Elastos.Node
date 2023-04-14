@@ -724,7 +724,7 @@ ela_installed()
 ela_ver()
 {
     if [ -f $SCRIPT_PATH/ela/ela ]; then
-        echo "ela $($SCRIPT_PATH/ela/ela -v | sed 's/.* //')"
+        echo "ela $($SCRIPT_PATH/ela/ela -v | sed 's/.*\(v[0-9.][0-9\.]*\).*/\1/')"
     else
         echo "ela N/A"
     fi
