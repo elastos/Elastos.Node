@@ -80,7 +80,6 @@ check_env()
             fi
         else
             echo_error "do not support"
-        fi
             exit
         fi
     else
