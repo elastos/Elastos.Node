@@ -71,10 +71,16 @@ check_env()
 {
     #echo "Checking OS Version..."
     if [ "$(uname -s)" == "Linux" ]; then
-        local OS_VER="$(lsb_release -s -i 2>/dev/null)"
-        local OS_VER="$OS_VER-$(lsb_release -s -r 2>/dev/null)"
-        if [ "$OS_VER" \< "Ubuntu-18.04" ]; then
-            echo_error "this script requires Ubuntu 18.04 or higher"
+        local DIST_NAME=$(lsb_release -s -i 2>/dev/null)
+        local DIST_VER=$(lsb_release -s -r 2>/dev/null)
+        if [ "$DIST_NAME" == "Ubuntu" ]; then
+            if [ "$DIST_VER" \< "18.04" ]; then
+                echo_error "this script requires Ubuntu 18.04 or higher"
+                exit
+            fi
+        else
+            echo_error "do not support"
+        fi
             exit
         fi
     else
@@ -496,7 +502,6 @@ chain_prepare_stage()
     local CHAIN_NAME=$1
 
     if [ "$CHAIN_NAME" != "ela" ] && \
-       [ "$CHAIN_NAME" != "did" ] && \
        [ "$CHAIN_NAME" != "esc" ] && \
        [ "$CHAIN_NAME" != "esc-oracle" ] && \
        [ "$CHAIN_NAME" != "eid" ] && \
@@ -519,11 +524,19 @@ chain_prepare_stage()
         local URL_PREFIX=https://download.elastos.io/elastos-$CHAIN_NAME
         local VER_LATEST=$(get_elastos_ver_latest $URL_PREFIX)
     else
-        local URL_PREFIX=https://download-beta.elastos.io/elastos-$CHAIN_NAME
+        local URL_PREFIX_BETA=https://download-beta.elastos.io/elastos-$CHAIN_NAME
+        local VER_LATEST_BETA=$(get_elastos_ver_latest $URL_PREFIX_BETA)
+
+        local URL_PREFIX=https://download.elastos.io/elastos-$CHAIN_NAME
         local VER_LATEST=$(get_elastos_ver_latest $URL_PREFIX)
-        if [ "$VER_LATEST" == "" ] ; then
-            local URL_PREFIX=https://download.elastos.io/elastos-$CHAIN_NAME
-            local VER_LATEST=$(get_elastos_ver_latest $URL_PREFIX)
+
+        local VER_LATEST_HIGHER=$(echo -e "$VER_LATEST_BETA\n$VER_LATEST" |
+            sort -Vr | head -n 1)
+
+        # If beta channel has a higher release
+        if [ "$VER_LATEST_HIGHER" == "$VER_LATEST_BETA" ]; then
+            local URL_PREFIX=$URL_PREFIX_BETA
+            local VER_LATEST=$VER_LATEST_BETA
         fi
     fi
 
@@ -590,7 +603,6 @@ all_start()
 {
     carrier_installed    && carrier_start
     ela_installed        && ela_start
-    did_installed        && did_start
     esc_installed        && esc_start
     esc-oracle_installed && esc-oracle_start
     eid_installed        && eid_start
@@ -603,7 +615,6 @@ all_stop()
     carrier_installed    && carrier_stop
     arbiter_installed    && arbiter_stop
     ela_installed        && ela_stop
-    did_installed        && did_stop
     eid-oracle_installed && eid-oracle_stop
     eid_installed        && eid_stop
     esc-oracle_installed && esc-oracle_stop
@@ -613,7 +624,6 @@ all_stop()
 all_status()
 {
     ela_installed        && ela_status
-    did_installed        && did_status
     esc_installed        && esc_status
     esc-oracle_installed && esc-oracle_status
     eid_installed        && eid_status
@@ -625,7 +635,6 @@ all_status()
 all_update()
 {
     ela_installed        && ela_update
-    did_installed        && did_update
     esc_installed        && esc_update
     esc-oracle_installed && esc-oracle_update
     eid_installed        && eid_update
@@ -637,7 +646,6 @@ all_update()
 all_init()
 {
     ela_init
-    did_init
     esc_init
     esc-oracle_init
     eid_init
@@ -649,7 +657,6 @@ all_init()
 all_compress_log()
 {
     ela_installed        && ela_compress_log
-    did_installed        && did_compress_log
     esc_installed        && esc_compress_log
     esc-oracle_installed && esc-oracle_compress_log
     eid_installed        && eid_compress_log
@@ -660,7 +667,6 @@ all_compress_log()
 all_remove_log()
 {
     ela_installed        && ela_remove_log
-    did_installed        && did_remove_log
     esc_installed        && esc_remove_log
     esc-oracle_installed && esc-oracle_remove_log
     eid_installed        && eid_remove_log
@@ -774,7 +780,8 @@ ela_client()
                [ "$3" == "activate" ] || \
                [ "$3" == "vote"     ]; then
                 $ELA_CLI $* --password "$(cat ~/.config/elastos/ela.txt)"
-            elif [ "$3" == "dposv2claimreward" ] || \
+            elif [ "$3" == "crc"               ] || \
+                 [ "$3" == "dposv2claimreward" ] || \
                  [ "$3" == "producer"          ] || \
                  [ "$3" == "returnvotes"       ] || \
                  [ "$3" == "unstake"           ]; then
@@ -1427,6 +1434,57 @@ ela_activate_dpos()
     # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid]
 }
 
+ela_unregister_dpos()
+{
+    if [ "$CHAIN_TYPE" != "testnet" ]; then
+        echo "ERROR: do not support $CHAIN_TYPE"
+        return
+    fi
+
+    if [ ! -f ~/.config/elastos/ela.txt ]; then
+        return
+    fi
+
+    # TODO: test more prerequisites
+
+    cd $SCRIPT_PATH/ela
+
+    if [ -f to_be_signed.txn ]; then
+        echo "Removing to_be_signed.txn..."
+        rm to_be_signed.txn
+    fi
+
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
+    fi
+
+    local ELA_PUB_KEY=$(ela_client wallet account | sed -n '3 s/^.* //p')
+
+    local AMOUNT=$(ela_jsonrpc getdepositcoin ownerpublickey $ELA_PUB_KEY |
+        jq -r '.result.available')
+
+    if [ "$IS_DEBUG" ]; then
+        echo "AMOUNT: $AMOUNT"
+    fi
+
+    # DPoS 2.0 do not support unregister manually.
+    # The command:
+    #   ela_client wallet buildtx producer unregister --fee 0.000001
+    # will cause sendtx error:
+    #   [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:can not cancel DPoS V2 producer]
+
+    ela_client wallet buildtx producer returndeposit --amount $AMOUNT --fee 0.000001
+
+    # Too much amount will cause
+    #   error: create transaction failed: map[code:45002 id:<nil> message:not enough utxo]
+
+    ela_client wallet signtx -f to_be_signed.txn
+    ela_client wallet sendtx -f ready_to_send.txn
+
+    # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:overspend deposit]
+}
+
 ela_vote_dpos()
 {
     if [ "$CHAIN_TYPE" != "testnet" ]; then
@@ -1746,283 +1804,125 @@ ela_claim_dpos()
     # Wait for at least 3 blocks to receive the reward.
 }
 
-#
-# did
-#
-did_start()
+ela_register_crc()
 {
-    if [ ! -f $SCRIPT_PATH/did/did ]; then
-        echo "ERROR: $SCRIPT_PATH/did/did is not exist"
-        return
-    fi
-
-    local PID=$(pgrep -x did)
-    if [ "$PID" != "" ]; then
-        did_status
-        return
-    fi
-
-    echo "Starting did..."
-    cd $SCRIPT_PATH/did
-    nohup ./did 1>/dev/null 2>output &
-    sleep 1
-    did_status
-}
-
-did_stop()
-{
-    local PID=$(pgrep -x did)
-    if [ "$PID" != "" ]; then
-        echo "Stopping did..."
-        kill $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
-    fi
-    sync
-    did_status
-}
-
-did_installed()
-{
-    if [ -f $SCRIPT_PATH/did/did ]; then
-        true
-    else
-        false
-    fi
-}
-
-did_ver()
-{
-    if [ -f $SCRIPT_PATH/did/did ]; then
-        echo "did $($SCRIPT_PATH/did/did -v 2>&1 | sed 's/.* //')"
-    else
-        echo "did N/A"
-    fi
-}
-
-did_client()
-{
-    if [ ! -f $SCRIPT_PATH/ela/ela-cli ]; then
-        return
-    fi
-
-    local DID_RPC_USER=$(cat $SCRIPT_PATH/did/config.json | \
-        jq -r '.RPCUser')
-    local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
-        jq -r '.RPCPass')
-
-    if [ "$CHAIN_TYPE" == "mainnet" ]; then
-        local DID_RPC_PORT=20606
-    else
+    if [ "$CHAIN_TYPE" != "testnet" ]; then
         echo "ERROR: do not support $CHAIN_TYPE"
         return
     fi
 
-    local DID_CLI="$SCRIPT_PATH/ela/ela-cli --rpcport $DID_RPC_PORT \
-        --rpcuser $DID_RPC_USER --rpcpassword $DID_RPC_PASS"
-
-    $DID_CLI $*
-}
-
-did_jsonrpc()
-{
-    if [ "$1" == "" ]; then
+    if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
 
-    local DID_RPC_USER=$(cat $SCRIPT_PATH/did/config.json | \
-        jq -r '.RPCUser')
-    local DID_RPC_PASS=$(cat $SCRIPT_PATH/did/config.json | \
-        jq -r '.RPCPass')
+    if ! ela_synced; then
+        echo "ERROR: not fully-synchronized"
+        return
+    fi
 
-    if [ "$CHAIN_TYPE" == "mainnet" ]; then
-        local DID_RPC_PORT=20606
+    if [ "$2" == "" ]; then
+        echo "Usage: $SCRIPT_NAME ela register_crc NAME URL [REGION]"
+        return
+    fi
+
+    local CRC_NAME=$1
+    local CRC_URL=$2
+
+    local ELA_PUB_KEY=$(ela_client wallet account | sed -n '3 s/^.* //p')
+    local IS_EXIST=$(ela_jsonrpc listcurrentcrs state all |
+        jq -r ".result.crmembersinfo[]? |
+               select(.dpospublickey == \"$ELA_PUB_KEY\") | .dpospublickey")
+
+    if [ $IS_DEBUG ]; then
+        echo "IS_EXIST: $IS_EXIST"
+    fi
+
+    if [ "$3" == "" ]; then
+        local CRC_EXT_IP=$(extip)
+        local CRC_REGION=$(curl -s https://ipapi.co/$DPOS_EXT_IP/json |
+            jq -r '.country_calling_code')
+        # Calling codes has a prefix +
+        local CRC_REGION=${CRC_REGION#+}
+    fi
+
+    echo "CRC_NAME:   $CRC_NAME"
+    echo "CRC_URL:    $CRC_URL"
+    echo "CRC_REGION: $CRC_REGION"
+
+    if [ "$YES_TO_ALL" == "" ]; then
+        local ANSWER
+        if [ ! $IS_EXIST ]; then
+            read -p "Proceed registration (No/Yes)? " ANSWER
+        else
+            read -p "Proceed updating (No/Yes)? " ANSWER
+        fi
+
+        if [ "$ANSWER" != "Yes" ]; then
+            echo "Canceled"
+            return
+        fi
+    fi
+
+    cd $SCRIPT_PATH/ela
+
+    if [ -f to_be_signed.txn ]; then
+        echo "Removing to_be_signed.txn..."
+        rm to_be_signed.txn
+    fi
+
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
+    fi
+
+    if [ ! $IS_EXIST ]; then
+        ela_client wallet buildtx crc register \
+            --amount 1 --fee 0.000001 \
+            --nickname $CRC_NAME --url $CRC_URL \
+            --location $CRC_REGION
     else
+        ela_client wallet buildtx crc update \
+            --amount 1 --fee 0.000001 \
+            --nickname $CRC_NAME --url $CRC_URL \
+            --location $CRC_REGION
+    fi
+
+    ela_client wallet signtx -f to_be_signed.txn
+    ela_client wallet sendtx -f ready_to_send.txn
+
+    # [ERROR] map[code:43001 id:<nil> message:transaction validate error:
+    #         payload content invalid:should create tx during voting period]
+}
+
+ela_unregister_crc()
+{
+    if [ "$CHAIN_TYPE" != "testnet" ]; then
         echo "ERROR: do not support $CHAIN_TYPE"
         return
     fi
 
-    if [[ $1 =~ ^[a-z]+$ ]] && [ "$2" == "" ]; then
-        local DATA={\"method\":\"$1\"}
-    else
-        local DATA=$1
-    fi
-
-    curl -s -H 'Content-Type:application/json' \
-        -X POST --data $DATA \
-        -u $DID_RPC_USER:$DID_RPC_PASS \
-        http://127.0.0.1:$DID_RPC_PORT | jq .
-}
-
-did_status()
-{
-    local DID_VER=$(did_ver)
-
-    local DID_DISK_USAGE=$(disk_usage $SCRIPT_PATH/did)
-
-    local PID=$(pgrep -x did)
-    if [ "$PID" == "" ]; then
-        status_head $DID_VER Stopped
-        status_info "Disk" "$DID_DISK_USAGE"
-        echo
+    if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
 
-    local DID_RAM=$(mem_usage $PID)
-    local DID_UPTIME=$(run_time $PID)
-    local DID_NUM_TCPS=$(num_tcps $PID)
-    local DID_TCP_LISTEN=$(list_tcp $PID)
-    local DID_NUM_FILES=$(num_files $PID)
+    cd $SCRIPT_PATH/ela
 
-    local DID_NUM_PEERS=$(did_client info getconnectioncount)
-    if [[ ! "$DID_NUM_PEERS" =~ ^[0-9]+$ ]]; then
-        DID_NUM_PEERS=0
-    fi
-    local DID_HEIGHT=$(did_client info getcurrentheight)
-    if [[ ! "$DID_HEIGHT" =~ ^[0-9]+$ ]]; then
-        DID_HEIGHT=N/A
+    if [ -f to_be_signed.txn ]; then
+        echo "Removing to_be_signed.txn..."
+        rm to_be_signed.txn
     fi
 
-    status_head $DID_VER Running
-    status_info "Disk"      "$DID_DISK_USAGE"
-    status_info "PID"       "$PID"
-    status_info "RAM"       "$DID_RAM"
-    status_info "Uptime"    "$DID_UPTIME"
-    status_info "#Files"    "$DID_NUM_FILES"
-    status_info "TCP Ports" "$DID_TCP_LISTEN"
-    status_info "#TCP"      "$DID_NUM_TCPS"
-    status_info "#Peers"    "$DID_NUM_PEERS"
-    status_info "Height"    "$DID_HEIGHT"
-    echo
-}
-
-did_compress_log()
-{
-    compress_log $SCRIPT_PATH/did/elastos_did/logs
-}
-
-did_remove_log()
-{
-    remove_log $SCRIPT_PATH/did/elastos_did/logs
-}
-
-did_update()
-{
-    unset OPTIND
-    while getopts "ny" OPTION; do
-        case $OPTION in
-            n)
-                local NO_START_AFTER_UPDATE=1
-                ;;
-            y)
-                local YES_TO_ALL=1
-                ;;
-        esac
-    done
-
-    chain_prepare_stage did did
-    if [ "$?" != "0" ]; then
-        return
+    if [ -f ready_to_send.txn ]; then
+        echo "Removing ready_to_send.txn..."
+        rm ready_to_send.txn
     fi
 
-    local PATH_STAGE=$SCRIPT_PATH/.node-upload/did
-    local DIR_DEPLOY=$SCRIPT_PATH/did
+    ela_client wallet buildtx crc unregister --fee 0.000001
+    ela_client wallet signtx -f to_be_signed.txn
+    ela_client wallet sendtx -f ready_to_send.txn
 
-    local PID=$(pgrep -x did)
-    if [ $PID ]; then
-        did_stop
-    fi
-
-    mkdir -p $DIR_DEPLOY
-    cp -v $PATH_STAGE/did $DIR_DEPLOY/
-
-    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
-        did_start
-    fi
-}
-
-did_init()
-{
-    if [ "$CHAIN_TYPE" == "testnet" ]; then
-        echo "TODO: testnet support"
-        return
-    fi
-
-    local DID_CONFIG=${SCRIPT_PATH}/did/config.json
-
-    if [ ! -f ${SCRIPT_PATH}/did/did ]; then
-        did_update -y
-    fi
-
-    if [ -f ${SCRIPT_PATH}/did/.init ]; then
-        echo_error "did has already been initialized"
-        return
-    fi
-
-    if [ -f $DID_CONFIG ]; then
-        echo_error "$DID_CONFIG exists"
-        return
-    fi
-
-    echo "Creating did config file..."
-    cat >$DID_CONFIG <<EOF
-{
-  "SPVDisableDNS": false,
-  "SPVPermanentPeers": [
-    "127.0.0.1:20338"
-  ],
-  "EnableRPC": true,
-  "RPCUser": "USER",
-  "RPCPass": "PASSWORD",
-  "RPCWhiteList": [
-    "127.0.0.1"
-  ],
-  "PayToAddr": "PAY_TO_ADDR",
-  "MinerInfo": "MINER_INFO"
-}
-EOF
-
-    echo "Generating random userpass for did RPC interface..."
-    local DID_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
-    local DID_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
-
-    echo "Please input an ELA address to receive awards."
-    local PAY_TO_ADDR=
-    while true; do
-        read -p '? PayToAddr: ' PAY_TO_ADDR
-        if [ "$PAY_TO_ADDR" != "" ]; then
-            break
-        fi
-    done
-
-    local MINER_INFO=
-    echo "Please input a miner name that will be persisted in the blockchain."
-    while true; do
-        read -p '? MinerInfo: ' MINER_INFO
-        if [ "$MINER_INFO" != "" ]; then
-            break
-        fi
-    done
-
-    echo "Updating did config file..."
-    jq ".RPCUser=\"$DID_RPC_USER\"  | \
-        .RPCPass=\"$DID_RPC_PASS\"  | \
-        .PayToAddr=\"$PAY_TO_ADDR\" | \
-        .MinerInfo=\"$MINER_INFO\"" \
-        $DID_CONFIG >$DID_CONFIG.tmp
-
-    if [ "$?" == "0" ]; then
-        mv $DID_CONFIG.tmp $DID_CONFIG
-    fi
-
-    echo_info "did config file: $DID_CONFIG"
-
-    touch ${SCRIPT_PATH}/did/.init
-    echo_ok "did initialized"
-    echo
+    # [ERROR] map[code:43001 id:<nil> message:transaction validate error:
+    #         payload content invalid:should create tx during voting period]
 }
 
 #
@@ -2037,6 +1937,8 @@ esc_start()
 
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
         local ESC_OPTS=
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local ESC_OPTS=--testnet
     else
         echo "ERROR: do not support $CHAIN_TYPE"
         return
@@ -2278,7 +2180,6 @@ esc_update()
 
     local PID=$(pgrep -f '^\./esc .*--rpc ')
     if [ $PID ]; then
-        esc-oracle_stop
         esc_stop
     fi
 
@@ -2287,7 +2188,6 @@ esc_update()
 
     if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         esc_start
-        esc-oracle_start
     fi
 }
 
@@ -2435,6 +2335,8 @@ esc-oracle_start()
 
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
         export env=mainnet
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        export env=testnet
     else
         echo "ERROR: do not support $CHAIN_TYPE"
         return
@@ -2605,6 +2507,8 @@ eid_start()
 
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
         local EID_OPTS=
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local EID_OPTS=--testnet
     else
         echo "ERROR: do not support $CHAIN_TYPE"
         return
@@ -2634,7 +2538,7 @@ eid_start()
             --pbft.net.port 20649 \
             --rpc \
             --rpcaddr '0.0.0.0' \
-            --rpcapi 'db,eth,miner,net,personal,txpool,web3' \
+            --rpcapi 'db,eth,miner,net,pbft,personal,txpool,web3' \
             --rpcvhosts '*' \
             --syncmode full \
             --unlock '0x$(cat $SCRIPT_PATH/eid/data/keystore/UTC* | jq -r .address)' \
@@ -2837,7 +2741,6 @@ eid_update()
 
     local PID=$(pgrep -f '^\./eid .*--rpc ')
     if [ $PID ]; then
-        eid-oracle_stop
         eid_stop
     fi
 
@@ -2846,7 +2749,6 @@ eid_update()
 
     if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         eid_start
-        eid-oracle_start
     fi
 }
 
@@ -2981,6 +2883,8 @@ eid-oracle_start()
 
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
         export env=mainnet
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        export env=testnet
     else
         echo "ERROR: do not support $CHAIN_TYPE"
         return
@@ -3164,7 +3068,7 @@ arbiter_start()
         else
             nohup ./arbiter 1>/dev/null 2>output &
         fi
-        echo "Waiting for ela, did, esc-oracle, eid-oracle to start..."
+        echo "Waiting for ela, esc-oracle, eid-oracle to start..."
         sleep 5
     done
 
@@ -3218,6 +3122,8 @@ arbiter_jsonrpc()
 
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
         local ARBITER_RPC_PORT=20536
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local ARBITER_RPC_PORT=21536
     else
         echo "ERROR: do not support $CHAIN_TYPE"
         return
@@ -3260,16 +3166,10 @@ arbiter_status()
         ARBITER_SPV_HEIGHT=N/A
     fi
 
-    local DID_GENESIS=56be936978c261b2e649d58dbfaf3f23d4a868274f5522cd2adb4308a955c4a3
-    local ARBITER_DID_HEIGHT=$(arbiter_jsonrpc \
-        "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$DID_GENESIS\"}}" \
-        | jq -r '.result')
-    if [[ ! "$ARBITER_DID_HEIGHT" =~ ^[0-9]+$ ]]; then
-        ARBITER_DID_HEIGHT=N/A
-    fi
-
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
         local ESC_GENESIS=6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local ESC_GENESIS=698e5ec133064dabb7c42eb4b2bdfa21e7b7c2326b0b719d5ab7f452ae8f5ee4
     else
         echo "ERROR: do not support $CHAIN_TYPE"
         return
@@ -3283,6 +3183,8 @@ arbiter_status()
 
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
         local EID_GENESIS=7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local EID_GENESIS=3d0f9da9320556f6d58129419e041de28cf515eedc6b59f8dae49df98e3f943c
     else
         echo "ERROR: do not support $CHAIN_TYPE"
         return
@@ -3303,7 +3205,6 @@ arbiter_status()
     status_info "TCP Ports"  "$ARBITER_TCP_LISTEN"
     status_info "#TCP"       "$ARBITER_NUM_TCPS"
     status_info "SPV Height" "$ARBITER_SPV_HEIGHT"
-    status_info "DID Height" "$ARBITER_DID_HEIGHT"
     status_info "ESC Height" "$ARBITER_ESC_HEIGHT"
     status_info "EID Height" "$ARBITER_EID_HEIGHT"
     echo
@@ -3358,16 +3259,8 @@ arbiter_update()
 
 arbiter_init()
 {
-    if [ "$CHAIN_TYPE" == "testnet" ]; then
-        echo "TODO: testnet support"
-        return
-    fi
     if [ ! -f $SCRIPT_PATH/ela/.init ]; then
         echo_error "ela not initialized"
-        return
-    fi
-    if [ ! -f $SCRIPT_PATH/did/.init ]; then
-        echo_error "did not initialized"
         return
     fi
     if [ ! -f $SCRIPT_PATH/esc-oracle/.init ]; then
@@ -3380,7 +3273,6 @@ arbiter_init()
     fi
 
     local ELA_CONFIG=${SCRIPT_PATH}/ela/config.json
-    local DID_CONFIG=${SCRIPT_PATH}/did/config.json
     local ARBITER_CONFIG=${SCRIPT_PATH}/arbiter/config.json
 
     if [ ! -f ${SCRIPT_PATH}/arbiter/arbiter ]; then
@@ -3398,52 +3290,48 @@ arbiter_init()
     fi
 
     echo "Creating arbiter config file..."
-    cat >$ARBITER_CONFIG <<EOF
+    if [ "$CHAIN_TYPE" == "testnet" ]; then
+        cat >$ARBITER_CONFIG <<EOF
 {
   "Configuration": {
+    "ActiveNet": "testnet",
     "MainNode": {
       "Rpc": {
         "IpAddress": "127.0.0.1",
-        "HttpJsonPort": 20336,
+        "HttpJsonPort": 21336,
         "User": "",
         "Pass": ""
-      }
-    },
-    "SideNodeList": [{
-        "Rpc": {
-          "IpAddress": "127.0.0.1",
-          "HttpJsonPort": 20606,
-          "User": "",
-          "Pass": ""
-        },
-        "SyncStartHeight": 639400,
-        "ExchangeRate": 1.0,
-        "GenesisBlock": "56be936978c261b2e649d58dbfaf3f23d4a868274f5522cd2adb4308a955c4a3",
-        "MiningAddr": "",
-        "PowChain": true,
-        "PayToAddr": ""
       },
+      "Magic": 2018101
+    },
+    "SideNodeList": [
       {
+        "Name": "ESC",
         "Rpc": {
           "IpAddress": "127.0.0.1",
           "HttpJsonPort": 20632
         },
-        "SyncStartHeight": 13246000,
+        "SyncStartHeight": 17058000,
         "ExchangeRate": 1.0,
-        "GenesisBlock": "6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a",
+        "GenesisBlock": "698e5ec133064dabb7c42eb4b2bdfa21e7b7c2326b0b719d5ab7f452ae8f5ee4",
         "SupportQuickRecharge": true,
         "SupportInvalidDeposit": true,
         "SupportInvalidWithdraw": true,
+        "SupportNFT": true,
         "PowChain": false
       },
       {
+        "Name": "EID",
         "Rpc": {
           "IpAddress": "127.0.0.1",
           "HttpJsonPort": 20642
         },
-        "SyncStartHeight": 5932000,
+        "SyncStartHeight": 9230000,
         "ExchangeRate": 1.0,
-        "GenesisBlock": "7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567",
+        "GenesisBlock": "3d0f9da9320556f6d58129419e041de28cf515eedc6b59f8dae49df98e3f943c",
+        "SupportQuickRecharge": true,
+        "SupportInvalidDeposit": true,
+        "SupportInvalidWithdraw": true,
         "PowChain": false
       }
     ],
@@ -3457,6 +3345,60 @@ arbiter_init()
   }
 }
 EOF
+    else
+        cat >$ARBITER_CONFIG <<EOF
+{
+  "Configuration": {
+    "MainNode": {
+      "Rpc": {
+        "IpAddress": "127.0.0.1",
+        "HttpJsonPort": 20336,
+        "User": "",
+        "Pass": ""
+      }
+    },
+    "SideNodeList": [
+      {
+        "Name": "ESC",
+        "Rpc": {
+          "IpAddress": "127.0.0.1",
+          "HttpJsonPort": 20632
+        },
+        "SyncStartHeight": 17886000,
+        "ExchangeRate": 1.0,
+        "GenesisBlock": "6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a",
+        "SupportQuickRecharge": true,
+        "SupportInvalidDeposit": true,
+        "SupportInvalidWithdraw": true,
+        "SupportNFT": true,
+        "PowChain": false
+      },
+      {
+        "Name": "EID",
+        "Rpc": {
+          "IpAddress": "127.0.0.1",
+          "HttpJsonPort": 20642
+        },
+        "SyncStartHeight": 9611000,
+        "ExchangeRate": 1.0,
+        "GenesisBlock": "7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567",
+        "SupportQuickRecharge": true,
+        "SupportInvalidDeposit": true,
+        "SupportInvalidWithdraw": true,
+        "PowChain": false
+      }
+    ],
+    "RpcConfiguration": {
+      "User": "",
+      "Pass": "",
+      "WhiteIPList": [
+        "127.0.0.1"
+      ]
+    }
+  }
+}
+EOF
+    fi
 
     cd ${SCRIPT_PATH}/arbiter/
     ln -s ../ela/ela-cli
@@ -3476,12 +3418,6 @@ EOF
     local ELA_RPC_PASS=$(cat $ELA_CONFIG | \
         jq -r '.Configuration.RpcConfiguration.Pass')
 
-    # Arbiter Config: DID
-    local DID_RPC_USER=$(cat $DID_CONFIG | jq -r '.RPCUser')
-    local DID_RPC_PASS=$(cat $DID_CONFIG | jq -r '.RPCPass')
-    local MINING_ADDR_DID=$(./ela-cli wallet add -p $KEYSTORE_PASS | \
-        sed -n '3p' | sed 's/ .*//')
-
     # Arbiter Config: Arbiter RPC
     echo "Generating random userpass for arbiter RPC interface..."
     local ARBITER_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
@@ -3499,10 +3435,6 @@ EOF
     echo "Updating arbiter config file..."
     jq ".Configuration.MainNode.Rpc.User=\"$ELA_RPC_USER\"              | \
         .Configuration.MainNode.Rpc.Pass=\"$ELA_RPC_PASS\"              | \
-        .Configuration.SideNodeList[0].Rpc.User=\"$DID_RPC_USER\"       | \
-        .Configuration.SideNodeList[0].Rpc.Pass=\"$DID_RPC_PASS\"       | \
-        .Configuration.SideNodeList[0].MiningAddr=\"$MINING_ADDR_DID\"  | \
-        .Configuration.SideNodeList[0].PayToAddr=\"$PAY_TO_ADDR\"       | \
         .Configuration.RpcConfiguration.User=\"$ARBITER_RPC_USER\"      | \
         .Configuration.RpcConfiguration.Pass=\"$ARBITER_RPC_PASS\"" \
         $ARBITER_CONFIG >$ARBITER_CONFIG.tmp
@@ -3782,10 +3714,13 @@ usage()
     echo "  init            Install and configure chain"
     echo "  register_dpos   Register ELA DPoS"
     echo "  activate_dpos   Activate ELA DPoS"
+    echo "  unregister_dpos Unregister ELA DPoS"
     echo "  vote_dpos       Vote ELA DPoS"
     echo "  stake_dpos      Stake ELA DPoS"
     echo "  unstake_dpos    Unstake ELA DPoS"
     echo "  claim_dpos      Claim rewards ELA DPoS"
+    echo "  register_crc    Register ELA CRC"
+    echo "  unregister_crc  Unregister ELA CRC"
     echo "  send            Send crypto"
     echo "  transfer        Send crypto crosschain"
     echo "  compress_log    Compress log files to save disk space"
@@ -3834,14 +3769,13 @@ if [ "$1" == "init"    ] || \
 else
     # operate on a single chain
 
-    if [ "$1" != "ela" ] && \
-       [ "$1" != "did" ] && \
-       [ "$1" != "esc" ] && \
+    if [ "$1" != "ela"        ] && \
+       [ "$1" != "esc"        ] && \
        [ "$1" != "esc-oracle" ] && \
-       [ "$1" != "eid" ] && \
+       [ "$1" != "eid"        ] && \
        [ "$1" != "eid-oracle" ] && \
-       [ "$1" != "arbiter" ] && \
-       [ "$1" != "carrier" ]; then
+       [ "$1" != "arbiter"    ] && \
+       [ "$1" != "carrier"    ]; then
         echo "ERROR: do not support chain: $1"
         exit
     fi
@@ -3859,10 +3793,13 @@ else
          [ "$2" == "init"    ] || \
          [ "$2" == "register_dpos"   ] || \
          [ "$2" == "activate_dpos"   ] || \
+         [ "$2" == "unregister_dpos" ] || \
          [ "$2" == "vote_dpos"       ] || \
          [ "$2" == "stake_dpos"      ] || \
          [ "$2" == "unstake_dpos"    ] || \
          [ "$2" == "claim_dpos"      ] || \
+         [ "$2" == "register_crc"    ] || \
+         [ "$2" == "unregister_crc"  ] || \
          [ "$2" == "send"            ] || \
          [ "$2" == "transfer"        ] || \
          [ "$2" == "compress_log"    ] || \
