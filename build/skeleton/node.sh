@@ -1075,7 +1075,7 @@ ela_init()
 {
   "Configuration": {
     "ActiveNet": "testnet",
-    "Magic": 2018111,
+    "Magic": 2018101,
     "DPoSConfiguration": {
       "EnableArbiter": true,
       "IPAddress": "$(extip)"
@@ -1340,6 +1340,8 @@ ela_register_dpos()
             jq -r '.country_calling_code')
         # Calling codes has a prefix +
         local DPOS_REGION=${DPOS_REGION#+}
+    else
+        local DPOS_REGION=$4
     fi
 
     echo "DPOS_NAME:   $DPOS_NAME"
