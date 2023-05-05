@@ -1182,7 +1182,7 @@ ela_send()
         local ELA_AMOUNT=$(echo "$ELA_AMOUNT-$ELA_FEE" | bc)
     fi
 
-    cd ~/node/ela
+    cd $SCRIPT_PATH/ela
 
     if [ -f to_be_signed.txn ]; then
         echo "Removing to_be_signed.txn..."
@@ -1247,7 +1247,7 @@ ela_transfer()
         local ELA_AMOUNT=$(echo "$ELA_AMOUNT-$ELA_FEE" | bc)
     fi
 
-    cd ~/node/ela
+    cd $SCRIPT_PATH/ela
 
     if [ -f to_be_signed.txn ]; then
         echo "Removing to_be_signed.txn..."
