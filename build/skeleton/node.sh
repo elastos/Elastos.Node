@@ -268,7 +268,8 @@ list_tcp()
         return
     fi
 
-    for i in $(lsof -nP -iTCP -sTCP:LISTEN -a -p $1 2>/dev/null | sed '1d' | awk '{ print $5 "_" $9 }'); do
+    for i in $(lsof -nP -iTCP -sTCP:LISTEN -a -p $1 2>/dev/null | sed '1d' |
+               awk '{ print $5 "_" $9 }' | sort -t ':' -k 2); do
         echo -n "$i "
     done
     echo
@@ -1292,11 +1293,6 @@ ela_synced()
 
 ela_register_dpos()
 {
-    if [ "$CHAIN_TYPE" != "testnet" ]; then
-        echo "ERROR: do not support $CHAIN_TYPE"
-        return
-    fi
-
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
@@ -1338,6 +1334,10 @@ ela_register_dpos()
         local DPOS_EXT_IP=$(extip)
         local DPOS_REGION=$(curl -s https://ipapi.co/$DPOS_EXT_IP/json |
             jq -r '.country_calling_code')
+        if [ "$DPOS_REGION" == "null" ]; then
+            echo "ERROR: failed to find country code automatically"
+            return
+        fi
         # Calling codes has a prefix +
         local DPOS_REGION=${DPOS_REGION#+}
     else
@@ -1403,6 +1403,7 @@ ela_register_dpos()
 
     # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:v2 producer StakeUntil less than DPoSV2DepositCoinMinLockTime]
     # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:stake time is smaller than before]
+    # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:DPoS 2.0 node has expired]
 }
 
 ela_activate_dpos()
@@ -1437,11 +1438,6 @@ ela_activate_dpos()
 
 ela_unregister_dpos()
 {
-    if [ "$CHAIN_TYPE" != "testnet" ]; then
-        echo "ERROR: do not support $CHAIN_TYPE"
-        return
-    fi
-
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
@@ -1488,11 +1484,6 @@ ela_unregister_dpos()
 
 ela_vote_dpos()
 {
-    if [ "$CHAIN_TYPE" != "testnet" ]; then
-        echo "ERROR: do not support $CHAIN_TYPE"
-        return
-    fi
-
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
@@ -1551,7 +1542,6 @@ ela_vote_dpos()
     fi
     local ELA_DPOS_BLOCKS_LOCK=$3
 
-    # testnet
     local ELA_DPOS_STAKEPOOL=STAKEPooLXXXXXXXXXXXXXXXXXXXpP1PQ2
 
     cd $SCRIPT_PATH/ela
@@ -1641,11 +1631,6 @@ ela_vote_dpos()
 
 ela_stake_dpos()
 {
-    if [ "$CHAIN_TYPE" != "testnet" ]; then
-        echo "ERROR: do not support $CHAIN_TYPE"
-        return
-    fi
-
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
@@ -1666,7 +1651,6 @@ ela_stake_dpos()
         echo "ELA_STAKE_AMOUNT: $ELA_STAKE_AMOUNT"
     fi
 
-    # testnet
     local ELA_DPOS_STAKEPOOL=STAKEPooLXXXXXXXXXXXXXXXXXXXpP1PQ2
 
     cd $SCRIPT_PATH/ela
@@ -1692,11 +1676,6 @@ ela_stake_dpos()
 
 ela_unstake_dpos()
 {
-    if [ "$CHAIN_TYPE" != "testnet" ]; then
-        echo "ERROR: do not support $CHAIN_TYPE"
-        return
-    fi
-
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
@@ -1744,12 +1723,6 @@ ela_unstake_dpos()
 
 ela_claim_dpos()
 {
-
-    if [ "$CHAIN_TYPE" != "testnet" ]; then
-        echo "ERROR: do not support $CHAIN_TYPE"
-        return
-    fi
-
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
@@ -1807,11 +1780,6 @@ ela_claim_dpos()
 
 ela_register_crc()
 {
-    if [ "$CHAIN_TYPE" != "testnet" ]; then
-        echo "ERROR: do not support $CHAIN_TYPE"
-        return
-    fi
-
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
@@ -1897,11 +1865,6 @@ ela_register_crc()
 
 ela_unregister_crc()
 {
-    if [ "$CHAIN_TYPE" != "testnet" ]; then
-        echo "ERROR: do not support $CHAIN_TYPE"
-        return
-    fi
-
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
