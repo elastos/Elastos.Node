@@ -307,7 +307,7 @@ status_info()
 {
     if [ -t 1 ]; then
         printf "$(tput bold)%-16s$(tput sgr0)" "$1:"
-        if [ "$1" == "DPoS State" ]; then
+        if [ "$1" == "BPoS State" ]; then
             if [ "$2" == "Active" ]; then
                 echo "$(tput setaf 2)$(tput bold)$2$(tput sgr0)"
             elif [ "$2" == "Canceled" ] || \
@@ -967,11 +967,11 @@ ela_status()
     status_info "#TCP"         "$ELA_NUM_TCPS"
     status_info "#Peers"       "$ELA_NUM_PEERS"
     status_info "Height"       "$ELA_HEIGHT"
-    status_info "DPoS Name"    "$ELA_DPOS_NAME"
-    status_info "DPoS State"   "$ELA_DPOS_STATE"
-    status_info "DPoS Staked"  "$ELA_DPOS_STAKED"
-    status_info "DPoS Votes"   "$ELA_DPOS_VOTES"
-    status_info "DPoS Rewards" "$ELA_DPOS_REWARDS"
+    status_info "BPoS Name"    "$ELA_DPOS_NAME"
+    status_info "BPoS State"   "$ELA_DPOS_STATE"
+    status_info "BPoS Staked"  "$ELA_DPOS_STAKED"
+    status_info "BPoS Votes"   "$ELA_DPOS_VOTES"
+    status_info "BPoS Rewards" "$ELA_DPOS_REWARDS"
     status_info "CRC Name"     "$ELA_CRC_NAME"
     status_info "CRC State"    "$ELA_CRC_STATE"
     echo
@@ -1291,7 +1291,7 @@ ela_synced()
     fi
 }
 
-ela_register_dpos()
+ela_register_bpos()
 {
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
@@ -1303,7 +1303,7 @@ ela_register_dpos()
     fi
 
     if [ "$3" == "" ]; then
-        echo "Usage: $SCRIPT_NAME ela register_dpos NAME URL BLOCKS [REGION]"
+        echo "Usage: $SCRIPT_NAME ela register_bpos NAME URL BLOCKS [REGION]"
         return
     fi
 
@@ -1344,10 +1344,10 @@ ela_register_dpos()
         local DPOS_REGION=$4
     fi
 
-    echo "DPOS_NAME:   $DPOS_NAME"
-    echo "DPOS_URL:    $DPOS_URL"
-    echo "DPOS_REGION: $DPOS_REGION"
-    echo "DPOS_LOCK:   $DPOS_LOCK"
+    echo "BPOS_NAME:   $DPOS_NAME"
+    echo "BPOS_URL:    $DPOS_URL"
+    echo "BPOS_REGION: $DPOS_REGION"
+    echo "BPOS_LOCK:   $DPOS_LOCK"
 
     if [ "$YES_TO_ALL" == "" ]; then
         local ANSWER
@@ -1380,7 +1380,7 @@ ela_register_dpos()
     local DPOS_UNTIL=$(($ELA_HEIGHT+$DPOS_LOCK+1))
 
     echo "ELA_HEIGHT:  $ELA_HEIGHT"
-    echo "DPOS_UNTIL:  $DPOS_UNTIL"
+    echo "BPOS_UNTIL:  $DPOS_UNTIL"
 
     if [ ! $IS_EXIST ]; then
         ela_client wallet buildtx producer register v2 \
@@ -1406,7 +1406,7 @@ ela_register_dpos()
     # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:DPoS 2.0 node has expired]
 }
 
-ela_activate_dpos()
+ela_activate_bpos()
 {
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
@@ -1436,7 +1436,7 @@ ela_activate_dpos()
     # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid]
 }
 
-ela_unregister_dpos()
+ela_unregister_bpos()
 {
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
@@ -1482,7 +1482,7 @@ ela_unregister_dpos()
     # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:overspend deposit]
 }
 
-ela_vote_dpos()
+ela_vote_bpos()
 {
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
@@ -1494,8 +1494,8 @@ ela_vote_dpos()
     fi
 
     if [ "$3" == "" ]; then
-        echo "Usage: $SCRIPT_NAME ela vote_dpos NAME    AMOUNT BLOCKS"
-        echo "Usage: $SCRIPT_NAME ela vote_dpos PUB_KEY AMOUNT BLOCKS"
+        echo "Usage: $SCRIPT_NAME ela vote_bpos NAME    AMOUNT BLOCKS"
+        echo "Usage: $SCRIPT_NAME ela vote_bpos PUB_KEY AMOUNT BLOCKS"
         return
     fi
 
@@ -1571,7 +1571,7 @@ ela_vote_dpos()
         local ELA_STAKE_AMOUNT=$(echo "$ELA_DPOS_VOTE_AMOUNT-$ELA_STAKED" | bc)
         # echo "INFO: voting rights is not enough, an extra ELA_STAKE_AMOUNT is neeeded"
         echo "Staking ELA $ELA_STAKE_AMOUNT..."
-        ela_stake_dpos $ELA_STAKE_AMOUNT
+        ela_stake_bpos $ELA_STAKE_AMOUNT
         if [ "$?" == "0" ]; then
             echo "OK"
         else
@@ -1629,14 +1629,14 @@ ela_vote_dpos()
     # [ERROR] map[code:43001 id:<nil> message:transaction validate error: payload content invalid:DPoSV2 vote rights not enough]
 }
 
-ela_stake_dpos()
+ela_stake_bpos()
 {
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
 
     if [ "$1" == "" ]; then
-        echo "Usage: $SCRIPT_NAME ela stake_dpos AMOUNT"
+        echo "Usage: $SCRIPT_NAME ela stake_bpos AMOUNT"
         return
     fi
 
@@ -1674,14 +1674,14 @@ ela_stake_dpos()
     # [ERROR] map[code:43001 id:<nil> message:slot Stake verify tx error]
 }
 
-ela_unstake_dpos()
+ela_unstake_bpos()
 {
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
 
     if [ "$1" == "" ]; then
-        echo "Usage: $SCRIPT_NAME ela unstake_dpos AMOUNT [ELA_ADDRESS]"
+        echo "Usage: $SCRIPT_NAME ela unstake_bpos AMOUNT [ELA_ADDRESS]"
         return
     fi
 
@@ -1721,14 +1721,14 @@ ela_unstake_dpos()
     ela_client wallet sendtx -f ready_to_send.txn
 }
 
-ela_claim_dpos()
+ela_claim_bpos()
 {
     if [ ! -f ~/.config/elastos/ela.txt ]; then
         return
     fi
 
     if [ "$1" == "" ]; then
-        echo "Usage: $SCRIPT_NAME ela claim_dpos AMOUNT [ELA_ADDRESS]"
+        echo "Usage: $SCRIPT_NAME ela claim_bpos AMOUNT [ELA_ADDRESS]"
         return
     fi
 
@@ -1861,6 +1861,11 @@ ela_register_crc()
 
     # [ERROR] map[code:43001 id:<nil> message:transaction validate error:
     #         payload content invalid:should create tx during voting period]
+}
+
+ela_activate_crc()
+{
+    ela_activate_bpos
 }
 
 ela_unregister_crc()
@@ -3676,14 +3681,15 @@ usage()
     echo "  jsonrpc         Call JSON-RPC API"
     echo "  update          Install or update chain"
     echo "  init            Install and configure chain"
-    echo "  register_dpos   Register ELA DPoS"
-    echo "  activate_dpos   Activate ELA DPoS"
-    echo "  unregister_dpos Unregister ELA DPoS"
-    echo "  vote_dpos       Vote ELA DPoS"
-    echo "  stake_dpos      Stake ELA DPoS"
-    echo "  unstake_dpos    Unstake ELA DPoS"
-    echo "  claim_dpos      Claim rewards ELA DPoS"
+    echo "  register_bpos   Register ELA BPoS"
+    echo "  activate_bpos   Activate ELA BPoS"
+    echo "  unregister_bpos Unregister ELA BPoS"
+    echo "  vote_bpos       Vote ELA BPoS"
+    echo "  stake_bpos      Stake ELA BPoS"
+    echo "  unstake_bpos    Unstake ELA BPoS"
+    echo "  claim_bpos      Claim rewards ELA BPoS"
     echo "  register_crc    Register ELA CRC"
+    echo "  activate_crc    Activate ELA CRC"
     echo "  unregister_crc  Unregister ELA CRC"
     echo "  send            Send crypto"
     echo "  transfer        Send crypto crosschain"
@@ -3755,14 +3761,15 @@ else
          [ "$2" == "jsonrpc" ] || \
          [ "$2" == "update"  ] || [ "$2" == "upgrade" ] || \
          [ "$2" == "init"    ] || \
-         [ "$2" == "register_dpos"   ] || \
-         [ "$2" == "activate_dpos"   ] || \
-         [ "$2" == "unregister_dpos" ] || \
-         [ "$2" == "vote_dpos"       ] || \
-         [ "$2" == "stake_dpos"      ] || \
-         [ "$2" == "unstake_dpos"    ] || \
-         [ "$2" == "claim_dpos"      ] || \
+         [ "$2" == "register_bpos"   ] || \
+         [ "$2" == "activate_bpos"   ] || \
+         [ "$2" == "unregister_bpos" ] || \
+         [ "$2" == "vote_bpos"       ] || \
+         [ "$2" == "stake_bpos"      ] || \
+         [ "$2" == "unstake_bpos"    ] || \
+         [ "$2" == "claim_bpos"      ] || \
          [ "$2" == "register_crc"    ] || \
+         [ "$2" == "activate_crc"    ] || \
          [ "$2" == "unregister_crc"  ] || \
          [ "$2" == "send"            ] || \
          [ "$2" == "transfer"        ] || \
