@@ -475,7 +475,7 @@ nodejs_setenv()
     elif [ "$OS_ARCH" == "Linux aarch64" ]; then
         local NODEJS_PLATFORM=linux-arm64
     else
-        echo "ERROR: do not support $OS_ARCH"
+        echo_error "do not support $OS_ARCH"
         return
     fi
 
@@ -529,7 +529,7 @@ chain_prepare_stage()
        [ "$CHAIN_NAME" != "eid-oracle" ] && \
        [ "$CHAIN_NAME" != "arbiter" ] && \
        [ "$CHAIN_NAME" != "carrier" ]; then
-        echo "ERROR: do not support chain: $1"
+        echo_error "do not support chain: $1"
         return 1
     fi
 
@@ -587,7 +587,7 @@ chain_prepare_stage()
     fi
 
     if [ "$VER_LATEST" == "" ]; then
-        echo "ERROR: no VER_LATEST found"
+        echo_error "no VER_LATEST found"
         return 2
     fi
 
@@ -617,7 +617,7 @@ chain_prepare_stage()
     echo "Downloading $URL_LATEST..."
     curl -O -# $URL_LATEST
     if [ "$?" != "0" ]; then
-        echo "ERROR: curl failed"
+        echo_error "curl failed"
         return 4
     fi
     # TODO: verify checksum
@@ -633,7 +633,7 @@ chain_prepare_stage()
     for i in $*; do
         tar xf $TGZ_LATEST $TAR_FLAGS --strip=1 \*/$i
         if [ "$?" != "0" ]; then
-            echo "ERROR: failed to extract $TGZ_LATEST"
+            echo_error "failed to extract $TGZ_LATEST"
             return 5
         fi
     done
@@ -727,7 +727,7 @@ all_remove_log()
 ela_start()
 {
     if [ ! -f $SCRIPT_PATH/ela/ela ]; then
-        echo "ERROR: $SCRIPT_PATH/ela/ela is not exist"
+        echo_error "$SCRIPT_PATH/ela/ela is not exist"
         return
     fi
 
@@ -798,7 +798,7 @@ ela_client()
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
         local ELA_RPC_PORT=21336
     else
-        echo "ERROR: do not support $CHAIN_TYPE"
+        echo_error "do not support $CHAIN_TYPE"
         return
     fi
 
@@ -873,7 +873,7 @@ ela_jsonrpc()
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
         local ELA_RPC_PORT=21336
     else
-        echo "ERROR: do not support $CHAIN_TYPE"
+        echo_error "do not support $CHAIN_TYPE"
         return
     fi
 
@@ -1268,7 +1268,7 @@ ela_transfer()
         elif [ "$CHAIN_TYPE" == "testnet" ]; then
             local SADDRESS=XWCiyXM1bQyGTawoaYKx9PjRkMUGGocWub
         else
-            echo "ERROR: do not support $CHAIN_TYPE"
+            echo_error "do not support $CHAIN_TYPE"
             return
         fi
     elif [ "$SIDECHAIN" == "eid" ]; then
@@ -1277,11 +1277,11 @@ ela_transfer()
         elif [ "$CHAIN_TYPE" == "testnet" ]; then
             local SADDRESS=XPsgiVQC3WucBYDL2DmPixj74Aa9aG3et8
         else
-            echo "ERROR: do not support $CHAIN_TYPE"
+            echo_error "do not support $CHAIN_TYPE"
             return
         fi
     else
-        echo "ERROR: do not support sidechain $SIDECHAIN"
+        echo_error "do not support sidechain $SIDECHAIN"
         return
     fi
 
@@ -1344,7 +1344,7 @@ ela_register_bpos()
     fi
 
     if ! ela_synced; then
-        echo "ERROR: not fully-synchronized"
+        echo_error "not fully-synchronized"
         return
     fi
 
@@ -1358,12 +1358,12 @@ ela_register_bpos()
 
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
         if [ $3 -lt 7201 ]; then
-            echo "ERROR: less than 7,201 blocks (around 10 days)"
+            echo_error "less than 7,201 blocks (around 10 days)"
             return
         fi
     else
         if [ $3 -lt 21601 ]; then
-            echo "ERROR: less than 21,601 blocks (around 30 days)"
+            echo_error "less than 21,601 blocks (around 30 days)"
             return
         fi
     fi
@@ -1381,7 +1381,7 @@ ela_register_bpos()
         local DPOS_REGION=$(curl -s https://ipapi.co/$DPOS_EXT_IP/json |
             jq -r '.country_calling_code')
         if [ "$DPOS_REGION" == "null" ]; then
-            echo "ERROR: failed to find country code automatically"
+            echo_error "failed to find country code automatically"
             return
         fi
         # Calling codes has a prefix +
@@ -1535,7 +1535,7 @@ ela_vote_bpos()
     fi
 
     if ! ela_synced; then
-        echo "ERROR: not fully-synchronized"
+        echo_error "not fully-synchronized"
         return
     fi
 
@@ -1566,7 +1566,7 @@ ela_vote_bpos()
         if [ "$ELA_DPOS_NAME" != "" ]; then
             local ELA_DPOS_PUBKEY=$ELA_DPOS_NAME_OR_PUBKEY
         else
-            echo "ERROR: no such node registered: $ELA_DPOS_NAME_OR_PUBKEY"
+            echo_error "no such node registered: $ELA_DPOS_NAME_OR_PUBKEY"
             return
         fi
     fi
@@ -1574,16 +1574,16 @@ ela_vote_bpos()
     local ELA_DPOS_VOTE_AMOUNT=$2
     local BC_OUT=$(echo "$ELA_DPOS_VOTE_AMOUNT>0" | bc 2>/dev/null)
     if [ "$BC_OUT" != "1" ]; then
-        echo "ERROR: bad AMOUNT: $ELA_DPOS_VOTE_AMOUNT"
+        echo_error "bad AMOUNT: $ELA_DPOS_VOTE_AMOUNT"
         return
     fi
 
     if [ $3 -lt 7201 ]; then
-        echo "ERROR: less than 7,201 blocks (around 10 days)"
+        echo_error "less than 7,201 blocks (around 10 days)"
         return
     fi
     if [ $3 -gt 720000 ]; then
-        echo "ERROR: greater than 720,000 blocks (around 100 days)"
+        echo_error "greater than 720,000 blocks (around 100 days)"
         return
     fi
     local ELA_DPOS_BLOCKS_LOCK=$3
@@ -1611,7 +1611,7 @@ ela_vote_bpos()
 
     local BC_OUT=$(echo "$ELA_DPOS_VOTE_AMOUNT<=$ELA_STAKED" | bc 2>/dev/null)
     if [ "$BC_OUT" == "1" ]; then
-        echo "INFO: voting rights is enough: $ELA_STAKED"
+        echo_info "voting rights is enough: $ELA_STAKED"
     elif [ "$BC_OUT" == "0" ]; then
         # voting rights not enough"
         local ELA_STAKE_AMOUNT=$(echo "$ELA_DPOS_VOTE_AMOUNT-$ELA_STAKED" | bc)
@@ -1621,7 +1621,7 @@ ela_vote_bpos()
         if [ "$?" == "0" ]; then
             echo "OK"
         else
-            echo "ERROR: Please wait for at least one new block before re-invoking"
+            echo_error "Please wait for at least one new block before re-invoking"
         fi
 
         echo "Waiting enough vote rights..."
@@ -1640,7 +1640,7 @@ ela_vote_bpos()
             sleep 1
         done
     else
-        echo "ERROR: bc"
+        echo_error "bc"
         return
     fi
 
@@ -1689,7 +1689,7 @@ ela_stake_bpos()
     local ELA_STAKE_AMOUNT=$1
     local BC_OUT=$(echo "$ELA_STAKE_AMOUNT>0" | bc 2>/dev/null)
     if [ "$BC_OUT" != "1" ]; then
-        echo "ERROR: bad AMOUNT: $ELA_STAKE_AMOUNT"
+        echo_error "bad AMOUNT: $ELA_STAKE_AMOUNT"
         return
     fi
 
@@ -1734,7 +1734,7 @@ ela_unstake_bpos()
     local ELA_UNSTAKE_AMOUNT=$1
     local BC_OUT=$(echo "$ELA_UNSTAKE_AMOUNT>0" | bc 2>/dev/null)
     if [ "$BC_OUT" != "1" ]; then
-        echo "ERROR: bad AMOUNT: $ELA_UNSTAKE_AMOUNT"
+        echo_error "bad AMOUNT: $ELA_UNSTAKE_AMOUNT"
         return
     fi
 
@@ -1789,7 +1789,7 @@ ela_claim_bpos()
 
     local BC_OUT=$(echo "$ELA_CLAIM_AMOUNT>0" | bc 2>/dev/null)
     if [ "$BC_OUT" != "1" ]; then
-        echo "ERROR: bad AMOUNT: $ELA_CLAIM_AMOUNT"
+        echo_error "bad AMOUNT: $ELA_CLAIM_AMOUNT"
         return
     fi
 
@@ -1831,7 +1831,7 @@ ela_register_crc()
     fi
 
     if ! ela_synced; then
-        echo "ERROR: not fully-synchronized"
+        echo_error "not fully-synchronized"
         return
     fi
 
@@ -1946,7 +1946,7 @@ ela_unregister_crc()
 esc_start()
 {
     if [ ! -f $SCRIPT_PATH/esc/esc ]; then
-        echo "ERROR: $SCRIPT_PATH/esc/esc is not exist"
+        echo_error "$SCRIPT_PATH/esc/esc is not exist"
         return
     fi
 
@@ -1955,7 +1955,7 @@ esc_start()
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
         local ESC_OPTS=--testnet
     else
-        echo "ERROR: do not support $CHAIN_TYPE"
+        echo_error "do not support $CHAIN_TYPE"
         return
     fi
 
@@ -2052,7 +2052,7 @@ esc_ver()
 esc_client()
 {
     if [ ! -f $SCRIPT_PATH/esc/esc ]; then
-        echo "ERROR: $SCRIPT_PATH/esc/esc is not exist"
+        echo_error "$SCRIPT_PATH/esc/esc is not exist"
         return
     fi
 
@@ -2260,7 +2260,7 @@ esc_init()
     ./esc --datadir "$SCRIPT_PATH/esc/data/" --verbosity 0 account new \
         --password "$ESC_KEYSTORE_PASS_FILE" >/dev/null
     if [ "$?" != "0" ]; then
-        echo "ERROR: failed to create esc keystore"
+        echo_error "failed to create esc keystore"
         return
     fi
 
@@ -2334,7 +2334,7 @@ esc_send()
 esc-oracle_start()
 {
     if [ ! -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
-        echo "ERROR: $SCRIPT_PATH/esc-oracle/crosschain_oracle.js is not exist"
+        echo_error "$SCRIPT_PATH/esc-oracle/crosschain_oracle.js is not exist"
         return
     fi
 
@@ -2353,7 +2353,7 @@ esc-oracle_start()
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
         export env=testnet
     else
-        echo "ERROR: do not support $CHAIN_TYPE"
+        echo_error "do not support $CHAIN_TYPE"
         return
     fi
 
@@ -2516,7 +2516,7 @@ esc-oracle_init()
 eid_start()
 {
     if [ ! -f $SCRIPT_PATH/eid/eid ]; then
-        echo "ERROR: $SCRIPT_PATH/eid/eid is not exist"
+        echo_error "$SCRIPT_PATH/eid/eid is not exist"
         return
     fi
 
@@ -2525,7 +2525,7 @@ eid_start()
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
         local EID_OPTS=--testnet
     else
-        echo "ERROR: do not support $CHAIN_TYPE"
+        echo_error "do not support $CHAIN_TYPE"
         return
     fi
 
@@ -2613,7 +2613,7 @@ eid_ver()
 eid_client()
 {
     if [ ! -f $SCRIPT_PATH/eid/eid ]; then
-        echo "ERROR: $SCRIPT_PATH/eid/eid is not exist"
+        echo_error "$SCRIPT_PATH/eid/eid is not exist"
         return
     fi
 
@@ -2821,7 +2821,7 @@ eid_init()
     ./eid --datadir "$SCRIPT_PATH/eid/data/" --verbosity 0 account new \
         --password "$EID_KEYSTORE_PASS_FILE" >/dev/null
     if [ "$?" != "0" ]; then
-        echo "ERROR: failed to create eid keystore"
+        echo_error "failed to create eid keystore"
         return
     fi
 
@@ -2882,7 +2882,7 @@ eid_send()
 eid-oracle_start()
 {
     if [ ! -f $SCRIPT_PATH/eid-oracle/crosschain_eid.js ]; then
-        echo "ERROR: $SCRIPT_PATH/eid-oracle/crosschain_eid.js is not exist"
+        echo_error "$SCRIPT_PATH/eid-oracle/crosschain_eid.js is not exist"
         return
     fi
 
@@ -2901,7 +2901,7 @@ eid-oracle_start()
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
         export env=testnet
     else
-        echo "ERROR: do not support $CHAIN_TYPE"
+        echo_error "do not support $CHAIN_TYPE"
         return
     fi
 
@@ -3064,7 +3064,7 @@ eid-oracle_init()
 arbiter_start()
 {
     if [ ! -f $SCRIPT_PATH/arbiter/arbiter ]; then
-        echo "ERROR: $SCRIPT_PATH/arbiter/arbiter is not exist"
+        echo_error "$SCRIPT_PATH/arbiter/arbiter is not exist"
         return
     fi
 
@@ -3140,7 +3140,7 @@ arbiter_jsonrpc()
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
         local ARBITER_RPC_PORT=21536
     else
-        echo "ERROR: do not support $CHAIN_TYPE"
+        echo_error "do not support $CHAIN_TYPE"
         return
     fi
 
@@ -3186,7 +3186,7 @@ arbiter_status()
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
         local ESC_GENESIS=698e5ec133064dabb7c42eb4b2bdfa21e7b7c2326b0b719d5ab7f452ae8f5ee4
     else
-        echo "ERROR: do not support $CHAIN_TYPE"
+        echo_error "do not support $CHAIN_TYPE"
         return
     fi
     local ARBITER_ESC_HEIGHT=$(arbiter_jsonrpc \
@@ -3201,7 +3201,7 @@ arbiter_status()
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
         local EID_GENESIS=3d0f9da9320556f6d58129419e041de28cf515eedc6b59f8dae49df98e3f943c
     else
-        echo "ERROR: do not support $CHAIN_TYPE"
+        echo_error "do not support $CHAIN_TYPE"
         return
     fi
     local ARBITER_EID_HEIGHT=$(arbiter_jsonrpc \
@@ -3471,11 +3471,11 @@ EOF
 carrier_start()
 {
     if [ ! -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
-        echo "ERROR: $SCRIPT_PATH/carrier/ela-bootstrapd is not exist"
+        echo_error "$SCRIPT_PATH/carrier/ela-bootstrapd is not exist"
         return
     fi
     if [ ! -f $SCRIPT_PATH/carrier/.init ]; then
-        echo "ERROR: please run '$SCRIPT_NAME carrier init' first"
+        echo_error "please run '$SCRIPT_NAME carrier init' first"
         return
     fi
 
@@ -3799,7 +3799,7 @@ else
        [ "$1" != "eid-oracle" ] && \
        [ "$1" != "arbiter"    ] && \
        [ "$1" != "carrier"    ]; then
-        echo "ERROR: do not support chain: $1"
+        echo_error "do not support chain: $1"
         exit
     fi
     CHAIN_NAME=$1
@@ -3830,7 +3830,7 @@ else
          [ "$2" == "remove_log"      ]; then
         COMMAND=$2
     else
-        echo "ERROR: do not support command: $2"
+        echo_error "do not support command: $2"
         exit
     fi
     # command aliases
