@@ -79,8 +79,24 @@ check_env()
                 exit
             fi
         else
-            echo_error "do not support"
+            echo_error "do not support $(cat /etc/issue)"
             exit
+        fi
+        if [ "$(uname -m)" == "aarch64" ]; then
+            # The ARM64 version has not been fully tested.
+            # USE ARM64 BUILD AT YOUR OWN RISK!
+            # To enable ARM64 version, set ENABLE_ARM64 to 1 or non-empty.
+            local ENABLE_ARM64=1
+            if [ "$ENABLE_ARM64" == "" ]; then
+                echo_error "do not support $(uname -m)"
+                exit
+            else
+                echo_warn "the arm64 build have not been fully-tested"
+            fi
+        elif [ "$(uname -m)" == "x86_64" ]; then
+            true
+        else
+            echo_error "do not support $(uname -m)"
         fi
     else
         echo_error "do not support $(uname -s)"
@@ -450,14 +466,19 @@ remove_log()
 
 nodejs_setenv()
 {
-    if [ "$(uname -s)-$(uname -m)" == "Linux-x86_64" ]; then
+    local NODEJS_VER=v14.17.0
+
+    local OS_ARCH=$(uname -sm)
+
+    if [ "$OS_ARCH" == "Linux x86_64" ]; then
         local NODEJS_PLATFORM=linux-x64
+    elif [ "$OS_ARCH" == "Linux aarch64" ]; then
+        local NODEJS_PLATFORM=linux-arm64
     else
-        echo "ERROR: do not support $(uname -s)-$(uname -m)"
+        echo "ERROR: do not support $OS_ARCH"
         return
     fi
 
-    local NODEJS_VER=v14.17.0
     local NODEJS_NAME=node-$NODEJS_VER-$NODEJS_PLATFORM
     local NODEJS_TGZ=$NODEJS_NAME.tar.xz
     local NODEJS_URL=https://nodejs.org/download/release/$NODEJS_VER/$NODEJS_TGZ
@@ -516,7 +537,32 @@ chain_prepare_stage()
         return 1
     fi
 
-    local RELEASE_PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)
+    local OS_ARCH=$(uname -sm)
+
+    if [ "$CHAIN_NAME" == "ela" ] || \
+       [ "$CHAIN_NAME" == "esc" ] || \
+       [ "$CHAIN_NAME" == "eid" ] || \
+       [ "$CHAIN_NAME" == "arbiter" ]; then
+        if [ "$OS_ARCH" == "Linux aarch64" ]; then
+            local RELEASE_PLATFORM=linux-arm64
+        elif [ "$OS_ARCH" == "Linux x86_64" ]; then
+            local RELEASE_PLATFORM=linux-x86_64
+        else
+            local RELEASE_PLATFORM=nosupport
+        fi
+    elif [ "$CHAIN_NAME" == "esc-oracle" ] || \
+         [ "$CHAIN_NAME" == "eid-oracle" ]; then
+        local RELEASE_PLATFORM=
+    elif [ "$CHAIN_NAME" == "carrier" ]; then
+        if [ "$OS_ARCH" == "Linux x86_64" ]; then
+            local RELEASE_PLATFORM=linux-x86_64
+        else
+            local RELEASE_PLATFORM=nosupport
+        fi
+    else
+        local RELEASE_PLATFORM=nosupport
+    fi
+
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/$CHAIN_NAME
 
     echo "Finding the latest $CHAIN_NAME release..."
@@ -3664,7 +3710,13 @@ EOF
 usage()
 {
     echo "Usage: $SCRIPT_NAME [CHAIN] COMMAND [OPTIONS]"
-    echo "Manage Elastos Node ($SCRIPT_PATH) [$CHAIN_TYPE]"
+    echo "Manage Elastos Node"
+    echo
+    echo "Diag Info:"
+    echo
+    echo "  Deploy Path:    $SCRIPT_PATH"
+    echo "  Script SHA1:    $SCRIPT_SHA1"
+    echo "  Chains Type:    $CHAIN_TYPE"
     echo
     echo "Available Chains:"
     echo
@@ -3703,6 +3755,7 @@ usage()
 #
 SCRIPT_PATH=$(cd $(dirname $BASH_SOURCE); pwd)
 SCRIPT_NAME=$(basename $BASH_SOURCE)
+SCRIPT_SHA1=$(shasum $BASH_SOURCE | cut -c1-7)
 
 set_env
 check_env
