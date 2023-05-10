@@ -86,7 +86,7 @@ check_env()
             # The ARM64 version has not been fully tested.
             # USE ARM64 BUILD AT YOUR OWN RISK!
             # To enable ARM64 version, set ENABLE_ARM64 to 1 or non-empty.
-            local ENABLE_ARM64=1
+            local ENABLE_ARM64=
             if [ "$ENABLE_ARM64" == "" ]; then
                 echo_error "do not support $(uname -m)"
                 exit
