@@ -22,7 +22,11 @@ Please input a password (ENTER to use a random one)
 Generating random password...
 Saving esc keystore password...
 Checking esc keystore...
-INFO: esc keystore file: /home/ubuntu/node/esc/data/keystore/UTC--2022-05-23T07-17-49.211011226Z--2066fd2b8b1547173886391aece1399c1064b43c
-INFO: esc keystore password file: /home/ubuntu/.config/elastos/esc.txt
+You can input an alternative esc reward address. (ENTER to skip)
+? Miner Address: 0x67664860731614d0a193b9d312169dbf007e49eb
+0x67664860731614d0a193b9d312169dbf007e49eb
+INFO: esc keystore file: /home/dev/node/esc/data/keystore/UTC--2023-05-26T06-47-42.576692650Z--09dd04037e719c6dd3acb0599027aa523e184fe3
+INFO: esc keystore password file: /home/dev/.config/elastos/esc.txt
+INFO: esc miner address file: /home/dev/node/esc/data/miner_address.txt
 OK: esc initialized
 ```
