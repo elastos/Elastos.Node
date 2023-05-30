@@ -1,6 +1,6 @@
 # Updating node.sh
 
-If you had already installed the script several weeks ago, it is better to update to get the latest fixes or features.
+If you had already installed the script several weeks ago, it is better to update it to get the latest fixes or features.
 
 ```bash
 $ ~/node/node.sh script_update

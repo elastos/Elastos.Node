@@ -7,7 +7,6 @@ The binary releases are listed for reference. Normally you don't need to manuall
 | Chain                     | Binary Packages                                |
 | ------------------------- | ---------------------------------------------- |
 | Elastos ELA Mainchain     | https://download.elastos.io/elastos-ela        |
-| Elastos DID Sidechain     | https://download.elastos.io/elastos-did        |
 | Elastos ESC Sidechain     | https://download.elastos.io/elastos-esc        |
 | Elastos ESC Oracle        | https://download.elastos.io/elastos-esc-oracle |
 | Elastos EID Sidechain     | https://download.elastos.io/elastos-eid        |
@@ -15,11 +14,10 @@ The binary releases are listed for reference. Normally you don't need to manuall
 | Elastos Arbiter           | https://download.elastos.io/elastos-arbiter    |
 | Elastos Carrier Bootstrap | https://download.elastos.io/elastos-carrier    |
 
-The `init` command without specifying the chain program name will process the following programs (chains) in one go. 
+The `init` command without specifying the chain program name will process the following programs (chains) in one go.
 
 ```bash
 $ ~/node/node.sh init
 ```
 
 As an alternative, you can also run the init command one by one.
-

@@ -24,11 +24,6 @@ $ tree -L 2 ~/node
 │   ├── ela-bootstrapd              # daemon program
 │   └── var                         # running data (*)
 │
-├── did                             # did folder
-│   ├── config.json                 # config file
-│   ├── did                         # daemon program
-│   └── elastos_did                 # chain data and log (*)
-│
 ├── eid                             # eid folder
 │   ├── data                        # running data and logs (*)
 │   ├── eid                         # daemon and client program
@@ -58,4 +53,4 @@ $ tree -L 2 ~/node
 └── node.sh                         # the operating script
 ```
 
-Please some directories marked with asterisks are running data and logs files, which will be generated during the program running.\
+Please some directories marked with asterisks are running data and logs files, which will be generated during the program running.

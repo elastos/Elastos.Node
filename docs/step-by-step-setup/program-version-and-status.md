@@ -13,7 +13,6 @@ Manage Elastos Node (/home/ubuntu/node) [mainnet]
 Available Chains:
 
   ela             v0.8.3
-  did             v0.3.2
   esc             84b1c5e
   esc-oracle      0cd7ce2
   eid             cd3d90f
@@ -40,9 +39,6 @@ ela         v0.8.3          Stopped
 Disk:       40M
 Address:    [ADDRESS]
 Public Key: [PUBLIC KEY]
-
-did         v0.3.2          Stopped
-Disk:       16M
 
 esc         84b1c5e         Stopped
 Disk:       43M

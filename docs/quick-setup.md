@@ -15,9 +15,9 @@ $ chmod a+x node.sh
 
 The **init** command will do the following jobs automatically:
 
-1. downloads and extract the prebuilt package
-2. prompts the user to enter the initial parameters (which include a user name, crypto addresses, and wallet passwords)
-3. writes the config files required
+1. Downloads and extract the prebuilt package
+2. Prompts the user to enter the initial parameters (which include a user name, crypto addresses, and wallet passwords)
+3. Writes the config files required
 
 ```bash
 $ ~/node/node.sh init
@@ -31,7 +31,7 @@ The **start** command will start all the programs (chains) in the background.
 $ ~/node/node.sh start
 ```
 
-The **status** command will show all programs (chains) are **Running**. Watch the **Height** to make sure the chains are **synchronized**.
+The **status** command will show the status of all programs. Watch the **Height** to make sure the chains are **synchronized**.
 
 ```bash
 $ ~/node/node.sh status
@@ -39,11 +39,11 @@ $ ~/node/node.sh status
 
 Now the initial **setup is complete**.
 
-For a more detailed setup and usage, please refer to [the longer edition](step-by-step-setup.md).
+Please refer to [the longer edition](step-by-step-setup.md) for a more detailed setup and usage.
 
 What's next:
 
 * [See the status](step-by-step-setup/program-version-and-status.md)
 * [Use the client to connect](besides-setup/running-the-client.md)
 
-Any issues, please contact the blockchain Dev team via [Elastos Discord](https://discord.com/invite/Rcnz2pQkZS).
+For any issues, please get in touch with the blockchain Dev team via [Elastos Discord](https://discord.com/invite/Rcnz2pQkZS).

@@ -41,7 +41,7 @@ Height:     173154
 | Address     | The ELA address of the first account in keystore    |
 | Public Key  | The ELA public key of the first account in keystore |
 
-Please note that not all chains/programs have the same set of Status Items. For example, if some programs don't open a TCP port, its status output will not have TCP-related metrics. If some program is not a chain, for example, ESC-Oracle, the status will not have Peer and Height related.
+Please note that not all chains/programs have the same set of Status Items. For example, if some programs don't open a TCP port, their status output will not have TCP-related metrics. If some program is not a chain, for example, ESC-Oracle, the status will not have Peer and Height related.
 
 ### Starting all programs
 
@@ -52,7 +52,7 @@ $ ~/node/node.sh start
 [ ... many messages follow ... ]
 ```
 
-If you wish to check processes status, the resources usage and other metrics.
+If you wish to check the processes status, resource usage and other metrics.
 
 ```
 $ ~/node/node.sh status
@@ -61,7 +61,7 @@ $ ~/node/node.sh status
 
 ### Auto-start when OS Reboot
 
-Enter the command to open the user-level crontab editor. You may be asked to select an editing program.&#x20;
+Enter the command to open the user-level crontab editor. You may be asked to select an editing program.
 
 ```bash
 $ crontab -e
@@ -73,7 +73,7 @@ Append the following entry to the existing crontab, save and exit.
 @reboot ~/node/node.sh start
 ```
 
-You may prefer to add multiple start commands if you have not install all the components of Elastos blockchain.
+You may prefer to add multiple start commands if you have not installed all the components of Elastos blockchain.
 
 ```
 @reboot ~/node/node.sh esc start
