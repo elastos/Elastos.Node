@@ -2531,7 +2531,7 @@ eid_start()
 
     if [ -f ~/.config/elastos/eid.txt ]; then
         if [ -f $SCRIPT_PATH/eid/data/eid_miner_address.txt ]; then
-            local EID_OPTS="$EID_OPTS --pbft.miner.address $SCRIPT_PATH/eid/data/eid_miner_address.txt"
+            local EID_OPTS="$EID_OPTS --pbft.miner.address $SCRIPT_PATH/eid/data/miner_address.txt"
         fi
         nohup $SHELL -c "./eid \
             $EID_OPTS \
