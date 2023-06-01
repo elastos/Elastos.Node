@@ -2480,11 +2480,13 @@ esc-oracle_init()
         return
     fi
 
-    if [ "$(which make)" == "" ] || \
-       [ "$(which gcc)"  == "" ] || \
-       [ "$(which g++)"  == "" ]; then
-        echo_error "requires make, gcc, g++"
-        return
+    if [ "$(uname -sm)" == "Linux aarch64" ]; then
+        if [ "$(which make)" == "" ] || \
+           [ "$(which gcc)"  == "" ] || \
+           [ "$(which g++)"  == "" ]; then
+            echo_error "requires make, gcc, g++"
+            return
+        fi
     fi
 
     nodejs_setenv
@@ -2528,6 +2530,9 @@ eid_start()
     mkdir -p $SCRIPT_PATH/eid/logs/
 
     if [ -f ~/.config/elastos/eid.txt ]; then
+        if [ -f $SCRIPT_PATH/eid/data/eid_miner_address.txt ]; then
+            local EID_OPTS="$EID_OPTS --pbft.miner.address $SCRIPT_PATH/eid/data/eid_miner_address.txt"
+        fi
         nohup $SHELL -c "./eid \
             $EID_OPTS \
             --allow-insecure-unlock \
@@ -2818,8 +2823,21 @@ eid_init()
         --nousb --verbosity 0 account list | sed 's/.*keystore:\/\///')
     chmod 600 $EID_KEYSTORE
 
+    local EID_MINER_ADDRESS_FILE=$SCRIPT_PATH/eid/data/miner_address.txt
+    echo "You can input an alternative eid reward address. (ENTER to skip)"
+    local EID_MINER_ADDRESS=
+    read -p '? Miner Address: ' EID_MINER_ADDRESS
+    if [ "$EID_MINER_ADDRESS" != "" ]; then
+        mkdir -p $SCRIPT_PATH/eid/data
+        echo $EID_MINER_ADDRESS | tee $EID_MINER_ADDRESS_FILE
+        chmod 600 $EID_MINER_ADDRESS_FILE
+    fi
+
     echo_info "eid keystore file: $EID_KEYSTORE"
     echo_info "eid keystore password file: $EID_KEYSTORE_PASS_FILE"
+    if [ -f $EID_MINER_ADDRESS_FILE ]; then
+        echo_info "eid miner address file: $EID_MINER_ADDRESS_FILE"
+    fi
 
     touch ${SCRIPT_PATH}/eid/.init
     echo_ok "eid initialized"
@@ -3028,11 +3046,13 @@ eid-oracle_init()
         return
     fi
 
-    if [ "$(which make)" == "" ] || \
-       [ "$(which gcc)"  == "" ] || \
-       [ "$(which g++)"  == "" ]; then
-        echo_error "requires make, gcc, g++"
-        return
+    if [ "$(uname -sm)" == "Linux aarch64" ]; then
+        if [ "$(which make)" == "" ] || \
+           [ "$(which gcc)"  == "" ] || \
+           [ "$(which g++)"  == "" ]; then
+            echo_error "requires make, gcc, g++"
+            return
+        fi
     fi
 
     nodejs_setenv
@@ -3425,15 +3445,6 @@ EOF
     echo "Generating random userpass for arbiter RPC interface..."
     local ARBITER_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
     local ARBITER_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
-
-    echo "Please input an ELA address to receive awards."
-    local PAY_TO_ADDR=
-    while true; do
-        read -p '? PayToAddr: ' PAY_TO_ADDR
-        if [ "$PAY_TO_ADDR" != "" ]; then
-            break
-        fi
-    done
 
     echo "Updating arbiter config file..."
     jq ".Configuration.MainNode.Rpc.User=\"$ELA_RPC_USER\"              | \
