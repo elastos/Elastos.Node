@@ -527,8 +527,7 @@ chain_prepare_stage()
        [ "$CHAIN_NAME" != "esc-oracle" ] && \
        [ "$CHAIN_NAME" != "eid" ] && \
        [ "$CHAIN_NAME" != "eid-oracle" ] && \
-       [ "$CHAIN_NAME" != "arbiter" ] && \
-       [ "$CHAIN_NAME" != "carrier" ]; then
+       [ "$CHAIN_NAME" != "arbiter" ]; then
         echo_error "do not support chain: $1"
         return 1
     fi
@@ -553,12 +552,6 @@ chain_prepare_stage()
     elif [ "$CHAIN_NAME" == "esc-oracle" ] || \
          [ "$CHAIN_NAME" == "eid-oracle" ]; then
         local RELEASE_PLATFORM=
-    elif [ "$CHAIN_NAME" == "carrier" ]; then
-        if [ "$OS_ARCH" == "Linux x86_64" ]; then
-            local RELEASE_PLATFORM=linux-x86_64
-        else
-            local RELEASE_PLATFORM=nosupport
-        fi
     else
         local RELEASE_PLATFORM=nosupport
     fi
@@ -647,7 +640,6 @@ chain_prepare_stage()
 #
 all_start()
 {
-    carrier_installed    && carrier_start
     ela_installed        && ela_start
     esc_installed        && esc_start
     esc-oracle_installed && esc-oracle_start
@@ -658,7 +650,6 @@ all_start()
 
 all_stop()
 {
-    carrier_installed    && carrier_stop
     arbiter_installed    && arbiter_stop
     ela_installed        && ela_stop
     eid-oracle_installed && eid-oracle_stop
@@ -675,7 +666,6 @@ all_status()
     eid_installed        && eid_status
     eid-oracle_installed && eid-oracle_status
     arbiter_installed    && arbiter_status
-    carrier_installed    && carrier_status
 }
 
 all_update()
@@ -686,7 +676,6 @@ all_update()
     eid_installed        && eid_update
     eid-oracle_installed && eid-oracle_update
     arbiter_installed    && arbiter_update
-    carrier_installed    && carrier_update
 }
 
 all_init()
@@ -697,7 +686,6 @@ all_init()
     eid_init
     eid-oracle_init
     arbiter_init
-    carrier_init
 }
 
 all_compress_log()
@@ -3465,248 +3453,6 @@ EOF
     echo
 }
 
-#
-# carrier
-#
-carrier_start()
-{
-    if [ ! -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
-        echo_error "$SCRIPT_PATH/carrier/ela-bootstrapd is not exist"
-        return
-    fi
-    if [ ! -f $SCRIPT_PATH/carrier/.init ]; then
-        echo_error "please run '$SCRIPT_NAME carrier init' first"
-        return
-    fi
-
-    local PID=$(pgrep -x ela-bootstrapd)
-    if [ "$PID" ]; then
-        carrier_status
-        return
-    fi
-
-    echo "Starting carrier..."
-    cd $SCRIPT_PATH/carrier
-    ./ela-bootstrapd --config=bootstrapd.conf
-    sleep 1
-    carrier_status
-}
-
-carrier_stop()
-{
-    local PID=$(pgrep -x ela-bootstrapd)
-    if [ "$PID" != "" ]; then
-        echo "Stopping carrier..."
-        kill $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
-        rm $SCRIPT_PATH/carrier/var/run/ela-bootstrapd/*.pid 2>/dev/null
-    fi
-    carrier_status
-}
-
-carrier_installed()
-{
-    if [ -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
-        true
-    else
-        false
-    fi
-}
-
-carrier_ver()
-{
-    if [ -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
-        echo "carrier $($SCRIPT_PATH/carrier/ela-bootstrapd -v | tail -1 | sed "s/.* //")"
-    else
-        echo "carrier N/A"
-    fi
-}
-
-carrier_status()
-{
-    local CARRIER_VER=$(carrier_ver)
-
-    local CARRIER_DISK_USAGE=$(disk_usage $SCRIPT_PATH/carrier)
-
-    # the child process only
-    local PID=$(pgrep -x -n ela-bootstrapd)
-    if [ "$PID" == "" ]; then
-        status_head $CARRIER_VER Stopped
-        status_info "Disk" "$CARRIER_DISK_USAGE"
-        echo
-        return
-    fi
-
-    local CARRIER_RAM=$(mem_usage $PID)
-    local CARRIER_UPTIME=$(run_time $PID)
-    local CARRIER_NUM_TCPS=$(num_tcps $PID)
-    local CARRIER_TCP_LISTEN=$(list_tcp $PID)
-    local CARRIER_UDP_LISTEN=$(list_udp $PID)
-    local CARRIER_NUM_FILES=$(num_files $PID)
-
-    status_head $CARRIER_VER Running
-    status_info "Disk"      "$CARRIER_DISK_USAGE"
-    status_info "PID"       "$PID"
-    status_info "RAM"       "$CARRIER_RAM"
-    status_info "Uptime"    "$CARRIER_UPTIME"
-    status_info "#Files"    "$CARRIER_NUM_FILES"
-    status_info "TCP Ports" "$CARRIER_TCP_LISTEN"
-    status_info "#TCP"      "$CARRIER_NUM_TCPS"
-    status_info "UDP Ports" "$CARRIER_UDP_LISTEN"
-    echo
-}
-
-carrier_update()
-{
-    unset OPTIND
-    while getopts "ny" OPTION; do
-        case $OPTION in
-            n)
-                local NO_START_AFTER_UPDATE=1
-                ;;
-            y)
-                local YES_TO_ALL=1
-                ;;
-        esac
-    done
-
-    chain_prepare_stage carrier usr/bin/ela-bootstrapd
-
-    if [ "$?" != "0" ]; then
-        return
-    fi
-
-    local PATH_STAGE=$SCRIPT_PATH/.node-upload/carrier
-    local DIR_DEPLOY=$SCRIPT_PATH/carrier
-
-    local PID=$(pgrep -x ela-bootstrapd)
-    if [ "$PID" ]; then
-        carrier_stop
-    fi
-
-    mkdir -p $DIR_DEPLOY
-    cp -v $PATH_STAGE/usr/bin/ela-bootstrapd $DIR_DEPLOY/
-
-    if [ "$PID" ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
-        carrier_start
-    fi
-}
-
-carrier_init()
-{
-    local CARRIER_CONFIG=${SCRIPT_PATH}/carrier/bootstrapd.conf
-
-    if [ ! -f $SCRIPT_PATH/carrier/ela-bootstrapd ]; then
-        carrier_update -y
-    fi
-
-    if [ -f ${SCRIPT_PATH}/carrier/.init ]; then
-        echo_error "carrier has already been initialized"
-        return
-    fi
-
-    if [ -f $CARRIER_CONFIG ]; then
-        echo_error "$CARRIER_CONFIG exists"
-        return
-    fi
-
-    echo "Creating carrier config file..."
-    cat >$CARRIER_CONFIG <<EOF
-// Elastos Carrier bootstrap daemon configuration file.
-
-// Listening port (UDP).
-port = 33445
-
-// A key file is like a password, so keep it where no one can read it.
-// If there is no key file, a new one will be generated.
-// The daemon should have permission to read/write it.
-keys_file_path = "var/lib/ela-bootstrapd/keys"
-
-// The PID file written to by the daemon.
-// Make sure that the user that daemon runs as has permissions to write to the
-// PID file.
-pid_file_path = "var/run/ela-bootstrapd/ela-bootstrapd.pid"
-
-// Enable IPv6.
-enable_ipv6 = false
-
-// Fallback to IPv4 in case IPv6 fails.
-enable_ipv4_fallback = true
-
-// Automatically bootstrap with nodes on local area network.
-enable_lan_discovery = true
-
-enable_tcp_relay = true
-
-// While Tox uses 33445 port by default, 443 (https) and 3389 (rdp) ports are very
-// common among nodes, so it's encouraged to keep them in place.
-tcp_relay_ports = [443, 3389, 33445]
-
-// Reply to MOTD (Message Of The Day) requests.
-enable_motd = true
-
-// Just a message that is sent when someone requests MOTD.
-// Put anything you want, but note that it will be trimmed to fit into 255 bytes.
-motd = "elastos-bootstrapd"
-
-turn = {
-  port = 3478
-  realm = "elastos.org"
-  pid_file_path = "var/run/ela-bootstrapd/turnserver.pid"
-  userdb = "var/lib/ela-bootstrapd/db/turndb"
-  verbose = true
-  external_ip = "$(extip)"
-}
-
-// Any number of nodes the daemon will bootstrap itself off.
-//
-// Remember to replace the provided example with Elastos own bootstrap node list.
-//
-// address = any IPv4 or IPv6 address and also any US-ASCII domain name.
-bootstrap_nodes = (
-  {
-    address = "13.58.208.50"
-    port = 33445
-    public-key = "89vny8MrKdDKs7Uta9RdVmspPjnRMdwMmaiEW27pZ7gh"
-  },
-  {
-    address = "18.216.102.47"
-    port = 33445
-    public-key = "G5z8MqiNDFTadFUPfMdYsYtkUDbX5mNCMVHMZtsCnFeb"
-  },
-  {
-    address = "18.216.6.197"
-    port = 33445
-    public-key = "H8sqhRrQuJZ6iLtP2wanxt4LzdNrN2NNFnpPdq1uJ9n2"
-  },
-  {
-    address = "52.83.171.135"
-    port = 33445
-    public-key = "5tuHgK1Q4CYf4K5PutsEPK5E3Z7cbtEBdx7LwmdzqXHL"
-  },
-  {
-    address = "52.83.191.228"
-    port = 33445
-    public-key = "3khtxZo89SBScAMaHhTvD68pPHiKxgZT6hTCSZZVgNEm"
-  }
-)
-EOF
-
-    mkdir -pv ${SCRIPT_PATH}/carrier/var/lib/ela-bootstrapd
-    mkdir -pv ${SCRIPT_PATH}/carrier/var/lib/ela-bootstrapd/db
-    mkdir -pv ${SCRIPT_PATH}/carrier/var/run/ela-bootstrapd
-
-    echo_info "carrier config file: $CARRIER_CONFIG"
-
-    touch ${SCRIPT_PATH}/carrier/.init
-    echo_ok "carrier initialized"
-    echo
-}
-
 usage()
 {
     echo "Usage: $SCRIPT_NAME [CHAIN] COMMAND [OPTIONS]"
@@ -3797,8 +3543,7 @@ else
        [ "$1" != "esc-oracle" ] && \
        [ "$1" != "eid"        ] && \
        [ "$1" != "eid-oracle" ] && \
-       [ "$1" != "arbiter"    ] && \
-       [ "$1" != "carrier"    ]; then
+       [ "$1" != "arbiter"    ]; then
         echo_error "do not support chain: $1"
         exit
     fi
