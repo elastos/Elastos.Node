@@ -126,6 +126,31 @@ check_env()
         echo_info "sudo apt-get install -y apache2-utils"
         exit
     fi
+
+    if [ "${BASH_ARGV[0]}" == "init" ]; then
+        check_env_oracle
+    fi
+}
+
+check_env_oracle()
+{
+    if [ "$(uname -sm)" == "Linux aarch64" ]; then
+        if [ "$(which make)" == "" ]; then
+            echo_error "cannot find make"
+            echo_info "sudo apt-get install -y make"
+            exit
+        fi
+        if [ "$(which gcc)" == "" ]; then
+            echo_error "cannot find gcc"
+            echo_info "sudo apt-get install -y gcc"
+            exit
+        fi
+        if [ "$(which g++)" == "" ]; then
+            echo_error "cannot find g++"
+            echo_info "sudo apt-get install -y g++"
+            exit
+        fi
+    fi
 }
 
 init_config()
@@ -2196,11 +2221,6 @@ esc_update()
 
 esc_init()
 {
-    if [ ! -f ${SCRIPT_PATH}/ela/.init ]; then
-        echo_error "ela not initialized"
-        return
-    fi
-
     if [ $(mem_free) -lt 512 ]; then
         echo_error "free memory not enough"
         return
@@ -2471,22 +2491,15 @@ esc-oracle_init()
         return
     fi
 
-    if [ ! -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
-        esc-oracle_update -y
-    fi
-
     if [ -f $SCRIPT_PATH/esc-oracle/.init ]; then
         echo_error "esc-oracle has already been initialized"
         return
     fi
 
-    if [ "$(uname -sm)" == "Linux aarch64" ]; then
-        if [ "$(which make)" == "" ] || \
-           [ "$(which gcc)"  == "" ] || \
-           [ "$(which g++)"  == "" ]; then
-            echo_error "requires make, gcc, g++"
-            return
-        fi
+    check_env_oracle
+
+    if [ ! -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
+        esc-oracle_update -y
     fi
 
     nodejs_setenv
@@ -2762,11 +2775,6 @@ eid_update()
 
 eid_init()
 {
-    if [ ! -f ${SCRIPT_PATH}/ela/.init ]; then
-        echo_error "ela not initialized"
-        return
-    fi
-
     if [ $(mem_free) -lt 512 ]; then
         echo_error "free memory not enough"
         return
@@ -3037,22 +3045,15 @@ eid-oracle_init()
         return
     fi
 
-    if [ ! -f $SCRIPT_PATH/eid-oracle/crosschain_eid.js ]; then
-        eid-oracle_update -y
-    fi
-
     if [ -f $SCRIPT_PATH/eid-oracle/.init ]; then
         echo_error "eid-oracle has already been initialized"
         return
     fi
 
-    if [ "$(uname -sm)" == "Linux aarch64" ]; then
-        if [ "$(which make)" == "" ] || \
-           [ "$(which gcc)"  == "" ] || \
-           [ "$(which g++)"  == "" ]; then
-            echo_error "requires make, gcc, g++"
-            return
-        fi
+    check_env_oracle
+
+    if [ ! -f $SCRIPT_PATH/eid-oracle/crosschain_eid.js ]; then
+        eid-oracle_update -y
     fi
 
     nodejs_setenv
