@@ -2506,7 +2506,7 @@ esc-oracle_init()
 
     mkdir -p $SCRIPT_PATH/esc-oracle
     cd $SCRIPT_PATH/esc-oracle
-    npm install web3 express
+    npm install web3@1.7.3 express@4.18.1
 
     touch ${SCRIPT_PATH}/esc-oracle/.init
     echo_ok "esc-oracle initialized"
@@ -3060,7 +3060,7 @@ eid-oracle_init()
 
     mkdir -p $SCRIPT_PATH/eid-oracle
     cd $SCRIPT_PATH/eid-oracle
-    npm install web3 express
+    npm install web3@1.7.3 express@4.18.1
 
     touch ${SCRIPT_PATH}/eid-oracle/.init
     echo_ok "eid-oracle initialized"
