@@ -2115,6 +2115,11 @@ esc_status()
         local ESC_ADDRESS=N/A
     fi
 
+    local ESC_MINER_ADDRESS=$(cat $SCRIPT_PATH/esc/data/miner_address.txt 2>/dev/null)
+    if [ "$ESC_MINER_ADDRESS" == "" ]; then
+        local ESC_MINER_ADDRESS=$ESC_ADDRESS
+    fi
+
     local PID=$(pgrep -f '^\./esc .*--rpc ')
     if [ "$PID" == "" ]; then
         status_head $ESC_VER  Stopped
@@ -2158,6 +2163,7 @@ esc_status()
     status_info "Disk"      "$ESC_DISK_USAGE"
     status_info "Address"   "$ESC_ADDRESS"
     status_info "Balance"   "$ESC_BALANCE"
+    status_info "Miner"     "$ESC_MINER_ADDRESS"
     status_info "PID"       "$PID"
     status_info "RAM"       "$ESC_RAM"
     status_info "Uptime"    "$ESC_UPTIME"
@@ -2669,6 +2675,11 @@ eid_status()
         local EID_ADDRESS=N/A
     fi
 
+    local EID_MINER_ADDRESS=$(cat $SCRIPT_PATH/eid/data/miner_address.txt 2>/dev/null)
+    if [ "$EID_MINER_ADDRESS" == "" ]; then
+        local EID_MINER_ADDRESS=$EID_ADDRESS
+    fi
+
     local PID=$(pgrep -f '^\./eid .*--rpc ')
     if [ "$PID" == "" ]; then
         status_head $EID_VER  Stopped
@@ -2712,6 +2723,7 @@ eid_status()
     status_info "Disk"      "$EID_DISK_USAGE"
     status_info "Address"   "$EID_ADDRESS"
     status_info "Balance"   "$EID_BALANCE"
+    status_info "Miner"     "$EID_MINER_ADDRESS"
     status_info "PID"       "$PID"
     status_info "RAM"       "$EID_RAM"
     status_info "Uptime"    "$EID_UPTIME"
