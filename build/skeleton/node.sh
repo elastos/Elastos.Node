@@ -242,6 +242,32 @@ set_path()
     fi
 }
 
+set_cron()
+{
+    local SP0='[[:space:]]*'
+    local SP1='[[:space:]]\+'
+
+    crontab -l 2>/dev/null |
+        grep -q "^${SP0}@reboot${SP1}~/node/node.sh${SP1}start${SP0}$"
+    if [ "$?" != "0" ]; then
+    (
+        crontab -l 2>/dev/null
+        echo '@reboot      ~/node/node.sh start'
+    ) | crontab -
+    fi
+
+    crontab -l 2>/dev/null |
+        grep -q "^${SP0}\*/10${SP1}\*${SP1}\*${SP1}\*${SP1}\*${SP1}~/node/node.sh${SP1}compress_log${SP0}$"
+    if [ "$?" != "0" ]; then
+    (
+        crontab -l 2>/dev/null
+        echo '*/10 * * * * ~/node/node.sh compress_log'
+    ) | crontab -
+    fi
+
+    crontab -l 2>/dev/null
+}
+
 extip()
 {
     curl -s https://checkip.amazonaws.com
@@ -737,6 +763,45 @@ all_remove_log()
 #
 # ela
 #
+ela_usage()
+{
+    echo "Usage: $SCRIPT_NAME $CHAIN_NAME COMMAND [OPTIONS]"
+    echo "Manage $CHAIN_NAME"
+    echo
+    echo "Available Commands:"
+    echo
+    echo "  init            Install and configure $CHAIN_NAME_U"
+    echo "  update          Update $CHAIN_NAME_U"
+    echo
+    echo "  start           Start $CHAIN_NAME_U daemon"
+    echo "  stop            Stop $CHAIN_NAME_U daemon"
+    echo "  status          Print $CHAIN_NAME_U daemon status"
+    echo "  watch           Start $CHAIN_NAME_U daemon and restart a crash"
+    echo "  mon             Monitor $CHAIN_NAME_U height and alert a halt"
+    echo
+    echo "  compress_log    Compress $CHAIN_NAME_U daemon log files"
+    echo "  remove_log      Remove $CHAIN_NAME_U daemon log files"
+    echo
+    echo "  client          Run $CHAIN_NAME_U client"
+    echo "  jsonrpc         Call $CHAIN_NAME_U JSON-RPC API"
+    echo
+    echo "  send            Send crypto in $CHAIN_NAME_U"
+    echo "  transfer        Send crypto from $CHAIN_NAME_U to sidechain"
+    echo
+    echo "  register_bpos   Register $CHAIN_NAME_U BPoS"
+    echo "  activate_bpos   Activate $CHAIN_NAME_U BPoS"
+    echo "  unregister_bpos Unregister $CHAIN_NAME_U BPoS"
+    echo "  vote_bpos       Vote $CHAIN_NAME_U BPoS"
+    echo "  stake_bpos      Stake $CHAIN_NAME_U BPoS"
+    echo "  unstake_bpos    Unstake $CHAIN_NAME_U BPoS"
+    echo "  claim_bpos      Claim rewards $CHAIN_NAME_U BPoS"
+    echo
+    echo "  register_crc    Register $CHAIN_NAME_U CRC"
+    echo "  activate_crc    Activate $CHAIN_NAME_U CRC"
+    echo "  unregister_crc  Unregister $CHAIN_NAME_U CRC"
+    echo
+}
+
 ela_start()
 {
     if [ ! -f $SCRIPT_PATH/ela/ela ]; then
@@ -1956,6 +2021,32 @@ ela_unregister_crc()
 #
 # esc
 #
+esc_usage()
+{
+    echo "Usage: $SCRIPT_NAME $CHAIN_NAME COMMAND [OPTIONS]"
+    echo "Manage $CHAIN_NAME"
+    echo
+    echo "Available Commands:"
+    echo
+    echo "  init            Install and configure $CHAIN_NAME_U"
+    echo "  update          Update $CHAIN_NAME_U"
+    echo
+    echo "  start           Start $CHAIN_NAME_U daemon"
+    echo "  stop            Stop $CHAIN_NAME_U daemon"
+    echo "  status          Print $CHAIN_NAME_U daemon status"
+    echo "  watch           Start $CHAIN_NAME_U daemon and restart a crash"
+    echo "  mon             Monitor $CHAIN_NAME_U height and alert a halt"
+    echo
+    echo "  compress_log    Compress $CHAIN_NAME_U daemon log files"
+    echo "  remove_log      Remove $CHAIN_NAME_U daemon log files"
+    echo
+    echo "  client          Run $CHAIN_NAME_U client"
+    echo "  jsonrpc         Call $CHAIN_NAME_U JSON-RPC API"
+    echo
+    echo "  send            Send crypto in $CHAIN_NAME_U"
+    echo
+}
+
 esc_start()
 {
     if [ ! -f $SCRIPT_PATH/esc/esc ]; then
@@ -2345,6 +2436,25 @@ esc_send()
 #
 # esc-oracle
 #
+esc-oracle_usage()
+{
+    echo "Usage: $SCRIPT_NAME $CHAIN_NAME COMMAND [OPTIONS]"
+    echo "Manage $CHAIN_NAME"
+    echo
+    echo "Available Commands:"
+    echo
+    echo "  init            Install and configure $CHAIN_NAME_U"
+    echo "  update          Update $CHAIN_NAME_U"
+    echo
+    echo "  start           Start $CHAIN_NAME_U daemon"
+    echo "  stop            Stop $CHAIN_NAME_U daemon"
+    echo "  status          Print $CHAIN_NAME_U daemon status"
+    echo
+    echo "  compress_log    Compress $CHAIN_NAME_U daemon log files"
+    echo "  remove_log      Remove $CHAIN_NAME_U daemon log files"
+    echo
+}
+
 esc-oracle_start()
 {
     if [ ! -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
@@ -2522,6 +2632,32 @@ esc-oracle_init()
 #
 # eid
 #
+eid_usage()
+{
+    echo "Usage: $SCRIPT_NAME $CHAIN_NAME COMMAND [OPTIONS]"
+    echo "Manage $CHAIN_NAME"
+    echo
+    echo "Available Commands:"
+    echo
+    echo "  init            Install and configure $CHAIN_NAME_U"
+    echo "  update          Update $CHAIN_NAME_U"
+    echo
+    echo "  start           Start $CHAIN_NAME_U daemon"
+    echo "  stop            Stop $CHAIN_NAME_U daemon"
+    echo "  status          Print $CHAIN_NAME_U daemon status"
+    echo "  watch           Start $CHAIN_NAME_U daemon and restart a crash"
+    echo "  mon             Monitor $CHAIN_NAME_U height and alert a halt"
+    echo
+    echo "  compress_log    Compress $CHAIN_NAME_U daemon log files"
+    echo "  remove_log      Remove $CHAIN_NAME_U daemon log files"
+    echo
+    echo "  client          Run $CHAIN_NAME_U client"
+    echo "  jsonrpc         Call $CHAIN_NAME_U JSON-RPC API"
+    echo
+    echo "  send            Send crypto in $CHAIN_NAME_U"
+    echo
+}
+
 eid_start()
 {
     if [ ! -f $SCRIPT_PATH/eid/eid ]; then
@@ -2546,6 +2682,20 @@ eid_start()
 
     echo "Starting eid..."
     cd $SCRIPT_PATH/eid
+
+    if [ "$CHAIN_TYPE" == "testnet" ]; then
+        if [ ! -f spvconfig.json ]; then
+            cat >spvconfig.json <<EOF
+{
+  "Configuration": {
+    "Magic": 2018101
+  }
+}
+EOF
+            chmod 600 spvconfig.json
+        fi
+    fi
+
     mkdir -p $SCRIPT_PATH/eid/logs/
 
     if [ -f ~/.config/elastos/eid.txt ]; then
@@ -2905,6 +3055,25 @@ eid_send()
 #
 # eid-oracle
 #
+eid-oracle_usage()
+{
+    echo "Usage: $SCRIPT_NAME $CHAIN_NAME COMMAND [OPTIONS]"
+    echo "Manage $CHAIN_NAME"
+    echo
+    echo "Available Commands:"
+    echo
+    echo "  init            Install and configure $CHAIN_NAME_U"
+    echo "  update          Update $CHAIN_NAME_U"
+    echo
+    echo "  start           Start $CHAIN_NAME_U daemon"
+    echo "  stop            Stop $CHAIN_NAME_U daemon"
+    echo "  status          Print $CHAIN_NAME_U daemon status"
+    echo
+    echo "  compress_log    Compress $CHAIN_NAME_U daemon log files"
+    echo "  remove_log      Remove $CHAIN_NAME_U daemon log files"
+    echo
+}
+
 eid-oracle_start()
 {
     if [ ! -f $SCRIPT_PATH/eid-oracle/crosschain_eid.js ]; then
@@ -3082,6 +3251,27 @@ eid-oracle_init()
 #
 # arbiter
 #
+arbiter_usage()
+{
+    echo "Usage: $SCRIPT_NAME $CHAIN_NAME COMMAND [OPTIONS]"
+    echo "Manage $CHAIN_NAME"
+    echo
+    echo "Available Commands:"
+    echo
+    echo "  init            Install and configure $CHAIN_NAME_U"
+    echo "  update          Update $CHAIN_NAME_U"
+    echo
+    echo "  start           Start $CHAIN_NAME_U daemon"
+    echo "  stop            Stop $CHAIN_NAME_U daemon"
+    echo "  status          Print $CHAIN_NAME_U daemon status"
+    echo
+    echo "  compress_log    Compress $CHAIN_NAME_U daemon log files"
+    echo "  remove_log      Remove $CHAIN_NAME_U daemon log files"
+    echo
+    echo "  jsonrpc         Call $CHAIN_NAME_U JSON-RPC API"
+    echo
+}
+
 arbiter_start()
 {
     if [ ! -f $SCRIPT_PATH/arbiter/arbiter ]; then
@@ -3494,30 +3684,6 @@ usage()
     printf "  %-16s%s\n" $(${i})
     done
     echo
-    echo "Available Commands:"
-    echo
-    echo "  start           Start chain daemon"
-    echo "  stop            Stop chain daemon"
-    echo "  status          Print chain daemon status"
-    echo "  client          Run chain client"
-    echo "  jsonrpc         Call JSON-RPC API"
-    echo "  update          Install or update chain"
-    echo "  init            Install and configure chain"
-    echo "  register_bpos   Register ELA BPoS"
-    echo "  activate_bpos   Activate ELA BPoS"
-    echo "  unregister_bpos Unregister ELA BPoS"
-    echo "  vote_bpos       Vote ELA BPoS"
-    echo "  stake_bpos      Stake ELA BPoS"
-    echo "  unstake_bpos    Unstake ELA BPoS"
-    echo "  claim_bpos      Claim rewards ELA BPoS"
-    echo "  register_crc    Register ELA CRC"
-    echo "  activate_crc    Activate ELA CRC"
-    echo "  unregister_crc  Unregister ELA CRC"
-    echo "  send            Send crypto"
-    echo "  transfer        Send crypto crosschain"
-    echo "  compress_log    Compress log files to save disk space"
-    echo "  remove_log      Remove log files"
-    echo
 }
 
 #
@@ -3537,6 +3703,9 @@ if [ "$1" == "" ]; then
     exit
 elif [ "$1" == "set_path" ]; then
     set_path
+    exit
+elif [ "$1" == "set_cron" ]; then
+    set_cron
     exit
 elif [ "$1" == "update_script" ] || [ "$1" == "script_update" ]; then
     update_script
@@ -3572,10 +3741,11 @@ else
         exit
     fi
     CHAIN_NAME=$1
+    CHAIN_NAME_U=$(echo $CHAIN_NAME | tr "[:lower:]" "[:upper:]")
 
     if [ "$2" == "" ]; then
         # no command specified
-        COMMAND=status
+        COMMAND=usage
     elif [ "$2" == "start"   ] || \
          [ "$2" == "stop"    ] || \
          [ "$2" == "status"  ] || \
