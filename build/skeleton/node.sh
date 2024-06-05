@@ -517,7 +517,7 @@ remove_log()
 
 nodejs_setenv()
 {
-    local NODEJS_VER=v14.17.0
+    local NODEJS_VER=v20.10.0
 
     local OS_ARCH=$(uname -sm)
 
