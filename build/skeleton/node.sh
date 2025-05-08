@@ -517,7 +517,7 @@ remove_log()
 
 nodejs_setenv()
 {
-    local NODEJS_VER=v20.10.0
+    local NODEJS_VER=v23.10.0
 
     local OS_ARCH=$(uname -sm)
 
@@ -578,6 +578,8 @@ chain_prepare_stage()
        [ "$CHAIN_NAME" != "esc-oracle" ] && \
        [ "$CHAIN_NAME" != "eid" ] && \
        [ "$CHAIN_NAME" != "eid-oracle" ] && \
+       [ "$CHAIN_NAME" != "eco" ] && \
+       [ "$CHAIN_NAME" != "eco-oracle" ] && \
        [ "$CHAIN_NAME" != "arbiter" ]; then
         echo_error "do not support chain: $1"
         return 1
@@ -592,6 +594,7 @@ chain_prepare_stage()
     if [ "$CHAIN_NAME" == "ela" ] || \
        [ "$CHAIN_NAME" == "esc" ] || \
        [ "$CHAIN_NAME" == "eid" ] || \
+       [ "$CHAIN_NAME" == "eco" ] || \
        [ "$CHAIN_NAME" == "arbiter" ]; then
         if [ "$OS_ARCH" == "Linux aarch64" ]; then
             local RELEASE_PLATFORM=linux-arm64
@@ -601,6 +604,7 @@ chain_prepare_stage()
             local RELEASE_PLATFORM=nosupport
         fi
     elif [ "$CHAIN_NAME" == "esc-oracle" ] || \
+         [ "$CHAIN_NAME" == "eco-oracle" ] || \
          [ "$CHAIN_NAME" == "eid-oracle" ]; then
         local RELEASE_PLATFORM=
     else
@@ -647,6 +651,7 @@ chain_prepare_stage()
     fi
 
     if [ "$CHAIN_NAME" == "esc-oracle" ] || \
+       [ "$CHAIN_NAME" == "eco-oracle" ] || \
        [ "$CHAIN_NAME" == "eid-oracle" ] ; then
         local TGZ_LATEST=elastos-${CHAIN_NAME}-${VER_LATEST}.tgz
         local URL_LATEST=$URL_PREFIX/elastos-${CHAIN_NAME}-${VER_LATEST}/${TGZ_LATEST}
@@ -696,6 +701,8 @@ all_start()
     esc-oracle_installed && esc-oracle_start
     eid_installed        && eid_start
     eid-oracle_installed && eid-oracle_start
+    eco_installed        && eco_start
+    eco-oracle_installed && eco-oracle_start
     arbiter_installed    && arbiter_start
 }
 
@@ -707,6 +714,8 @@ all_stop()
     eid_installed        && eid_stop
     esc-oracle_installed && esc-oracle_stop
     esc_installed        && esc_stop
+    eco-oracle_installed && eco-oracle_stop
+    eco_installed        && eco_stop
 }
 
 all_status()
@@ -716,6 +725,8 @@ all_status()
     esc-oracle_installed && esc-oracle_status
     eid_installed        && eid_status
     eid-oracle_installed && eid-oracle_status
+    eco_installed        && eco_status
+    eco-oracle_installed && eco-oracle_status
     arbiter_installed    && arbiter_status
 }
 
@@ -726,6 +737,8 @@ all_update()
     esc-oracle_installed && esc-oracle_update
     eid_installed        && eid_update
     eid-oracle_installed && eid-oracle_update
+    eco_installed        && eco_update
+    eco-oracle_installed && eco-oracle_update
     arbiter_installed    && arbiter_update
 }
 
@@ -736,6 +749,8 @@ all_init()
     esc-oracle_init
     eid_init
     eid-oracle_init
+    eco_init
+    eco-oracle_init
     arbiter_init
 }
 
@@ -2119,6 +2134,77 @@ esc_start()
     esc_status
 }
 
+eco_start()
+{
+    if [ ! -f $SCRIPT_PATH/eco/eco ]; then
+        echo_error "$SCRIPT_PATH/eco/eco is not exist"
+        return
+    fi
+
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local ECO_OPTS=
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local ECO_OPTS=--testnet
+    else
+        echo_error "do not support $CHAIN_TYPE"
+        return
+    fi
+
+    local PID=$(pgrep -f '^\./eco .*--rpc ')
+    if [ "$PID" != "" ]; then
+        eco_status
+        return
+    fi
+
+    echo "Starting eco..."
+    cd $SCRIPT_PATH/eco
+    mkdir -p $SCRIPT_PATH/eco/logs/
+
+    if [ -f ~/.config/elastos/eco.txt ]; then
+        if [ -f $SCRIPT_PATH/eco/data/miner_address.txt ]; then
+            local ECO_OPTS="$ECO_OPTS --pbft.miner.address $SCRIPT_PATH/eco/data/miner_address.txt"
+        fi
+        nohup $SHELL -c "./eco \
+            $ECO_OPTS \
+            --allow-insecure-unlock \
+            --datadir $SCRIPT_PATH/eco/data \
+            --mine \
+            --miner.threads 1 \
+            --password ~/.config/elastos/eco.txt \
+            --pbft.keystore ${SCRIPT_PATH}/ela/keystore.dat \
+            --pbft.keystore.password ~/.config/elastos/ela.txt \
+            --pbft.net.address '$(extip)' \
+            --pbft.net.port 20659 \
+            --rpc \
+            --rpcaddr '0.0.0.0' \
+            --rpcapi 'db,eth,net,pbft,personal,txpool,web3' \
+            --rpcvhosts '*' \
+            --syncmode full \
+            --unlock '0x$(cat $SCRIPT_PATH/eco/data/keystore/UTC* | jq -r .address)' \
+            --ws \
+            --wsaddr '0.0.0.0' \
+            --wsorigins '*' \
+            2>&1 \
+            | rotatelogs $SCRIPT_PATH/eco/logs/eco-%Y-%m-%d-%H_%M_%S.log 20M" &
+    else
+        nohup $SHELL -c "./eco \
+            $ECO_OPTS \
+            --datadir $SCRIPT_PATH/eco/data \
+            --lightserv 10 \
+            --rpc \
+            --rpcaddr '0.0.0.0' \
+            --rpcapi 'admin,eth,net,txpool,web3' \
+            --rpcvhosts '*' \
+            --ws \
+            --wsaddr '0.0.0.0' \
+            --wsorigins '*' \
+            2>&1 \
+            | rotatelogs $SCRIPT_PATH/eco/logs/eco-%Y-%m-%d-%H_%M_%S.log 20M" &
+    fi
+
+    sleep 3
+    eco_status
+}
 esc_stop()
 {
     local PID=$(pgrep -f '^\./esc .*--rpc ')
@@ -2134,10 +2220,33 @@ esc_stop()
     sync
     esc_status
 }
+eco_stop()
+{
+    local PID=$(pgrep -f '^\./eco .*--rpc ')
+    if [ "$PID" != "" ]; then
+        echo "Stopping eco..."
+        kill -s SIGINT $PID
+        while ps -p $PID 1>/dev/null; do
+            echo -n .
+            sleep 1
+        done
+        echo
+    fi
+    sync
+    eco_status
+}
 
 esc_installed()
 {
     if [ -f $SCRIPT_PATH/esc/esc ]; then
+        true
+    else
+        false
+    fi
+}
+eco_installed()
+{
+    if [ -f $SCRIPT_PATH/eco/eco ]; then
         true
     else
         false
@@ -2150,6 +2259,15 @@ esc_ver()
         echo "esc $($SCRIPT_PATH/esc/esc version | grep 'Git Commit:' | sed 's/.* //' | cut -c1-7)"
     else
         echo "esc N/A"
+    fi
+}
+
+eco_ver()
+{
+    if [ -f $SCRIPT_PATH/eco/eco ]; then
+        echo "eco $($SCRIPT_PATH/eco/eco version | grep 'Git Commit:' | sed 's/.* //' | cut -c1-7)"
+    else
+        echo "eco N/A"
     fi
 }
 
@@ -2171,6 +2289,24 @@ esc_client()
     fi
 }
 
+eco_client()
+{
+    if [ ! -f $SCRIPT_PATH/eco/eco ]; then
+        echo_error "$SCRIPT_PATH/eco/eco is not exist"
+        return
+    fi
+
+    cd $SCRIPT_PATH/eco
+    if [ "$1" == "" ]; then
+        ./eco --datadir $SCRIPT_PATH/eco/data --help
+    elif [ "$1" == "attach" ] &&
+         [ ! -S $SCRIPT_PATH/eco/data/geth.ipc ]; then
+        return
+    else
+        ./eco --datadir $SCRIPT_PATH/eco/data --nousb $*
+    fi
+}
+
 esc_jsonrpc()
 {
     if [ "$1" == "" ]; then
@@ -2185,6 +2321,22 @@ esc_jsonrpc()
 
     curl -s -H 'Content-Type:application/json' -X POST --data $DATA \
         http://127.0.0.1:20636 | jq .
+}
+
+eco_jsonrpc()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    if [[ $1 =~ ^[_3a-zA-Z]+$ ]] && [ "$2" == "" ]; then
+        local DATA="{\"method\":\"$1\",\"id\":0}"
+    else
+        local DATA=$1
+    fi
+
+    curl -s -H 'Content-Type:application/json' -X POST --data $DATA \
+        http://127.0.0.1:20656 | jq .
 }
 
 esc_status()
@@ -2267,6 +2419,86 @@ esc_status()
     echo
 }
 
+eco_status()
+{
+    local ECO_VER=$(eco_ver)
+
+    local ECO_DISK_USAGE=$(disk_usage $SCRIPT_PATH/eco)
+
+    if [ -f ~/.config/elastos/eco.txt ]; then
+        cd $SCRIPT_PATH/eco
+        local ECO_KEYSTORE=$(./eco --datadir "$SCRIPT_PATH/eco/data/" \
+            --nousb --verbosity 0 account list | sed -n '1 s/.*keystore:\/\///p')
+        if [ $ECO_KEYSTORE ] && [ -f $ECO_KEYSTORE ]; then
+            local ECO_ADDRESS=0x$(cat $ECO_KEYSTORE | jq -r .address)
+        else
+            local ECO_ADDRESS=N/A
+        fi
+    else
+        local ECO_ADDRESS=N/A
+    fi
+
+    local ECO_MINER_ADDRESS=$(cat $SCRIPT_PATH/eco/data/miner_address.txt 2>/dev/null)
+    if [ "$ECO_MINER_ADDRESS" == "" ]; then
+        local ECO_MINER_ADDRESS=$ECO_ADDRESS
+    fi
+
+    local PID=$(pgrep -f '^\./eco .*--rpc ')
+    if [ "$PID" == "" ]; then
+        status_head $ECO_VER  Stopped
+        status_info "Disk"    "$ECO_DISK_USAGE"
+        status_info "Address" "$ECO_ADDRESS"
+        echo
+        return
+    fi
+
+    local ECO_RAM=$(mem_usage $PID)
+    local ECO_UPTIME=$(run_time $PID)
+    local ECO_NUM_TCPS=$(num_tcps $PID)
+    local ECO_TCP_LISTEN=$(list_tcp $PID)
+    local ECO_UDP_LISTEN=$(list_udp $PID)
+    local ECO_NUM_FILES=$(num_files $PID)
+
+    local ECO_NUM_PEERS=$(eco_jsonrpc \
+        '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
+        | jq -r '.result')
+    ECO_NUM_PEERS=$(($ECO_NUM_PEERS))
+    if [[ ! "$ECO_NUM_PEERS" =~ ^[0-9]+$ ]]; then
+        ECO_NUM_PEERS=0
+    fi
+    local ECO_HEIGHT=$(eco_jsonrpc \
+        '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+        | jq -r '.result')
+    ECO_HEIGHT=$(($ECO_HEIGHT))
+    if [[ ! "$ECO_HEIGHT" =~ ^[0-9]+$ ]]; then
+        ECO_HEIGHT=N/A
+    fi
+
+    local ECO_BALANCE=$(eco_client \
+        attach --exec "web3.fromWei(eth.getBalance('$ECO_ADDRESS'),'ether')")
+    if [ "$ECO_BALANCE" == "" ]; then
+        ECO_BALANCE=N/A
+    elif [[ $ECO_BALANCE =~ [^.0-9e-] ]]; then
+        ECO_BALANCE=N/A
+    fi
+
+    status_head $ECO_VER Running
+    status_info "Disk"      "$ECO_DISK_USAGE"
+    status_info "Address"   "$ECO_ADDRESS"
+    status_info "Balance"   "$ECO_BALANCE"
+    status_info "Miner"     "$ECO_MINER_ADDRESS"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$ECO_RAM"
+    status_info "Uptime"    "$ECO_UPTIME"
+    status_info "#Files"    "$ECO_NUM_FILES"
+    status_info "TCP Ports" "$ECO_TCP_LISTEN"
+    status_info "#TCP"      "$ECO_NUM_TCPS"
+    status_info "UDP Ports" "$ECO_UDP_LISTEN"
+    status_info "#Peers"    "$ECO_NUM_PEERS"
+    status_info "Height"    "$ECO_HEIGHT"
+    echo
+}
+
 esc_compress_log()
 {
     compress_log $SCRIPT_PATH/esc/data/geth/logs/dpos
@@ -2313,6 +2545,41 @@ esc_update()
 
     if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
         esc_start
+    fi
+}
+
+eco_update()
+{
+    unset OPTIND
+    while getopts "ny" OPTION; do
+        case $OPTION in
+            n)
+                local NO_START_AFTER_UPDATE=1
+                ;;
+            y)
+                local YES_TO_ALL=1
+                ;;
+        esac
+    done
+
+    chain_prepare_stage eco eco
+    if [ "$?" != "0" ]; then
+        return
+    fi
+
+    local PATH_STAGE=$SCRIPT_PATH/.node-upload/eco
+    local DIR_DEPLOY=$SCRIPT_PATH/eco
+
+    local PID=$(pgrep -f '^\./eco .*--rpc ')
+    if [ $PID ]; then
+        eco_stop
+    fi
+
+    mkdir -p $DIR_DEPLOY
+    cp -v $PATH_STAGE/eco $DIR_DEPLOY/
+
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
+        eco_start
     fi
 }
 
@@ -2392,6 +2659,84 @@ esc_init()
 
     touch ${SCRIPT_PATH}/esc/.init
     echo_ok "esc initialized"
+    echo
+}
+eco_init()
+{
+    if [ $(mem_free) -lt 512 ]; then
+        echo_error "free memory not enough"
+        return
+    fi
+
+    local ECO_KEYSTORE=
+    local ECO_KEYSTORE_PASS_FILE=~/.config/elastos/eco.txt
+
+    if [ ! -f ${SCRIPT_PATH}/eco/eco ]; then
+        eco_update -y
+    fi
+
+    if [ -f $SCRIPT_PATH/eco/.init ]; then
+        echo_error "eco has already been initialized"
+        return
+    fi
+
+    cd $SCRIPT_PATH/eco
+    local ECO_NUM_ACCOUNTS=$(./eco --datadir "$SCRIPT_PATH/eco/data/" \
+        --nousb --verbosity 0 account list | wc -l)
+    if [ $ECO_NUM_ACCOUNTS -ge 1 ]; then
+        echo_error "eco keystore file exist"
+        return
+    fi
+
+    if [ -f "$ECO_KEYSTORE_PASS_FILE" ]; then
+        echo_error "$ECO_KEYSTORE_PASS_FILE exist"
+        return
+    fi
+
+    echo "Creating eco keystore..."
+    gen_pass
+    if [ "$KEYSTORE_PASS" == "" ]; then
+        echo_error "empty password"
+        exit
+    fi
+
+    echo "Saving eco keystore password..."
+    mkdir -p $(dirname $ECO_KEYSTORE_PASS_FILE)
+    chmod 700 $(dirname $ECO_KEYSTORE_PASS_FILE)
+    echo $KEYSTORE_PASS > $ECO_KEYSTORE_PASS_FILE
+    chmod 600 $ECO_KEYSTORE_PASS_FILE
+
+    cd ${SCRIPT_PATH}/eco
+    ./eco --datadir "$SCRIPT_PATH/eco/data/" --verbosity 0 account new \
+        --password "$ECO_KEYSTORE_PASS_FILE" >/dev/null
+    if [ "$?" != "0" ]; then
+        echo_error "failed to create eco keystore"
+        return
+    fi
+
+    echo "Checking eco keystore..."
+    local ECO_KEYSTORE=$(./eco --datadir "$SCRIPT_PATH/eco/data/" \
+        --nousb --verbosity 0 account list | sed 's/.*keystore:\/\///')
+    chmod 600 $ECO_KEYSTORE
+
+    local ECO_MINER_ADDRESS_FILE=$SCRIPT_PATH/eco/data/miner_address.txt
+    echo "You can input an alternative eco reward address. (ENTER to skip)"
+    local ECO_MINER_ADDRESS=
+    read -p '? Miner Address: ' ECO_MINER_ADDRESS
+    if [ "$ECO_MINER_ADDRESS" != "" ]; then
+        mkdir -p $SCRIPT_PATH/eco/data
+        echo $ECO_MINER_ADDRESS | tee $ECO_MINER_ADDRESS_FILE
+        chmod 600 $ECO_MINER_ADDRESS_FILE
+    fi
+
+    echo_info "eco keystore file: $ECO_KEYSTORE"
+    echo_info "eco keystore password file: $ECO_KEYSTORE_PASS_FILE"
+    if [ -f $ECO_MINER_ADDRESS_FILE ]; then
+        echo_info "eco miner address file: $ECO_MINER_ADDRESS_FILE"
+    fi
+
+    touch ${SCRIPT_PATH}/eco/.init
+    echo_ok "eco initialized"
     echo
 }
 
@@ -2491,6 +2836,42 @@ esc-oracle_start()
     esc-oracle_status
 }
 
+eco-oracle_start()
+{
+    if [ ! -f $SCRIPT_PATH/eco-oracle/crosschain_eco.js ]; then
+        echo_error "$SCRIPT_PATH/eco-oracle/crosschain_eco.js is not exist"
+        return
+    fi
+
+    local PID=$(pgrep -fx 'node crosschain_eco.js')
+    if [ "$PID" != "" ]; then
+        eco-oracle_status
+        return
+    fi
+
+    echo "Starting eco-oracle..."
+    cd $SCRIPT_PATH/eco-oracle
+    mkdir -p $SCRIPT_PATH/eco-oracle/logs
+
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        export env=mainnet
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        export env=testnet
+    else
+        echo_error "do not support $CHAIN_TYPE"
+        return
+    fi
+
+    echo "env: $env"
+    nodejs_setenv
+    nohup $SHELL -c "node crosschain_eco.js \
+        2>$SCRIPT_PATH/eco-oracle/logs/eco-oracle_err.log \
+        | rotatelogs $SCRIPT_PATH/eco-oracle/logs/eco-oracle_out-%Y-%m-%d-%H_%M_%S.log 20M" &
+
+    sleep 1
+    eco-oracle_status
+}
+
 esc-oracle_stop()
 {
     local PID=$(pgrep -fx 'node crosschain_oracle.js')
@@ -2506,9 +2887,33 @@ esc-oracle_stop()
     esc-oracle_status
 }
 
+eco-oracle_stop()
+{
+    local PID=$(pgrep -fx 'node crosschain_eco.js')
+    if [ "$PID" != "" ]; then
+        echo "Stopping eco-oracle..."
+        kill $PID
+        while ps -p $PID 1>/dev/null; do
+            echo -n .
+            sleep 1
+        done
+        echo
+    fi
+    eco-oracle_status
+}
+
 esc-oracle_installed()
 {
     if [ -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
+        true
+    else
+        false
+    fi
+}
+
+eco-oracle_installed()
+{
+    if [ -f $SCRIPT_PATH/eco-oracle/crosschain_eco.js ]; then
         true
     else
         false
@@ -2521,6 +2926,15 @@ esc-oracle_ver()
         echo "esc-oracle $(cat $SCRIPT_PATH/esc-oracle/*.js | shasum | cut -c 1-7)"
     else
         echo "esc-oracle N/A"
+    fi
+}
+
+eco-oracle_ver()
+{
+    if [ -f $SCRIPT_PATH/eco-oracle/crosschain_eco.js ]; then
+        echo "eco-oracle $(cat $SCRIPT_PATH/eco-oracle/*.js | shasum | cut -c 1-7)"
+    else
+        echo "eco-oracle N/A"
     fi
 }
 
@@ -2552,6 +2966,37 @@ esc-oracle_status()
     status_info "#Files"    "$ESC_ORACLE_NUM_FILES"
     status_info "TCP Ports" "$ESC_ORACLE_TCP_LISTEN"
     status_info "#TCP"      "$ESC_ORACLE_NUM_TCPS"
+    echo
+}
+
+eco-oracle_status()
+{
+    local ECO_ORACLE_VER=$(eco-oracle_ver)
+
+    local ECO_ORACLE_DISK_USAGE=$(disk_usage $SCRIPT_PATH/eco-oracle)
+
+    local PID=$(pgrep -fx 'node crosschain_eco.js')
+    if [ "$PID" == "" ]; then
+        status_head $ECO_ORACLE_VER Stopped
+        status_info "Disk" "$ECO_ORACLE_DISK_USAGE"
+        echo
+        return
+    fi
+
+    local ECO_ORACLE_RAM=$(mem_usage $PID)
+    local ECO_ORACLE_UPTIME=$(run_time $PID)
+    local ECO_ORACLE_TCP_LISTEN=$(list_tcp $PID)
+    local ECO_ORACLE_NUM_TCPS=$(num_tcps $PID)
+    local ECO_ORACLE_NUM_FILES=$(num_files $PID)
+
+    status_head $ECO_ORACLE_VER Running
+    status_info "Disk"      "$ECO_ORACLE_DISK_USAGE"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$ECO_ORACLE_RAM"
+    status_info "Uptime"    "$ECO_ORACLE_UPTIME"
+    status_info "#Files"    "$ECO_ORACLE_NUM_FILES"
+    status_info "TCP Ports" "$ECO_ORACLE_TCP_LISTEN"
+    status_info "#TCP"      "$ECO_ORACLE_NUM_TCPS"
     echo
 }
 
@@ -2600,6 +3045,42 @@ esc-oracle_update()
     fi
 }
 
+eco-oracle_update()
+{
+    unset OPTIND
+    while getopts "ny" OPTION; do
+        case $OPTION in
+            n)
+                local NO_START_AFTER_UPDATE=1
+                ;;
+            y)
+                local YES_TO_ALL=1
+                ;;
+        esac
+    done
+
+    chain_prepare_stage eco-oracle '*.js'
+    if [ "$?" != "0" ]; then
+        return
+    fi
+
+    local PATH_STAGE=$SCRIPT_PATH/.node-upload/eco-oracle
+    local DIR_DEPLOY=$SCRIPT_PATH/eco-oracle
+
+    local PID=$(pgrep -fx 'node crosschain_eco.js')
+    if [ $PID ]; then
+        eco-oracle_stop
+    fi
+
+    mkdir -p $DIR_DEPLOY
+    cp -v $PATH_STAGE/*.js $DIR_DEPLOY/
+
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
+        eco-oracle_start
+    fi
+}
+
+
 esc-oracle_init()
 {
     if [ ! -f ${SCRIPT_PATH}/esc/.init ]; then
@@ -2626,6 +3107,35 @@ esc-oracle_init()
 
     touch ${SCRIPT_PATH}/esc-oracle/.init
     echo_ok "esc-oracle initialized"
+    echo
+}
+
+eco-oracle_init()
+{
+    if [ ! -f ${SCRIPT_PATH}/eco/.init ]; then
+        echo_error "eco not initialized"
+        return
+    fi
+
+    if [ -f $SCRIPT_PATH/eco-oracle/.init ]; then
+        echo_error "eco-oracle has already been initialized"
+        return
+    fi
+
+    check_env_oracle
+
+    if [ ! -f $SCRIPT_PATH/eco-oracle/crosschain_eco.js ]; then
+        eco-oracle_update -y
+    fi
+
+    nodejs_setenv
+
+    mkdir -p $SCRIPT_PATH/eco-oracle
+    cd $SCRIPT_PATH/eco-oracle
+    npm install web3@1.7.3 express@4.18.1
+
+    touch ${SCRIPT_PATH}/eco-oracle/.init
+    echo_ok "eco-oracle initialized"
     echo
 }
 
@@ -3294,7 +3804,7 @@ arbiter_start()
         else
             nohup ./arbiter 1>/dev/null 2>output &
         fi
-        echo "Waiting for ela, esc-oracle, eid-oracle to start..."
+        echo "Waiting for ela, esc-oracle, eid-oracle, eco-oracle to start..."
         sleep 5
     done
 
@@ -3422,6 +3932,23 @@ arbiter_status()
         ARBITER_EID_HEIGHT=N/A
     fi
 
+    # linda 添加
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local ECO_GENESIS=08b947e87f2a0ae0e07d81f93619b3f445ed132747c5c1d8e963e4a922856ec3
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local ECO_GENESIS=3043bcc03c90a37a292a4357ee972bc392b143e75e1b79205e113688e3bd071b
+    else
+        echo_error "do not support $CHAIN_TYPE"
+        return
+    fi
+    local ARBITER_ECO_HEIGHT=$(arbiter_jsonrpc \
+        "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$ECO_GENESIS\"}}" \
+        | jq -r '.result')
+    if [[ ! "$ARBITER_ECO_HEIGHT" =~ ^[0-9]+$ ]]; then
+        ARBITER_ECO_HEIGHT=N/A
+    fi
+    # linda 添加
+
     status_head $ARBITER_VER Running
     status_info "Disk"       "$ARBITER_DISK_USAGE"
     status_info "PID"        "$PID"
@@ -3433,6 +3960,9 @@ arbiter_status()
     status_info "SPV Height" "$ARBITER_SPV_HEIGHT"
     status_info "ESC Height" "$ARBITER_ESC_HEIGHT"
     status_info "EID Height" "$ARBITER_EID_HEIGHT"
+    # linda 添加
+    status_info "ECO Height" "$ARBITER_ECO_HEIGHT"
+    # linda 添加
     echo
 }
 
@@ -3483,6 +4013,81 @@ arbiter_update()
     fi
 }
 
+arbiter_modify_configfile()
+{
+  local ARBITER_ADD_ECO_CONFIG=${SCRIPT_PATH}/arbiter/add_eco_config.json
+  local ARBITER_CONFIG=${SCRIPT_PATH}/arbiter/config.json
+
+  if [ ! -f $ARBITER_CONFIG ]; then
+        echo_error "$ARBITER_CONFIG not exists"
+        return
+  fi
+
+  if grep -qi "ECO" "$ARBITER_CONFIG"; then
+        echo "config file have ECO sidechain configuration"
+        return
+  fi
+
+  echo "stop arbiter node"
+  local PID=$(pgrep -x arbiter)
+  if [ $PID ]; then
+        arbiter_stop
+  fi
+
+  echo "backup arbiter config file..."
+  cp -v ${SCRIPT_PATH}/arbiter/config.json ${SCRIPT_PATH}/arbiter/config_backup_add_eco_before.json
+  echo "modify arbiter config file..."
+  if [ "$CHAIN_TYPE" == "testnet" ]; then
+    echo "add testnet eco config"
+    cat >$ARBITER_ADD_ECO_CONFIG <<EOF
+{
+        "Rpc": {
+          "IpAddress": "127.0.0.1",
+          "HttpJsonPort": 20652
+        },
+        "ExchangeRate": 1,
+        "SyncStartHeight":0,
+        "GenesisBlock": "3043bcc03c90a37a292a4357ee972bc392b143e75e1b79205e113688e3bd071b",
+        "PowChain": false,
+        "Name": "ECO",
+        "SupportQuickRecharge": true,
+        "SupportInvalidDeposit": true,
+        "SupportInvalidWithdraw": true,
+        "SupportNFT": true
+},
+EOF
+    echo $ARBITER_ADD_ECO_CONFIG
+    cd ${SCRIPT_PATH}/arbiter
+    sed -i '28r add_eco_config.json' config.json
+    rm -rf $ARBITER_ADD_ECO_CONFIG
+  else
+    echo "add mainnet eco config"
+    cat >$ARBITER_ADD_ECO_CONFIG <<EOF
+{
+        "Name": "ECO",
+        "Rpc": {
+          "IpAddress": "127.0.0.1",
+          "HttpJsonPort": 20652
+        },
+        "SyncStartHeight":0,
+        "ExchangeRate": 1,
+        "GenesisBlock": "02820c5adc8ee4fb77aad842ac05d95ed8b1041d80c03ba79f8f11c4af60d87c",
+        "SupportQuickRecharge": true,
+        "SupportInvalidDeposit": true,
+        "SupportInvalidWithdraw": true,
+        "SupportNFT": true,
+        "PowChain": false
+},
+EOF
+    echo $ARBITER_ADD_ECO_CONFIG
+    cd ${SCRIPT_PATH}/arbiter
+    sed -i '26r add_eco_config.json' config.json
+    rm -rf $ARBITER_ADD_ECO_CONFIG
+  fi
+  echo_ok "arbiter add ECO config completedly"
+}
+
+
 arbiter_init()
 {
     if [ ! -f $SCRIPT_PATH/ela/.init ]; then
@@ -3497,6 +4102,12 @@ arbiter_init()
         echo_error "eid-oracle not initialized"
         return
     fi
+    #linda添加ECO判断
+     if [ ! -f $SCRIPT_PATH/eco-oracle/.init ]; then
+        echo_error "eco-oracle not initialized"
+        return
+    fi
+    #linda添加
 
     local ELA_CONFIG=${SCRIPT_PATH}/ela/config.json
     local ARBITER_CONFIG=${SCRIPT_PATH}/arbiter/config.json
@@ -3528,7 +4139,7 @@ arbiter_init()
         "User": "",
         "Pass": ""
       },
-      "Magic": 2018101
+      "Magic": 2050102
     },
     "SideNodeList": [
       {
@@ -3538,7 +4149,7 @@ arbiter_init()
           "HttpJsonPort": 20632
         },
         "SyncStartHeight": 17058000,
-        "ExchangeRate": 1.0,
+        "ExchangeRate": 1,
         "GenesisBlock": "698e5ec133064dabb7c42eb4b2bdfa21e7b7c2326b0b719d5ab7f452ae8f5ee4",
         "SupportQuickRecharge": true,
         "SupportInvalidDeposit": true,
@@ -3553,11 +4164,26 @@ arbiter_init()
           "HttpJsonPort": 20642
         },
         "SyncStartHeight": 9230000,
-        "ExchangeRate": 1.0,
+        "ExchangeRate": 1,
         "GenesisBlock": "3d0f9da9320556f6d58129419e041de28cf515eedc6b59f8dae49df98e3f943c",
         "SupportQuickRecharge": true,
         "SupportInvalidDeposit": true,
         "SupportInvalidWithdraw": true,
+        "PowChain": false
+      },
+      {
+        "Name": "ECO",
+        "Rpc": {
+          "IpAddress": "127.0.0.1",
+          "HttpJsonPort": 20652
+        },
+        "SyncStartHeight": 0,
+        "ExchangeRate": 1,
+        "GenesisBlock": "3043bcc03c90a37a292a4357ee972bc392b143e75e1b79205e113688e3bd071b",
+        "SupportQuickRecharge": true,
+        "SupportInvalidDeposit": true,
+        "SupportInvalidWithdraw": true,
+        "SupportNFT": true,
         "PowChain": false
       }
     ],
@@ -3591,7 +4217,7 @@ EOF
           "HttpJsonPort": 20632
         },
         "SyncStartHeight": 17886000,
-        "ExchangeRate": 1.0,
+        "ExchangeRate": 1,
         "GenesisBlock": "6afc2eb01956dfe192dc4cd065efdf6c3c80448776ca367a7246d279e228ff0a",
         "SupportQuickRecharge": true,
         "SupportInvalidDeposit": true,
@@ -3606,11 +4232,26 @@ EOF
           "HttpJsonPort": 20642
         },
         "SyncStartHeight": 9611000,
-        "ExchangeRate": 1.0,
+        "ExchangeRate": 1,
         "GenesisBlock": "7d0702054ad68913eff9137dfa0b0b6ff701d55062359deacad14859561f5567",
         "SupportQuickRecharge": true,
         "SupportInvalidDeposit": true,
         "SupportInvalidWithdraw": true,
+        "PowChain": false
+      },
+      {
+        "Name": "ECO",
+        "Rpc": {
+          "IpAddress": "127.0.0.1",
+          "HttpJsonPort": 20652
+        },
+        "SyncStartHeight": 0,
+        "ExchangeRate": 1,
+        "GenesisBlock": "02820c5adc8ee4fb77aad842ac05d95ed8b1041d80c03ba79f8f11c4af60d87c",
+        "SupportQuickRecharge": true,
+        "SupportInvalidDeposit": true,
+        "SupportInvalidWithdraw": true,
+        "SupportNFT": true,
         "PowChain": false
       }
     ],
@@ -3736,6 +4377,8 @@ else
        [ "$1" != "esc-oracle" ] && \
        [ "$1" != "eid"        ] && \
        [ "$1" != "eid-oracle" ] && \
+       [ "$1" != "eco"        ] && \
+       [ "$1" != "eco-oracle" ] && \
        [ "$1" != "arbiter"    ]; then
         echo_error "do not support chain: $1"
         exit
@@ -3766,6 +4409,7 @@ else
          [ "$2" == "send"            ] || \
          [ "$2" == "transfer"        ] || \
          [ "$2" == "compress_log"    ] || \
+         [ "$2" == "modify_configfile"    ] || \
          [ "$2" == "remove_log"      ]; then
         COMMAND=$2
     else
