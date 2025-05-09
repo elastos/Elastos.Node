@@ -3934,7 +3934,7 @@ arbiter_status()
 
     # linda 添加
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
-        local ECO_GENESIS=08b947e87f2a0ae0e07d81f93619b3f445ed132747c5c1d8e963e4a922856ec3
+        local ECO_GENESIS=02820c5adc8ee4fb77aad842ac05d95ed8b1041d80c03ba79f8f11c4af60d87c
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
         local ECO_GENESIS=3043bcc03c90a37a292a4357ee972bc392b143e75e1b79205e113688e3bd071b
     else
