@@ -761,6 +761,8 @@ all_compress_log()
     esc-oracle_installed && esc-oracle_compress_log
     eid_installed        && eid_compress_log
     eid-oracle_installed && eid-oracle_compress_log
+    eco_installed        && eco_compress_log
+    eco-oracle_installed && eco-oracle_compress_log
     arbiter_installed    && arbiter_compress_log
 }
 
@@ -771,6 +773,8 @@ all_remove_log()
     esc-oracle_installed && esc-oracle_remove_log
     eid_installed        && eid_remove_log
     eid-oracle_installed && eid-oracle_remove_log
+    eco_installed        && eco_remove_log
+    eco-oracle_installed && eco-oracle_remove_log
     arbiter_installed    && arbiter_remove_log
 
 }
@@ -2513,6 +2517,22 @@ esc_remove_log()
     remove_log $SCRIPT_PATH/esc/logs
 }
 
+
+eco_compress_log()
+{
+    compress_log $SCRIPT_PATH/eco/data/eco/logs/dpos
+    compress_log $SCRIPT_PATH/eco/data/logs-spv
+    compress_log $SCRIPT_PATH/eco/logs
+}
+
+eco_remove_log()
+{
+    remove_log $SCRIPT_PATH/eco/data/eco/logs/dpos
+    remove_log $SCRIPT_PATH/eco/data/logs-spv
+    remove_log $SCRIPT_PATH/eco/logs
+}
+
+
 esc_update()
 {
     unset OPTIND
@@ -3009,6 +3029,17 @@ esc-oracle_remove_log()
 {
     remove_log $SCRIPT_PATH/esc-oracle/logs/esc-oracle_out-\*.log
 }
+
+eco-oracle_compress_log()
+{
+    compress_log $SCRIPT_PATH/eco-oracle/logs/eco-oracle_out-\*.log
+}
+
+eco-oracle_remove_log()
+{
+    remove_log $SCRIPT_PATH/eco-oracle/logs/eco-oracle_out-\*.log
+}
+
 
 esc-oracle_update()
 {
