@@ -3878,7 +3878,7 @@ arbiter_ver()
 
 arbiter_jsonrpc()
 {
-    if [ "$1" == "" ]; then
+    if [ "$1" == "" ]; the
         return
     fi
 
@@ -4084,7 +4084,7 @@ arbiter_modify_configfile()
         "SupportQuickRecharge": true,
         "SupportInvalidDeposit": true,
         "SupportInvalidWithdraw": true,
-        "SupportNFT": true
+        "SupportNFT": false
 },
 EOF
     echo $ARBITER_ADD_ECO_CONFIG
@@ -4106,7 +4106,7 @@ EOF
         "SupportQuickRecharge": true,
         "SupportInvalidDeposit": true,
         "SupportInvalidWithdraw": true,
-        "SupportNFT": true,
+        "SupportNFT": false,
         "PowChain": false
 },
 EOF
@@ -4214,7 +4214,7 @@ arbiter_init()
         "SupportQuickRecharge": true,
         "SupportInvalidDeposit": true,
         "SupportInvalidWithdraw": true,
-        "SupportNFT": true,
+        "SupportNFT": false,
         "PowChain": false
       }
     ],
@@ -4282,7 +4282,7 @@ EOF
         "SupportQuickRecharge": true,
         "SupportInvalidDeposit": true,
         "SupportInvalidWithdraw": true,
-        "SupportNFT": true,
+        "SupportNFT": false,
         "PowChain": false
       }
     ],
