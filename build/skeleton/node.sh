@@ -3878,7 +3878,7 @@ arbiter_ver()
 
 arbiter_jsonrpc()
 {
-    if [ "$1" == "" ]; the
+    if [ "$1" == "" ]; then
         return
     fi
 
