@@ -2269,7 +2269,7 @@ pgp_start()
             --pbft.keystore ${SCRIPT_PATH}/ela/keystore.dat \
             --pbft.keystore.password ~/.config/elastos/ela.txt \
             --pbft.net.address '$(extip)' \
-            --pbft.net.port 20659 \
+            --pbft.net.port 20669 \
             --rpc \
             --rpcaddr '0.0.0.0' \
             --rpcapi 'db,eth,net,pbft,personal,txpool,web3' \
