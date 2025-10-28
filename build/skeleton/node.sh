@@ -580,6 +580,8 @@ chain_prepare_stage()
        [ "$CHAIN_NAME" != "eid-oracle" ] && \
        [ "$CHAIN_NAME" != "eco" ] && \
        [ "$CHAIN_NAME" != "eco-oracle" ] && \
+       [ "$CHAIN_NAME" != "pgp" ] && \
+       [ "$CHAIN_NAME" != "pgp-oracle" ] && \
        [ "$CHAIN_NAME" != "arbiter" ]; then
         echo_error "do not support chain: $1"
         return 1
@@ -595,6 +597,7 @@ chain_prepare_stage()
        [ "$CHAIN_NAME" == "esc" ] || \
        [ "$CHAIN_NAME" == "eid" ] || \
        [ "$CHAIN_NAME" == "eco" ] || \
+       [ "$CHAIN_NAME" == "pgp" ] || \
        [ "$CHAIN_NAME" == "arbiter" ]; then
         if [ "$OS_ARCH" == "Linux aarch64" ]; then
             local RELEASE_PLATFORM=linux-arm64
@@ -605,6 +608,7 @@ chain_prepare_stage()
         fi
     elif [ "$CHAIN_NAME" == "esc-oracle" ] || \
          [ "$CHAIN_NAME" == "eco-oracle" ] || \
+         [ "$CHAIN_NAME" == "pgp-oracle" ] || \
          [ "$CHAIN_NAME" == "eid-oracle" ]; then
         local RELEASE_PLATFORM=
     else
@@ -652,6 +656,7 @@ chain_prepare_stage()
 
     if [ "$CHAIN_NAME" == "esc-oracle" ] || \
        [ "$CHAIN_NAME" == "eco-oracle" ] || \
+       [ "$CHAIN_NAME" == "pgp-oracle" ] || \
        [ "$CHAIN_NAME" == "eid-oracle" ] ; then
         local TGZ_LATEST=elastos-${CHAIN_NAME}-${VER_LATEST}.tgz
         local URL_LATEST=$URL_PREFIX/elastos-${CHAIN_NAME}-${VER_LATEST}/${TGZ_LATEST}
@@ -703,6 +708,8 @@ all_start()
     eid-oracle_installed && eid-oracle_start
     eco_installed        && eco_start
     eco-oracle_installed && eco-oracle_start
+    pgp_installed        && pgp_start
+    pgp-oracle_installed && pgp-oracle_start
     arbiter_installed    && arbiter_start
 }
 
@@ -715,6 +722,8 @@ all_stop()
     esc-oracle_installed && esc-oracle_stop
     esc_installed        && esc_stop
     eco-oracle_installed && eco-oracle_stop
+    pgp_installed        && pgp_stop
+    pgp-oracle_installed && pgp-oracle_stop
     eco_installed        && eco_stop
 }
 
@@ -727,6 +736,8 @@ all_status()
     eid-oracle_installed && eid-oracle_status
     eco_installed        && eco_status
     eco-oracle_installed && eco-oracle_status
+    pgp_installed        && pgp_status
+    pgp-oracle_installed && pgp-oracle_status
     arbiter_installed    && arbiter_status
 }
 
@@ -739,6 +750,8 @@ all_update()
     eid-oracle_installed && eid-oracle_update
     eco_installed        && eco_update
     eco-oracle_installed && eco-oracle_update
+    pgp_installed        && pgp_update
+    pgp-oracle_installed && pgp-oracle_update
     arbiter_installed    && arbiter_update
 }
 
@@ -751,6 +764,8 @@ all_init()
     eid-oracle_init
     eco_init
     eco-oracle_init
+    pgp_init
+    pgp-oracle_init
     arbiter_init
 }
 
@@ -763,6 +778,8 @@ all_compress_log()
     eid-oracle_installed && eid-oracle_compress_log
     eco_installed        && eco_compress_log
     eco-oracle_installed && eco-oracle_compress_log
+    pgp_installed        && pgp_compress_log
+    pgp-oracle_installed && pgp-oracle_compress_log
     arbiter_installed    && arbiter_compress_log
 }
 
@@ -775,6 +792,8 @@ all_remove_log()
     eid-oracle_installed && eid-oracle_remove_log
     eco_installed        && eco_remove_log
     eco-oracle_installed && eco-oracle_remove_log
+    pgp_installed        && pgp_remove_log
+    pgp-oracle_installed && pgp-oracle_remove_log
     arbiter_installed    && arbiter_remove_log
 
 }
@@ -2209,6 +2228,80 @@ eco_start()
     sleep 3
     eco_status
 }
+
+pgp_start()
+{
+    if [ ! -f $SCRIPT_PATH/pgp/pgp ]; then
+        echo_error "$SCRIPT_PATH/pgp/pgp is not exist"
+        return
+    fi
+
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local PGP_OPTS=
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local PGP_OPTS=--testnet
+    else
+        echo_error "do not support $CHAIN_TYPE"
+        return
+    fi
+
+    local PID=$(pgrep -f '^\./pgp .*--rpc ')
+    if [ "$PID" != "" ]; then
+        pgp_status
+        return
+    fi
+
+    echo "Starting pgp..."
+    cd $SCRIPT_PATH/pgp
+    mkdir -p $SCRIPT_PATH/pgp/logs/
+
+    if [ -f ~/.config/elastos/pgp.txt ]; then
+        if [ -f $SCRIPT_PATH/pgp/data/miner_address.txt ]; then
+            local PGP_OPTS="$PGP_OPTS --pbft.miner.address $SCRIPT_PATH/pgp/data/miner_address.txt"
+        fi
+        nohup $SHELL -c "./pgp \
+            $PGP_OPTS \
+            --allow-insecure-unlock \
+            --datadir $SCRIPT_PATH/pgp/data \
+            --mine \
+            --miner.threads 1 \
+            --password ~/.config/elastos/pgp.txt \
+            --pbft.keystore ${SCRIPT_PATH}/ela/keystore.dat \
+            --pbft.keystore.password ~/.config/elastos/ela.txt \
+            --pbft.net.address '$(extip)' \
+            --pbft.net.port 20669 \
+            --rpc \
+            --rpcaddr '0.0.0.0' \
+            --rpcapi 'db,eth,net,pbft,personal,txpool,web3' \
+            --rpcvhosts '*' \
+            --syncmode full \
+            --unlock '0x$(cat $SCRIPT_PATH/pgp/data/keystore/UTC* | jq -r .address)' \
+            --ws \
+            --wsaddr '0.0.0.0' \
+            --wsorigins '*' \
+            2>&1 \
+            | rotatelogs $SCRIPT_PATH/pgp/logs/pgp-%Y-%m-%d-%H_%M_%S.log 20M" &
+    else
+        nohup $SHELL -c "./pgp \
+            $PGP_OPTS \
+            --datadir $SCRIPT_PATH/pgp/data \
+            --lightserv 10 \
+            --rpc \
+            --rpcaddr '0.0.0.0' \
+            --rpcapi 'admin,eth,net,txpool,web3' \
+            --rpcvhosts '*' \
+            --ws \
+            --wsaddr '0.0.0.0' \
+            --wsorigins '*' \
+            2>&1 \
+            | rotatelogs $SCRIPT_PATH/pgp/logs/pgp-%Y-%m-%d-%H_%M_%S.log 20M" &
+    fi
+
+    sleep 3
+    pgp_status
+}
+
+
 esc_stop()
 {
     local PID=$(pgrep -f '^\./esc .*--rpc ')
@@ -2240,6 +2333,22 @@ eco_stop()
     eco_status
 }
 
+pgp_stop()
+{
+    local PID=$(pgrep -f '^\./pgp .*--rpc ')
+    if [ "$PID" != "" ]; then
+        echo "Stopping pgp..."
+        kill -s SIGINT $PID
+        while ps -p $PID 1>/dev/null; do
+            echo -n .
+            sleep 1
+        done
+        echo
+    fi
+    sync
+    pgp_status
+}
+
 esc_installed()
 {
     if [ -f $SCRIPT_PATH/esc/esc ]; then
@@ -2248,6 +2357,7 @@ esc_installed()
         false
     fi
 }
+
 eco_installed()
 {
     if [ -f $SCRIPT_PATH/eco/eco ]; then
@@ -2256,6 +2366,16 @@ eco_installed()
         false
     fi
 }
+
+pgp_installed()
+{
+    if [ -f $SCRIPT_PATH/pgp/pgp ]; then
+        true
+    else
+        false
+    fi
+}
+
 
 esc_ver()
 {
@@ -2272,6 +2392,15 @@ eco_ver()
         echo "eco $($SCRIPT_PATH/eco/eco version | grep 'Git Commit:' | sed 's/.* //' | cut -c1-7)"
     else
         echo "eco N/A"
+    fi
+}
+
+pgp_ver()
+{
+    if [ -f $SCRIPT_PATH/pgp/pgp ]; then
+        echo "pgp $($SCRIPT_PATH/pgp/pgp version | grep 'Git Commit:' | sed 's/.* //' | cut -c1-7)"
+    else
+        echo "pgp N/A"
     fi
 }
 
@@ -2311,6 +2440,24 @@ eco_client()
     fi
 }
 
+pgp_client()
+{
+    if [ ! -f $SCRIPT_PATH/pgp/pgp ]; then
+        echo_error "$SCRIPT_PATH/pgp/pgp is not exist"
+        return
+    fi
+
+    cd $SCRIPT_PATH/pgp
+    if [ "$1" == "" ]; then
+        ./esc --datadir $SCRIPT_PATH/pgp/data --help
+    elif [ "$1" == "attach" ] &&
+         [ ! -S $SCRIPT_PATH/pgp/data/geth.ipc ]; then
+        return
+    else
+        ./pgp --datadir $SCRIPT_PATH/pgp/data --nousb $*
+    fi
+}
+
 esc_jsonrpc()
 {
     if [ "$1" == "" ]; then
@@ -2341,6 +2488,22 @@ eco_jsonrpc()
 
     curl -s -H 'Content-Type:application/json' -X POST --data $DATA \
         http://127.0.0.1:20656 | jq .
+}
+
+pgp_jsonrpc()
+{
+    if [ "$1" == "" ]; then
+        return
+    fi
+
+    if [[ $1 =~ ^[_3a-zA-Z]+$ ]] && [ "$2" == "" ]; then
+        local DATA="{\"method\":\"$1\",\"id\":0}"
+    else
+        local DATA=$1
+    fi
+
+    curl -s -H 'Content-Type:application/json' -X POST --data $DATA \
+        http://127.0.0.1:20666 | jq .
 }
 
 esc_status()
@@ -2503,6 +2666,88 @@ eco_status()
     echo
 }
 
+
+pgp_status()
+{
+    local PGP_VER=$(pgp_ver)
+
+    local PGP_DISK_USAGE=$(disk_usage $SCRIPT_PATH/pgp)
+
+    if [ -f ~/.config/elastos/pgp.txt ]; then
+        cd $SCRIPT_PATH/pgp
+        local PGP_KEYSTORE=$(./pgp --datadir "$SCRIPT_PATH/pgp/data/" \
+            --nousb --verbosity 0 account list | sed -n '1 s/.*keystore:\/\///p')
+        if [ $PGP_KEYSTORE ] && [ -f $PGP_KEYSTORE ]; then
+            local PGP_ADDRESS=0x$(cat $PGP_KEYSTORE | jq -r .address)
+        else
+            local PGP_ADDRESS=N/A
+        fi
+    else
+        local PGP_ADDRESS=N/A
+    fi
+
+    local PGP_MINER_ADDRESS=$(cat $SCRIPT_PATH/pgp/data/miner_address.txt 2>/dev/null)
+    if [ "$PGP_MINER_ADDRESS" == "" ]; then
+        local PGP_MINER_ADDRESS=$PGP_ADDRESS
+    fi
+
+    local PID=$(pgrep -f '^\./pgp .*--rpc ')
+    if [ "$PID" == "" ]; then
+        status_head $PGP_VER  Stopped
+        status_info "Disk"    "$PGP_DISK_USAGE"
+        status_info "Address" "$PGP_ADDRESS"
+        echo
+        return
+    fi
+
+    local PGP_RAM=$(mem_usage $PID)
+    local PGP_UPTIME=$(run_time $PID)
+    local PGP_NUM_TCPS=$(num_tcps $PID)
+    local PGP_TCP_LISTEN=$(list_tcp $PID)
+    local PGP_UDP_LISTEN=$(list_udp $PID)
+    local PGP_NUM_FILES=$(num_files $PID)
+
+    local PGP_NUM_PEERS=$(pgp_jsonrpc \
+        '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
+        | jq -r '.result')
+    PGP_NUM_PEERS=$(($PGP_NUM_PEERS))
+    if [[ ! "$PGP_NUM_PEERS" =~ ^[0-9]+$ ]]; then
+        PGP_NUM_PEERS=0
+    fi
+    local PGP_HEIGHT=$(pgp_jsonrpc \
+        '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+        | jq -r '.result')
+    PGP_HEIGHT=$(($PGP_HEIGHT))
+    if [[ ! "$PGP_HEIGHT" =~ ^[0-9]+$ ]]; then
+        PGP_HEIGHT=N/A
+    fi
+
+    local PGP_BALANCE=$(pgp_client \
+        attach --exec "web3.fromWei(eth.getBalance('$PGP_ADDRESS'),'ether')")
+    if [ "$PGP_BALANCE" == "" ]; then
+        PGP_BALANCE=N/A
+    elif [[ $PGP_BALANCE =~ [^.0-9e-] ]]; then
+        PGP_BALANCE=N/A
+    fi
+
+    status_head $PGP_VER Running
+    status_info "Disk"      "$PGP_DISK_USAGE"
+    status_info "Address"   "$PGP_ADDRESS"
+    status_info "Balance"   "$PGP_BALANCE"
+    status_info "Miner"     "$PGP_MINER_ADDRESS"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$PGP_RAM"
+    status_info "Uptime"    "$PGP_UPTIME"
+    status_info "#Files"    "$PGP_NUM_FILES"
+    status_info "TCP Ports" "$PGP_TCP_LISTEN"
+    status_info "#TCP"      "$PGP_NUM_TCPS"
+    status_info "UDP Ports" "$PGP_UDP_LISTEN"
+    status_info "#Peers"    "$PGP_NUM_PEERS"
+    status_info "Height"    "$PGP_HEIGHT"
+    echo
+}
+
+
 esc_compress_log()
 {
     compress_log $SCRIPT_PATH/esc/data/geth/logs/dpos
@@ -2525,11 +2770,26 @@ eco_compress_log()
     compress_log $SCRIPT_PATH/eco/logs
 }
 
+
+pgp_compress_log()
+{
+    compress_log $SCRIPT_PATH/pgp/data/pgp/logs/dpos
+    compress_log $SCRIPT_PATH/pgp/data/logs-spv
+    compress_log $SCRIPT_PATH/pgp/logs
+}
+
 eco_remove_log()
 {
     remove_log $SCRIPT_PATH/eco/data/eco/logs/dpos
     remove_log $SCRIPT_PATH/eco/data/logs-spv
     remove_log $SCRIPT_PATH/eco/logs
+}
+
+pgp_remove_log()
+{
+    remove_log $SCRIPT_PATH/pgp/data/pgp/logs/dpos
+    remove_log $SCRIPT_PATH/pgp/data/logs-spv
+    remove_log $SCRIPT_PATH/pgp/logs
 }
 
 
@@ -2602,6 +2862,43 @@ eco_update()
         eco_start
     fi
 }
+
+pgp_update()
+{
+    unset OPTIND
+    while getopts "ny" OPTION; do
+        case $OPTION in
+            n)
+                local NO_START_AFTER_UPDATE=1
+                ;;
+            y)
+                local YES_TO_ALL=1
+                ;;
+        esac
+    done
+
+    chain_prepare_stage pgp pgp
+    if [ "$?" != "0" ]; then
+        return
+    fi
+
+    local PATH_STAGE=$SCRIPT_PATH/.node-upload/pgp
+    local DIR_DEPLOY=$SCRIPT_PATH/pgp
+
+    local PID=$(pgrep -f '^\./pgp .*--rpc ')
+    if [ $PID ]; then
+        pgp_stop
+    fi
+
+    mkdir -p $DIR_DEPLOY
+    cp -v $PATH_STAGE/pgp $DIR_DEPLOY/
+
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
+        pgp_start
+    fi
+}
+
+
 
 esc_init()
 {
@@ -2760,6 +3057,85 @@ eco_init()
     echo
 }
 
+pgp_init()
+{
+    if [ $(mem_free) -lt 512 ]; then
+        echo_error "free memory not enough"
+        return
+    fi
+
+    local PGP_KEYSTORE=
+    local PGP_KEYSTORE_PASS_FILE=~/.config/elastos/pgp.txt
+
+    if [ ! -f ${SCRIPT_PATH}/pgp/pgp ]; then
+        pgp_update -y
+    fi
+
+    if [ -f $SCRIPT_PATH/pgp/.init ]; then
+        echo_error "pgp has already been initialized"
+        return
+    fi
+
+    cd $SCRIPT_PATH/pgp
+    local PGP_NUM_ACCOUNTS=$(./pgp --datadir "$SCRIPT_PATH/pgp/data/" \
+        --nousb --verbosity 0 account list | wc -l)
+    if [ $PGP_NUM_ACCOUNTS -ge 1 ]; then
+        echo_error "pgp keystore file exist"
+        return
+    fi
+
+    if [ -f "$PGP_KEYSTORE_PASS_FILE" ]; then
+        echo_error "$PGP_KEYSTORE_PASS_FILE exist"
+        return
+    fi
+
+    echo "Creating pgp keystore..."
+    gen_pass
+    if [ "$KEYSTORE_PASS" == "" ]; then
+        echo_error "empty password"
+        exit
+    fi
+
+    echo "Saving pgp keystore password..."
+    mkdir -p $(dirname $PGP_KEYSTORE_PASS_FILE)
+    chmod 700 $(dirname $PGP_KEYSTORE_PASS_FILE)
+    echo $KEYSTORE_PASS > $PGP_KEYSTORE_PASS_FILE
+    chmod 600 $PGP_KEYSTORE_PASS_FILE
+
+    cd ${SCRIPT_PATH}/pgp
+    ./pgp --datadir "$SCRIPT_PATH/pgp/data/" --verbosity 0 account new \
+        --password "$PGP_KEYSTORE_PASS_FILE" >/dev/null
+    if [ "$?" != "0" ]; then
+        echo_error "failed to create pgp keystore"
+        return
+    fi
+
+    echo "Checking pgp keystore..."
+    local PGP_KEYSTORE=$(./pgp --datadir "$SCRIPT_PATH/pgp/data/" \
+        --nousb --verbosity 0 account list | sed 's/.*keystore:\/\///')
+    chmod 600 $PGP_KEYSTORE
+
+    local PGP_MINER_ADDRESS_FILE=$SCRIPT_PATH/pgp/data/miner_address.txt
+    echo "You can input an alternative pgp reward address. (ENTER to skip)"
+    local PGP_MINER_ADDRESS=
+    read -p '? Miner Address: ' PGP_MINER_ADDRESS
+    if [ "$PGP_MINER_ADDRESS" != "" ]; then
+        mkdir -p $SCRIPT_PATH/pgp/data
+        echo $PGP_MINER_ADDRESS | tee $PGP_MINER_ADDRESS_FILE
+        chmod 600 $PGP_MINER_ADDRESS_FILE
+    fi
+
+    echo_info "pgp keystore file: $PGP_KEYSTORE"
+    echo_info "pgp keystore password file: $PGP_KEYSTORE_PASS_FILE"
+    if [ -f $PGP_MINER_ADDRESS_FILE ]; then
+        echo_info "pgp miner address file: $PGP_MINER_ADDRESS_FILE"
+    fi
+
+    touch ${SCRIPT_PATH}/pgp/.init
+    echo_ok "pgp initialized"
+    echo
+}
+
 esc_send()
 {
     if [ "$3" == "" ]; then
@@ -2892,6 +3268,42 @@ eco-oracle_start()
     eco-oracle_status
 }
 
+pgp-oracle_start()
+{
+    if [ ! -f $SCRIPT_PATH/pgp-oracle/crosschain_pgp.js ]; then
+        echo_error "$SCRIPT_PATH/pgp-oracle/crosschain_pgp.js is not exist"
+        return
+    fi
+
+    local PID=$(pgrep -fx 'node crosschain_pgp.js')
+    if [ "$PID" != "" ]; then
+        pgp-oracle_status
+        return
+    fi
+
+    echo "Starting pgp-oracle..."
+    cd $SCRIPT_PATH/pgp-oracle
+    mkdir -p $SCRIPT_PATH/pgp-oracle/logs
+
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        export env=mainnet
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        export env=testnet
+    else
+        echo_error "do not support $CHAIN_TYPE"
+        return
+    fi
+
+    echo "env: $env"
+    nodejs_setenv
+    nohup $SHELL -c "node crosschain_pgp.js \
+        2>$SCRIPT_PATH/pgp-oracle/logs/pgp-oracle_err.log \
+        | rotatelogs $SCRIPT_PATH/pgp-oracle/logs/pgp-oracle_out-%Y-%m-%d-%H_%M_%S.log 20M" &
+
+    sleep 1
+    pgp-oracle_status
+}
+
 esc-oracle_stop()
 {
     local PID=$(pgrep -fx 'node crosschain_oracle.js')
@@ -2922,6 +3334,22 @@ eco-oracle_stop()
     eco-oracle_status
 }
 
+pgp-oracle_stop()
+{
+    local PID=$(pgrep -fx 'node crosschain_pgp.js')
+    if [ "$PID" != "" ]; then
+        echo "Stopping pgp-oracle..."
+        kill $PID
+        while ps -p $PID 1>/dev/null; do
+            echo -n .
+            sleep 1
+        done
+        echo
+    fi
+    pgp-oracle_status
+}
+
+
 esc-oracle_installed()
 {
     if [ -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
@@ -2940,6 +3368,16 @@ eco-oracle_installed()
     fi
 }
 
+pgp-oracle_installed()
+{
+    if [ -f $SCRIPT_PATH/pgp-oracle/crosschain_pgp.js ]; then
+        true
+    else
+        false
+    fi
+}
+
+
 esc-oracle_ver()
 {
     if [ -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
@@ -2955,6 +3393,15 @@ eco-oracle_ver()
         echo "eco-oracle $(cat $SCRIPT_PATH/eco-oracle/*.js | shasum | cut -c 1-7)"
     else
         echo "eco-oracle N/A"
+    fi
+}
+
+pgp-oracle_ver()
+{
+    if [ -f $SCRIPT_PATH/pgp-oracle/crosschain_pgp.js ]; then
+        echo "pgp-oracle $(cat $SCRIPT_PATH/pgp-oracle/*.js | shasum | cut -c 1-7)"
+    else
+        echo "pgp-oracle N/A"
     fi
 }
 
@@ -3020,6 +3467,38 @@ eco-oracle_status()
     echo
 }
 
+pgp-oracle_status()
+{
+    local PGP_ORACLE_VER=$(pgp-oracle_ver)
+
+    local PGP_ORACLE_DISK_USAGE=$(disk_usage $SCRIPT_PATH/pgp-oracle)
+
+    local PID=$(pgrep -fx 'node crosschain_pgp.js')
+    if [ "$PID" == "" ]; then
+        status_head $PGP_ORACLE_VER Stopped
+        status_info "Disk" "$PGP_ORACLE_DISK_USAGE"
+        echo
+        return
+    fi
+
+    local PGP_ORACLE_RAM=$(mem_usage $PID)
+    local PGP_ORACLE_UPTIME=$(run_time $PID)
+    local PGP_ORACLE_TCP_LISTEN=$(list_tcp $PID)
+    local PGP_ORACLE_NUM_TCPS=$(num_tcps $PID)
+    local PGP_ORACLE_NUM_FILES=$(num_files $PID)
+
+    status_head $PGP_ORACLE_VER Running
+    status_info "Disk"      "$PGP_ORACLE_DISK_USAGE"
+    status_info "PID"       "$PID"
+    status_info "RAM"       "$PGP_ORACLE_RAM"
+    status_info "Uptime"    "$PGP_ORACLE_UPTIME"
+    status_info "#Files"    "$PGP_ORACLE_NUM_FILES"
+    status_info "TCP Ports" "$PGP_ORACLE_TCP_LISTEN"
+    status_info "#TCP"      "$PGP_ORACLE_NUM_TCPS"
+    echo
+}
+
+
 esc-oracle_compress_log()
 {
     compress_log $SCRIPT_PATH/esc-oracle/logs/esc-oracle_out-\*.log
@@ -3040,6 +3519,15 @@ eco-oracle_remove_log()
     remove_log $SCRIPT_PATH/eco-oracle/logs/eco-oracle_out-\*.log
 }
 
+pgp-oracle_compress_log()
+{
+    compress_log $SCRIPT_PATH/pgp-oracle/logs/pgp-oracle_out-\*.log
+}
+
+pgp-oracle_remove_log()
+{
+    remove_log $SCRIPT_PATH/pgp-oracle/logs/pgp-oracle_out-\*.log
+}
 
 esc-oracle_update()
 {
@@ -3112,6 +3600,41 @@ eco-oracle_update()
 }
 
 
+pgp-oracle_update()
+{
+    unset OPTIND
+    while getopts "ny" OPTION; do
+        case $OPTION in
+            n)
+                local NO_START_AFTER_UPDATE=1
+                ;;
+            y)
+                local YES_TO_ALL=1
+                ;;
+        esac
+    done
+
+    chain_prepare_stage pgp-oracle '*.js'
+    if [ "$?" != "0" ]; then
+        return
+    fi
+
+    local PATH_STAGE=$SCRIPT_PATH/.node-upload/pgp-oracle
+    local DIR_DEPLOY=$SCRIPT_PATH/pgp-oracle
+
+    local PID=$(pgrep -fx 'node crosschain_pgp.js')
+    if [ $PID ]; then
+        pgp-oracle_stop
+    fi
+
+    mkdir -p $DIR_DEPLOY
+    cp -v $PATH_STAGE/*.js $DIR_DEPLOY/
+
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
+        pgp-oracle_start
+    fi
+}
+
 esc-oracle_init()
 {
     if [ ! -f ${SCRIPT_PATH}/esc/.init ]; then
@@ -3167,6 +3690,36 @@ eco-oracle_init()
 
     touch ${SCRIPT_PATH}/eco-oracle/.init
     echo_ok "eco-oracle initialized"
+    echo
+}
+
+
+pgp-oracle_init()
+{
+    if [ ! -f ${SCRIPT_PATH}/pgp/.init ]; then
+        echo_error "pgp not initialized"
+        return
+    fi
+
+    if [ -f $SCRIPT_PATH/pgp-oracle/.init ]; then
+        echo_error "pgp-oracle has already been initialized"
+        return
+    fi
+
+    check_env_oracle
+
+    if [ ! -f $SCRIPT_PATH/pgp-oracle/crosschain_pgp.js ]; then
+        pgp-oracle_update -y
+    fi
+
+    nodejs_setenv
+
+    mkdir -p $SCRIPT_PATH/pgp-oracle
+    cd $SCRIPT_PATH/pgp-oracle
+    npm install web3@1.7.3 express@4.18.1
+
+    touch ${SCRIPT_PATH}/pgp-oracle/.init
+    echo_ok "pgp-oracle initialized"
     echo
 }
 
@@ -3963,7 +4516,7 @@ arbiter_status()
         ARBITER_EID_HEIGHT=N/A
     fi
 
-    # linda 添加
+    # linda 添加ECO
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
         local ECO_GENESIS=02820c5adc8ee4fb77aad842ac05d95ed8b1041d80c03ba79f8f11c4af60d87c
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
@@ -3980,6 +4533,24 @@ arbiter_status()
     fi
     # linda 添加
 
+    # linda 添加PGP
+    if [ "$CHAIN_TYPE" == "mainnet" ]; then
+        local PGP_GENESIS=00b7957fbc9fa62e86d6e664299bebc9a939f108fd015f8de07ce33f4136175e
+    elif [ "$CHAIN_TYPE" == "testnet" ]; then
+        local PGP_GENESIS=0c2785b9c5bee92aaaa3d8e5a7a579347a9091c6c8c19b7cba7fac69519c58a1
+    else
+        echo_error "do not support $CHAIN_TYPE"
+        return
+    fi
+    local ARBITER_PGP_HEIGHT=$(arbiter_jsonrpc \
+        "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$PGP_GENESIS\"}}" \
+        | jq -r '.result')
+    if [[ ! "$ARBITER_PGP_HEIGHT" =~ ^[0-9]+$ ]]; then
+        ARBITER_PGP_HEIGHT=N/A
+    fi
+    # linda 添加
+
+
     status_head $ARBITER_VER Running
     status_info "Disk"       "$ARBITER_DISK_USAGE"
     status_info "PID"        "$PID"
@@ -3994,6 +4565,7 @@ arbiter_status()
     # linda 添加
     status_info "ECO Height" "$ARBITER_ECO_HEIGHT"
     # linda 添加
+    status_info "PGP Height" "$ARBITER_PGP_HEIGHT"
     echo
 }
 
@@ -4046,16 +4618,17 @@ arbiter_update()
 
 arbiter_modify_configfile()
 {
-  local ARBITER_ADD_ECO_CONFIG=${SCRIPT_PATH}/arbiter/add_eco_config.json
+
   local ARBITER_CONFIG=${SCRIPT_PATH}/arbiter/config.json
+  local ARBITER_PGP_CONFIG=${SCRIPT_PATH}/arbiter/pgp_config.json
 
   if [ ! -f $ARBITER_CONFIG ]; then
         echo_error "$ARBITER_CONFIG not exists"
         return
   fi
 
-  if grep -qi "ECO" "$ARBITER_CONFIG"; then
-        echo "config file have ECO sidechain configuration"
+  if grep -qi "PGP" "$ARBITER_CONFIG"; then
+        echo "config file have PGP sidechain configuration"
         return
   fi
 
@@ -4066,58 +4639,45 @@ arbiter_modify_configfile()
   fi
 
   echo "backup arbiter config file..."
-  cp -v ${SCRIPT_PATH}/arbiter/config.json ${SCRIPT_PATH}/arbiter/config_backup_add_eco_before.json
+  cp -v ${SCRIPT_PATH}/arbiter/config.json ${SCRIPT_PATH}/arbiter/config_backup_add_pgp_before_2025_10_27.json
   echo "modify arbiter config file..."
   if [ "$CHAIN_TYPE" == "testnet" ]; then
-    echo "add testnet eco config"
-    cat >$ARBITER_ADD_ECO_CONFIG <<EOF
-{
+    echo "add testnet pgp config"
+    jq '.Configuration.SideNodeList += [{
         "Rpc": {
           "IpAddress": "127.0.0.1",
-          "HttpJsonPort": 20652
+          "HttpJsonPort": 20662
         },
         "ExchangeRate": 1,
         "SyncStartHeight":0,
-        "GenesisBlock": "3043bcc03c90a37a292a4357ee972bc392b143e75e1b79205e113688e3bd071b",
+        "GenesisBlock": "0c2785b9c5bee92aaaa3d8e5a7a579347a9091c6c8c19b7cba7fac69519c58a1",
         "PowChain": false,
-        "Name": "ECO",
-        "SupportQuickRecharge": true,
+        "Name": "PGP",
+        "SupportQuickRecharge": false,
         "SupportInvalidDeposit": true,
         "SupportInvalidWithdraw": true,
         "SupportNFT": false
-},
-EOF
-    echo $ARBITER_ADD_ECO_CONFIG
-    cd ${SCRIPT_PATH}/arbiter
-    sed -i '28r add_eco_config.json' config.json
-    rm -rf $ARBITER_ADD_ECO_CONFIG
+    }]' $ARBITER_CONFIG > $ARBITER_PGP_CONFIG && mv $ARBITER_PGP_CONFIG ${SCRIPT_PATH}/arbiter/config.json
   else
-    echo "add mainnet eco config"
-    cat >$ARBITER_ADD_ECO_CONFIG <<EOF
-{
-        "Name": "ECO",
+    echo "add mainnet pgp config"
+    jq '.Configuration.SideNodeList += [{
+        "Name": "PGP",
         "Rpc": {
           "IpAddress": "127.0.0.1",
-          "HttpJsonPort": 20652
+          "HttpJsonPort": 20662
         },
         "SyncStartHeight":0,
         "ExchangeRate": 1,
-        "GenesisBlock": "02820c5adc8ee4fb77aad842ac05d95ed8b1041d80c03ba79f8f11c4af60d87c",
-        "SupportQuickRecharge": true,
+        "GenesisBlock": "00b7957fbc9fa62e86d6e664299bebc9a939f108fd015f8de07ce33f4136175e",
+        "SupportQuickRecharge": false,
         "SupportInvalidDeposit": true,
         "SupportInvalidWithdraw": true,
         "SupportNFT": false,
         "PowChain": false
-},
-EOF
-    echo $ARBITER_ADD_ECO_CONFIG
-    cd ${SCRIPT_PATH}/arbiter
-    sed -i '26r add_eco_config.json' config.json
-    rm -rf $ARBITER_ADD_ECO_CONFIG
+    }]' $ARBITER_CONFIG > $ARBITER_PGP_CONFIG && mv $ARBITER_PGP_CONFIG ${SCRIPT_PATH}/arbiter/config.json
   fi
-  echo_ok "arbiter add ECO config completedly"
+  echo_ok "arbiter add PGP config completedly"
 }
-
 
 arbiter_init()
 {
@@ -4139,6 +4699,13 @@ arbiter_init()
         return
     fi
     #linda添加
+    #linda添加PGP判断
+     if [ ! -f $SCRIPT_PATH/pgp-oracle/.init ]; then
+        echo_error "pgp-oracle not initialized"
+        return
+    fi
+    #linda添加
+
 
     local ELA_CONFIG=${SCRIPT_PATH}/ela/config.json
     local ARBITER_CONFIG=${SCRIPT_PATH}/arbiter/config.json
@@ -4216,6 +4783,21 @@ arbiter_init()
         "SupportInvalidWithdraw": true,
         "SupportNFT": false,
         "PowChain": false
+      },
+      {
+        "Name": "PGP",
+        "Rpc": {
+          "IpAddress": "127.0.0.1",
+          "HttpJsonPort": 20662
+        },
+        "SyncStartHeight": 0,
+        "ExchangeRate": 1,
+        "GenesisBlock": "0c2785b9c5bee92aaaa3d8e5a7a579347a9091c6c8c19b7cba7fac69519c58a1",
+        "SupportQuickRecharge": false,
+        "SupportInvalidDeposit": true,
+        "SupportInvalidWithdraw": true,
+        "SupportNFT": false,
+        "PowChain": false
       }
     ],
     "RpcConfiguration": {
@@ -4280,6 +4862,21 @@ EOF
         "ExchangeRate": 1,
         "GenesisBlock": "02820c5adc8ee4fb77aad842ac05d95ed8b1041d80c03ba79f8f11c4af60d87c",
         "SupportQuickRecharge": true,
+        "SupportInvalidDeposit": true,
+        "SupportInvalidWithdraw": true,
+        "SupportNFT": false,
+        "PowChain": false
+      },
+      {
+        "Name": "PGP",
+        "Rpc": {
+          "IpAddress": "127.0.0.1",
+          "HttpJsonPort": 20662
+        },
+        "SyncStartHeight": 0,
+        "ExchangeRate": 1,
+        "GenesisBlock": "00b7957fbc9fa62e86d6e664299bebc9a939f108fd015f8de07ce33f4136175e",
+        "SupportQuickRecharge": false,
         "SupportInvalidDeposit": true,
         "SupportInvalidWithdraw": true,
         "SupportNFT": false,
@@ -4410,6 +5007,8 @@ else
        [ "$1" != "eid-oracle" ] && \
        [ "$1" != "eco"        ] && \
        [ "$1" != "eco-oracle" ] && \
+       [ "$1" != "pgp"        ] && \
+       [ "$1" != "pgp-oracle" ] && \
        [ "$1" != "arbiter"    ]; then
         echo_error "do not support chain: $1"
         exit
