@@ -5263,6 +5263,46 @@ arbiter_modify_configfile()
   echo_ok "arbiter add PG config completedly"
 }
 
+arbiter_remove_sidechain_config()
+{
+
+  local ARBITER_CONFIG=${SCRIPT_PATH}/arbiter/config.json
+  local ARBITER_PGP_CONFIG=${SCRIPT_PATH}/arbiter/pgp_config.json
+
+  if [ ! -f $ARBITER_CONFIG ]; then
+        echo_error "$ARBITER_CONFIG not exists"
+        return
+  fi
+
+  if ! grep -qi "20662" "$ARBITER_CONFIG"; then
+      echo "config file have not PGP sidechain configuration"
+      return
+  fi
+
+  echo "stop arbiter node"
+
+  local PID=$(pgrep -x arbiter)
+  if [ $PID ]; then
+        arbiter_stop
+  fi
+
+  echo "backup arbiter config file..."
+  cp -v ${SCRIPT_PATH}/arbiter/config.json ${SCRIPT_PATH}/arbiter/config_backup_remove_pgp_before_2025_11_11.json
+
+  echo "modify arbiter config file..."
+
+  if [ "$CHAIN_TYPE" == "testnet" ]; then
+      echo "testnet do nothing"
+  else
+      echo "Remove mainnet pgp config"
+      jq 'del(.Configuration.SideNodeList[] | select(.Name == "PGP"))' $ARBITER_CONFIG > $ARBITER_PGP_CONFIG && mv $ARBITER_PGP_CONFIG ${SCRIPT_PATH}/arbiter/config.json
+  fi
+
+  echo_ok "arbiter Remove PGP config completedly"
+}
+
+
+
 arbiter_init()
 {
     if [ ! -f $SCRIPT_PATH/ela/.init ]; then
@@ -5662,6 +5702,7 @@ else
          [ "$2" == "transfer"        ] || \
          [ "$2" == "compress_log"    ] || \
          [ "$2" == "modify_configfile"    ] || \
+         [ "$2" == "remove_sidechain_config"    ] || \
          [ "$2" == "remove_log"      ]; then
         COMMAND=$2
     else
