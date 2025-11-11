@@ -5099,22 +5099,22 @@ arbiter_status()
     # linda 添加
 
     # linda 添加PGP
-    :'
-    if [ "$CHAIN_TYPE" == "mainnet" ]; then
-        local PGP_GENESIS=00b7957fbc9fa62e86d6e664299bebc9a939f108fd015f8de07ce33f4136175e
-    elif [ "$CHAIN_TYPE" == "testnet" ]; then
-        local PGP_GENESIS=0c2785b9c5bee92aaaa3d8e5a7a579347a9091c6c8c19b7cba7fac69519c58a1
-    else
-        echo_error "do not support $CHAIN_TYPE"
-        return
-    fi
-    local ARBITER_PGP_HEIGHT=$(arbiter_jsonrpc \
-        "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$PGP_GENESIS\"}}" \
-        | jq -r '.result')
-    if [[ ! "$ARBITER_PGP_HEIGHT" =~ ^[0-9]+$ ]]; then
-        ARBITER_PGP_HEIGHT=N/A
-    fi
-    '
+
+    #if [ "$CHAIN_TYPE" == "mainnet" ]; then
+    #    local PGP_GENESIS=00b7957fbc9fa62e86d6e664299bebc9a939f108fd015f8de07ce33f4136175e
+    #elif [ "$CHAIN_TYPE" == "testnet" ]; then
+    #    local PGP_GENESIS=0c2785b9c5bee92aaaa3d8e5a7a579347a9091c6c8c19b7cba7fac69519c58a1
+    #else
+    #    echo_error "do not support $CHAIN_TYPE"
+    #    return
+    #fi
+    #local ARBITER_PGP_HEIGHT=$(arbiter_jsonrpc \
+    #    "{\"method\":\"getsidechainblockheight\",\"params\":{\"hash\":\"$PGP_GENESIS\"}}" \
+    #    | jq -r '.result')
+    #if [[ ! "$ARBITER_PGP_HEIGHT" =~ ^[0-9]+$ ]]; then
+    #    ARBITER_PGP_HEIGHT=N/A
+    #fi
+    
     # linda 添加
 
     # linda 添加PG
