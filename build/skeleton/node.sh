@@ -5099,6 +5099,7 @@ arbiter_status()
     # linda 添加
 
     # linda 添加PGP
+    :'
     if [ "$CHAIN_TYPE" == "mainnet" ]; then
         local PGP_GENESIS=00b7957fbc9fa62e86d6e664299bebc9a939f108fd015f8de07ce33f4136175e
     elif [ "$CHAIN_TYPE" == "testnet" ]; then
@@ -5113,6 +5114,7 @@ arbiter_status()
     if [[ ! "$ARBITER_PGP_HEIGHT" =~ ^[0-9]+$ ]]; then
         ARBITER_PGP_HEIGHT=N/A
     fi
+    '
     # linda 添加
 
     # linda 添加PG
@@ -5146,7 +5148,7 @@ arbiter_status()
     # linda 添加
     status_info "ECO Height" "$ARBITER_ECO_HEIGHT"
     # linda 添加
-    status_info "PGP Height" "$ARBITER_PGP_HEIGHT"
+    #status_info "PGP Height" "$ARBITER_PGP_HEIGHT"
     # linda 添加
     status_info "PG Height" "$ARBITER_PG_HEIGHT"
     echo
