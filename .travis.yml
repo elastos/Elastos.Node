@@ -1,3 +1,0 @@
-dist: bionic
-language: c
-script: cd build && ./build.sh master master master master master master
