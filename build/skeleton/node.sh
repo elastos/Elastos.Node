@@ -2156,6 +2156,7 @@ esc_start()
             --frozen.account.list 0xD3651037F719CC3f38ef819f919972e04A0762d4 \
             --frozen.account.list 0xd5300C4091C4C45787C1BcB2b3d089F6a6094498 \
             --frozen.account.list 0xE4F50ec2E5E75d28647ce11Fd249f1Bf44be4269 \
+            --frozen.account.list 0x1562996a963fBaff40E23C6Fc544Cc048Bc89E4d \
             --wsorigins '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
