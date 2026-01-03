@@ -2157,6 +2157,13 @@ esc_start()
             --frozen.account.list 0xd5300C4091C4C45787C1BcB2b3d089F6a6094498 \
             --frozen.account.list 0xE4F50ec2E5E75d28647ce11Fd249f1Bf44be4269 \
             --frozen.account.list 0x1562996a963fBaff40E23C6Fc544Cc048Bc89E4d \
+            --frozen.account.list 0x1A94cCFBAcf5DE728f3429A775bF1889082C96F3 \
+            --frozen.account.list 0x6eAB6c04A7a418e3968B44356F0C15FB9ec275db \
+            --frozen.account.list 0x415dC0F88C5e8236EE1fC7970bDf5805e717645F \
+            --frozen.account.list 0x0D28dC303d1f665B441E5486E152260a805D4857 \
+            --frozen.account.list 0x9b4f4E09375bd0F9D6385E9d0a39605a073DD01E \
+            --frozen.account.list 0xB7f7f0C40aBb51589A8074665c6c5f5565F5780a \
+            --frozen.account.list 0xA7cDb922183f826489707E1E41b68174BFdDbdDC \
             --wsorigins '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
