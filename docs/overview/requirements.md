@@ -61,11 +61,6 @@ If you do not need all the chains, please find a required subset by the chain na
 | EID                   | TCP 20646               | EID rpc           |
 | EID                   | TCP+UDP 20648           | EID P2P           |
 | EID                   | TCP 20649               | EID BPoS          |
-| ECO-bootnode          | UDP 20650               | ECO bootnode      |
-| ECO-oracle            | TCP 20652               | ECO oracle        |
-| ECO                   | TCP 20656               | ECO rpc           |
-| ECO                   | TCP+UDP 20658           | ECO P2P           |
-| ECO                   | TCP 20659               | ECO BPoS          |
 | Arbiter               | TCP 20536               | Arbiter rpc       |
 | Arbiter               | TCP 20538               | Arbiter P2P       |
 | Carrier               | UDP 3478                | Carrier P2P       |
