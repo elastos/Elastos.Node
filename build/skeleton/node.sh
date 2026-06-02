@@ -4792,12 +4792,6 @@ arbiter_init()
         echo_error "eid-oracle not initialized"
         return
     fi
-    #linda添加PGP判断
-     if [ ! -f $SCRIPT_PATH/pgp-oracle/.init ]; then
-        echo_error "pgp-oracle not initialized"
-        return
-    fi
-    #linda添加
     #linda添加PG判断
     if [ ! -f $SCRIPT_PATH/pg-oracle/.init ]; then
         echo_error "pg-oracle not initialized"
