@@ -1018,6 +1018,26 @@ ela_jsonrpc()
         http://127.0.0.1:$ELA_RPC_PORT | jq .
 }
 
+# ela_synced: true when the node's best block is recent (within 3 minutes), i.e. the
+# chain is caught up. Used to avoid reward RPCs that can panic a node during initial sync.
+ela_synced()
+{
+    local ELA_BEST_BLOCK_HASH=$(ela_jsonrpc getbestblockhash | jq -r '.result')
+
+    local BEST_BLOCK_SEC=$(
+        ela_jsonrpc getblock blockhash $ELA_BEST_BLOCK_HASH verbosity 1 |
+        jq -r '.result.time'
+    )
+
+    local THREE_MIN_BEFORE=$(($(date +%s)-60*3))
+
+    if [ "$BEST_BLOCK_SEC" -gt "$THREE_MIN_BEFORE" ] 2>/dev/null; then
+        true
+    else
+        false
+    fi
+}
+
 ela_status()
 {
     local ELA_VER=$(ela_ver)
@@ -1089,10 +1109,15 @@ ela_status()
         ELA_DPOS_VOTES=N/A
     fi
 
-    local ELA_DPOS_REWARDS=$(ela_jsonrpc dposv2rewardinfo |
-        jq -r ".result[]? | select(.address == \"$ELA_ADDRESS\") | .claimable")
-    if [ "$ELA_DPOS_REWARDS" == "" ]; then
-        ELA_DPOS_REWARDS=N/A
+    # dposv2rewardinfo ranges a live consensus map server-side and can panic a syncing
+    # daemon (concurrent map iteration). Only query it once the node is fully synced.
+    local ELA_DPOS_REWARDS=N/A
+    if ela_synced 2>/dev/null; then
+        ELA_DPOS_REWARDS=$(ela_jsonrpc dposv2rewardinfo |
+            jq -r ".result[]? | select(.address == \"$ELA_ADDRESS\") | .claimable")
+        if [ "$ELA_DPOS_REWARDS" == "" ]; then
+            ELA_DPOS_REWARDS=N/A
+        fi
     fi
 
     local ELA_CRC_NAME=$(ela_jsonrpc listcurrentcrs state all |
@@ -2117,7 +2142,6 @@ esc_start()
         fi
         nohup $SHELL -c "./esc \
             $ESC_OPTS \
-            --allow-insecure-unlock \
             --datadir $SCRIPT_PATH/esc/data \
             --mine \
             --miner.threads 1 \
@@ -2127,13 +2151,12 @@ esc_start()
             --pbft.net.address '$(extip)' \
             --pbft.net.port 20639 \
             --rpc \
-            --rpcaddr '0.0.0.0' \
-            --rpcapi 'db,eth,net,pbft,personal,txpool,web3' \
+            --rpcaddr '127.0.0.1' \
+            --rpcapi 'eth,net,pbft,txpool,web3' \
             --rpcvhosts '*' \
             --syncmode full \
-            --unlock '0x$(cat $SCRIPT_PATH/esc/data/keystore/UTC* | jq -r .address)' \
             --ws \
-            --wsaddr '0.0.0.0' \
+            --wsaddr '127.0.0.1' \
             --frozen.account.list 0xD3651037F719CC3f38ef819f919972e04A0762d4 \
             --frozen.account.list 0xd5300C4091C4C45787C1BcB2b3d089F6a6094498 \
             --frozen.account.list 0xE4F50ec2E5E75d28647ce11Fd249f1Bf44be4269 \
@@ -2154,11 +2177,11 @@ esc_start()
             --datadir $SCRIPT_PATH/esc/data \
             --lightserv 10 \
             --rpc \
-            --rpcaddr '0.0.0.0' \
-            --rpcapi 'admin,eth,net,txpool,web3' \
+            --rpcaddr '127.0.0.1' \
+            --rpcapi 'eth,net,txpool,web3' \
             --rpcvhosts '*' \
             --ws \
-            --wsaddr '0.0.0.0' \
+            --wsaddr '127.0.0.1' \
             --wsorigins '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/esc/logs/esc-%Y-%m-%d-%H_%M_%S.log 20M" &
@@ -2201,7 +2224,6 @@ pgp_start()
         fi
         nohup $SHELL -c "./pgp \
             $PGP_OPTS \
-            --allow-insecure-unlock \
             --datadir $SCRIPT_PATH/pgp/data \
             --mine \
             --miner.threads 1 \
@@ -2211,13 +2233,12 @@ pgp_start()
             --pbft.net.address '$(extip)' \
             --pbft.net.port 20669 \
             --rpc \
-            --rpcaddr '0.0.0.0' \
-            --rpcapi 'db,eth,net,pbft,personal,txpool,web3' \
+            --rpcaddr '127.0.0.1' \
+            --rpcapi 'eth,net,pbft,txpool,web3' \
             --rpcvhosts '*' \
             --syncmode full \
-            --unlock '0x$(cat $SCRIPT_PATH/pgp/data/keystore/UTC* | jq -r .address)' \
             --ws \
-            --wsaddr '0.0.0.0' \
+            --wsaddr '127.0.0.1' \
             --wsorigins '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/pgp/logs/pgp-%Y-%m-%d-%H_%M_%S.log 20M" &
@@ -2227,11 +2248,11 @@ pgp_start()
             --datadir $SCRIPT_PATH/pgp/data \
             --lightserv 10 \
             --rpc \
-            --rpcaddr '0.0.0.0' \
-            --rpcapi 'admin,eth,net,txpool,web3' \
+            --rpcaddr '127.0.0.1' \
+            --rpcapi 'eth,net,txpool,web3' \
             --rpcvhosts '*' \
             --ws \
-            --wsaddr '0.0.0.0' \
+            --wsaddr '127.0.0.1' \
             --wsorigins '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/pgp/logs/pgp-%Y-%m-%d-%H_%M_%S.log 20M" &
@@ -2274,7 +2295,6 @@ pg_start()
         fi
         nohup $SHELL -c "./pg \
             $PG_OPTS \
-            --allow-insecure-unlock \
             --datadir $SCRIPT_PATH/pg/data \
             --mine \
             --miner.threads 1 \
@@ -2284,13 +2304,12 @@ pg_start()
             --pbft.net.address '$(extip)' \
             --pbft.net.port 20679 \
             --rpc \
-            --rpcaddr '0.0.0.0' \
-            --rpcapi 'db,eth,net,pbft,personal,txpool,web3' \
+            --rpcaddr '127.0.0.1' \
+            --rpcapi 'eth,net,pbft,txpool,web3' \
             --rpcvhosts '*' \
             --syncmode full \
-            --unlock '0x$(cat $SCRIPT_PATH/pg/data/keystore/UTC* | jq -r .address)' \
             --ws \
-            --wsaddr '0.0.0.0' \
+            --wsaddr '127.0.0.1' \
             --wsorigins '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/pg/logs/pg-%Y-%m-%d-%H_%M_%S.log 20M" &
@@ -2300,11 +2319,11 @@ pg_start()
             --datadir $SCRIPT_PATH/pg/data \
             --lightserv 10 \
             --rpc \
-            --rpcaddr '0.0.0.0' \
-            --rpcapi 'admin,eth,net,txpool,web3' \
+            --rpcaddr '127.0.0.1' \
+            --rpcapi 'eth,net,txpool,web3' \
             --rpcvhosts '*' \
             --ws \
-            --wsaddr '0.0.0.0' \
+            --wsaddr '127.0.0.1' \
             --wsorigins '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/pg/logs/pg-%Y-%m-%d-%H_%M_%S.log 20M" &
@@ -3853,7 +3872,6 @@ EOF
         fi
         nohup $SHELL -c "./eid \
             $EID_OPTS \
-            --allow-insecure-unlock \
             --datadir $SCRIPT_PATH/eid/data \
             --mine \
             --miner.threads 1 \
@@ -3863,11 +3881,10 @@ EOF
             --pbft.net.address '$(extip)' \
             --pbft.net.port 20649 \
             --rpc \
-            --rpcaddr '0.0.0.0' \
-            --rpcapi 'db,eth,miner,net,pbft,personal,txpool,web3' \
+            --rpcaddr '127.0.0.1' \
+            --rpcapi 'eth,net,pbft,txpool,web3' \
             --rpcvhosts '*' \
             --syncmode full \
-            --unlock '0x$(cat $SCRIPT_PATH/eid/data/keystore/UTC* | jq -r .address)' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/eid/logs/eid-%Y-%m-%d-%H_%M_%S.log 20M" &
     else
@@ -3876,8 +3893,8 @@ EOF
             --datadir $SCRIPT_PATH/eid/data \
             --lightserv 10 \
             --rpc \
-            --rpcaddr '0.0.0.0' \
-            --rpcapi 'admin,eth,net,txpool,web3' \
+            --rpcaddr '127.0.0.1' \
+            --rpcapi 'eth,net,txpool,web3' \
             --rpcvhosts '*' \
             2>&1 \
             | rotatelogs $SCRIPT_PATH/eid/logs/eid-%Y-%m-%d-%H_%M_%S.log 20M" &
