@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# elastos-node - hardened fork of elastos/Elastos.Node
+# Elastos Node for Ubuntu - node management for the Elastos main chain, side chains, oracles, and arbiter
 ELASTOS_NODE_VERSION="1.1.0"
 
 # Reset override flags so a value inherited from the environment cannot silently enable them.
@@ -344,7 +344,7 @@ profile_prompt_if_unset()
 
 update_script()
 {
-    # The fork updates ITSELF (not upstream), so the hardening is never reverted.
+    # Self-update pulls this tool's own published script, so the hardening is never reverted.
     local SCRIPT_URL=https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/node.sh
     local SHA_URL=https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/node.sh.sha256
 
@@ -1350,10 +1350,10 @@ logs_cmd()
     chain_logs "$chain" "$flag"
 }
 
-# version_cmd: fork version + each installed chain binary version.
+# version_cmd: tool version + each installed chain binary version.
 version_cmd()
 {
-    echo "elastos-node $(ui_bold "v$ELASTOS_NODE_VERSION")  (hardened fork of elastos/Elastos.Node)"
+    echo "Elastos Node for Ubuntu $(ui_bold "v$ELASTOS_NODE_VERSION")"
     ui_dim "node.sh sha:$SCRIPT_SHA1   profile:$(get_profile)"; echo
     local chain
     for chain in $(profile_chains); do
@@ -1476,8 +1476,8 @@ migrate_apply()
     echo "Verify:  $SCRIPT_NAME summary"
 }
 
-# migrate [--dry-run]: move an existing install (old-fork or official Elastos)
-# onto this hardened fork. Preserves keystore + chaindata + config; only writes the
+# migrate [--dry-run]: move an existing install (an earlier version or the original Elastos.Node)
+# onto Elastos Node for Ubuntu. Preserves keystore + chaindata + config; only writes the
 # profile + a rollback snapshot; NEVER auto-restarts and NEVER deletes anything.
 migrate()
 {
@@ -1487,13 +1487,13 @@ migrate()
         --dry-run|-n) dryrun=1 ;;
     esac
 
-    ui_bold "Migrate to the hardened elastos-node fork"; echo
+    ui_bold "Migrate to Elastos Node for Ubuntu"; echo
     [ -n "$dryrun" ] && { ui_dim "  dry-run: nothing will be changed"; echo; }
     echo
 
     # 1. detect the source install
     if [ -f "$PROFILE_FILE" ]; then
-        src="old-fork"
+        src="earlier-version"
     elif [ -d "$SCRIPT_PATH/ela" ] || [ -d "$SCRIPT_PATH/esc" ] || [ -d "$SCRIPT_PATH/eid" ] || [ -d "$SCRIPT_PATH/pg" ]; then
         src="official-upstream"
     fi
@@ -1587,7 +1587,7 @@ migrate()
         for chain in $stale; do echo "    $SCRIPT_NAME $chain restart"; done
     fi
     echo "Check anytime:    $SCRIPT_NAME summary"
-    echo "Update later:     $SCRIPT_NAME update_script   (pulls the latest fork, checksum-verified)"
+    echo "Update later:     $SCRIPT_NAME update_script   (pulls the latest version, checksum-verified)"
 }
 
 all_start()
@@ -6382,7 +6382,7 @@ chain_help()
 
 usage()
 {
-    echo "elastos-node v$ELASTOS_NODE_VERSION - hardened Elastos node runner"
+    echo "Elastos Node for Ubuntu v$ELASTOS_NODE_VERSION"
     echo
     echo "Usage:  $SCRIPT_NAME <command> [options]"
     echo "        $SCRIPT_NAME <chain> <command> [options]"
@@ -6405,9 +6405,9 @@ usage()
     echo "MANAGE"
     echo "  restart            restart the profile's chains, one at a time (ela needs --force)"
     echo "  update             update the chain binaries"
-    echo "  migrate            move an upstream install onto this fork (--dry-run | --apply)"
+    echo "  migrate            move an existing install onto this tool (--dry-run | --apply)"
     echo "  uninstall          stop + remove the install (keystore backed up)"
-    echo "  version | -v       fork + chain versions"
+    echo "  version | -v       tool + chain versions"
     echo
     echo "PER-CHAIN    $SCRIPT_NAME <chain> <command>"
     echo "  start stop restart status [--json] health logs [-f] client rpc init update version"
