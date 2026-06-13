@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file. Releases are ta
 Validated end to end on a live node: one-line migration, the read views, the per-chain hardening restart (rebinding RPC to `127.0.0.1` with `--unlock` and `personal` removed), the firewall hardening, and ECO removal. This release consolidates the `1.0.0-rc` series into a stable tag.
 
 ### Highlights
-- **Security.** Loopback-only EVM RPC, no remotely-unlockable account, reduced RPC surface, automatic firewall close of the RPC/oracle/arbiter ports on `migrate` and `update_script`, and a status command that cannot crash a syncing daemon.
+- **Security.** Loopback-only EVM RPC, no remotely-unlockable account, reduced RPC surface, automatic firewall close of the EVM RPC/WebSocket and oracle ports on `migrate` and `update_script`, and a status command that cannot crash a syncing daemon. The authenticated ELA and arbiter RPC ports are left open for read-only monitors (gated by `WhiteIPList` / RPC user/pass).
 - **Operations.** One-line installer, deployment profiles (main chain only or full stack), `summary`/`health`/`status`/`logs`, staged `migrate`, `harden`, and `eco purge`.
 - **Compatibility.** Every command from the original Elastos.Node runner continues to work; the directory layout, keystores, and chain data are unchanged, so it is a drop-in replacement.
 

@@ -1161,11 +1161,14 @@ firewall()
     sudo ufw status verbose
 }
 
-# Local-only service ports that must never be reachable from the internet: EVM RPC/WS,
-# the ela RPC, the crosschain oracle HttpJsonPorts, and the arbiter RPC. Every one is
-# reached over loopback by the local geth / arbiter / CLI, which a host firewall never
-# blocks. P2P + consensus ports (the X8/X9 ports, and arbiter P2P 20538) stay OPEN.
-RPC_FIREWALL_PORTS="20336 20635 20636 20645 20646 20655 20656 20675 20676 20536 20632 20642 20652 20672"
+# Unauthenticated local-only ports that must never face the internet: the EVM RPC/WS and
+# the crosschain oracle HttpJsonPorts. They have no access control and are reached over
+# loopback by the local geth / arbiter / CLI, so harden closes them.
+# NOT included: the ELA RPC (20336) and arbiter RPC (20536). Those are authenticated (ELA
+# by the config WhiteIPList, arbiter by an RPC user/password) and are the endpoints
+# read-only monitors use, so the operator controls them (scope a firewall rule to the
+# monitor's IP). P2P + consensus ports stay open via the firewall command.
+RPC_FIREWALL_PORTS="20635 20636 20645 20646 20655 20656 20675 20676 20632 20642 20652 20672"
 
 # harden_firewall: close public access to the RPC/WS ports. Safe, reversible, idempotent,
 # and it never restarts a daemon - so syncing and consensus are untouched. Returns 0.
