@@ -1,6 +1,6 @@
 # Installing Elastos ELA
 
-Running the following command to install and configure Elastos ELA.
+Running the following command to install and configure Elastos ELA. ELA is the only program in the `mainchain` profile, and is also the first program installed by the `full` profile.
 
 ```bash
 $ ~/node/node.sh ela init
@@ -34,7 +34,11 @@ EUX2Zz1r9bc6GtCHCD1qWfGEKzuY...... 03af7417cfef028a8138394c5fecb708b40b7dd512381
 ---------------------------------- ---------------------------------------------------------
 ```
 
-You must update the nodepublickey through the app, and complete the binding of the registered supernode to the server ELA node, in order to participate in the main network node consensus to gain rewards
+You must update the nodepublickey through the app, and complete the binding of the registered supernode to the server ELA node, in order to participate in the main network node consensus to gain rewards. After the node is synced, the `03...`/`02...` public key needed for Essentials is available from:
+
+```bash
+$ ~/node/node.sh ela status --verbose
+```
 
 ```
 INFO: ela config file: /home/ubuntu/node/ela/config.json
@@ -48,4 +52,7 @@ The `init` command will try to find the server's public IP automatically, and re
 ```bash
 $ cat ~/node/ela/config.json | jq .Configuration.DPoSConfiguration.IPAddress
 ```
+
+The ELA main-chain RPC port (`20336`) is restricted by the config IP allow-list and is closed to the internet by the firewall. The peer-to-peer and DPoS ports (`20338`/`20339`) stay open. See [SECURITY.md](../../../../SECURITY.md) for the full port table.
+
 

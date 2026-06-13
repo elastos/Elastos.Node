@@ -130,7 +130,7 @@ The possible reasons may include:
 
 * [x] **The version is out of date.**
 
-Check versions and issue an [update](../step-by-step-setup/updating-programs.md) if required.
+Check versions and issue an [update](../archives/step-by-step-setup/updating-programs.md) if required.
 
 ```bash
 $ node/node.sh status
@@ -153,7 +153,10 @@ This error may occur because of abnormal shutting down of the server or daemon p
 | ELA          | `~/node/ela/elastos/data`                                                                                                                                                                                 |
 | ESC          | <p><code>~/node/esc/data/geth</code> (without <code>logs</code>)<br><code>~/node/esc/data/header</code><br><code>~/node/esc/data/spv_transaction_info.db</code><br><code>~/node/esc/data/store</code></p> |
 | EID          | <p><code>~/node/eid/data/geth</code> (without <code>logs</code>)<br><code>~/node/eid/data/header</code><br><code>~/node/eid/data/spv_transaction_info.db</code><br><code>~/node/eid/data/store</code></p> |
+| PG           | <p><code>~/node/pg/data/pgp</code> (without <code>logs</code>)<br><code>~/node/pg/data/header</code><br><code>~/node/pg/data/spv_transaction_info.db</code><br><code>~/node/pg/data/store</code></p>       |
 | Arbiter      | `~/node/arbiter/elastos_arbiter/data`                                                                                                                                                                     |
+
+For the EVM side chains (ESC, EID, PG), keep `data/keystore` when clearing chain data; deleting it removes the chain's account.
 
 **Warning: be careful about deleting any files on your servers. Consult the developer if you are unsure how to do it, and think twice before the operation.**
 
@@ -173,3 +176,23 @@ Check the free memory and disk space:
 $ free -h
 $ df -h
 ```
+
+## Are the RPC ports exposed to the internet?
+
+No. The EVM side chains (ESC, EID, PG) bind their JSON-RPC and WebSocket endpoints to `127.0.0.1`, so they are reachable only from the node itself. The ELA RPC, the oracle ports, and the arbiter RPC are likewise meant to stay private and are closed at the firewall. No signing account is unlocked for RPC, and the `personal`, `admin`, `db`, and `miner` namespaces are not exposed.
+
+To close the public RPC ports and check whether any running chain still needs a restart to fully rebind, run:
+
+```bash
+$ ~/node/node.sh harden
+```
+
+`harden` closes the firewall ports immediately and restarts nothing. Rebinding a daemon to `127.0.0.1` takes effect when that chain is next restarted; `harden` reports which chains still need it. To reach RPC remotely, use an SSH tunnel or VPN rather than opening the ports. See [SECURITY.md](../../SECURITY.md) for the full model and port table.
+
+## How do I update the node.sh script itself?
+
+```bash
+$ ~/node/node.sh update_script
+```
+
+This downloads the latest script, verifies it against the published SHA-256 checksum, runs a syntax check, replaces the installed script, and re-applies the firewall hardening. The alias `script_update` does the same thing. To update the chain binaries instead, use `~/node/node.sh update`.
