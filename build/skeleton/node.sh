@@ -1500,7 +1500,8 @@ monitor_cmd()
         disable|off|stop)        monitor_disable ;;
         enable)                  shift; monitor_enable "$@" ;;
         -h|--help|help)
-            echo "usage: $SCRIPT_NAME monitor <https-url> | report | status | disable" ;;
+            echo "usage: $SCRIPT_NAME monitor <https-url>"
+            echo "  (run '$SCRIPT_NAME monitor' alone to check it, '$SCRIPT_NAME monitor off' to stop)" ;;
         https://*|http://*|*.*|*:*) monitor_enable "$@" ;;
         *)
             echo_error "unknown monitor subcommand: $sub"
