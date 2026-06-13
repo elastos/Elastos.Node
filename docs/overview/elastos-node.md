@@ -22,7 +22,12 @@ Types of Elastos nodes by Elastos features:
 
 * Normal nodes
 * BPoS Supernodes (Normal) - ELA
-* BPoS Supernodes (CR Council Member) - ELA, ESC, EID, Arbiter
+* BPoS Supernodes (CR Council Member) - ELA, ESC, EID, PG, Arbiter
+
+A node can run with either of two deployment profiles:
+
+* `mainchain` - the Elastos main chain (ELA) only.
+* `full` - the full cross-chain stack: ELA, the EVM side chains (ESC, EID, PG), their cross-chain oracles, and the arbiter.
 
 Types of Elastos nodes by who operates:
 

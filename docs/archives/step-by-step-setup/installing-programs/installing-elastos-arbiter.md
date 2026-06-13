@@ -27,3 +27,6 @@ Updating arbiter config file...
 INFO: arbiter config file: /home/ubuntu/node/arbiter/config.json
 OK: arbiter initialized
 ```
+
+The arbiter is part of the `full` profile. Its RPC port (`20536`) is closed to the internet by the firewall (applied by `node.sh harden`, and automatically during migration and self-update), while its peer-to-peer port (`20538`) stays open. See [SECURITY.md](../../../../SECURITY.md) for the full port table.
+

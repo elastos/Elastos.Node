@@ -2,6 +2,8 @@
 
 Users who prefer an all-in-one bundle package can check this page.
 
+The current EVM side chains are ESC, EID, and PG. The ECO and PGP side chains are decommissioned and are not part of any profile; the file listing below is sample output from an older bundle and may name chains that are no longer used.
+
 Download the tarball package.
 
 ```bash

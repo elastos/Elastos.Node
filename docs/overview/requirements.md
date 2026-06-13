@@ -42,27 +42,33 @@ If you are a **BPoS supernode** or have only ELA nodes installed:
 
 ## Server Security Rules
 
-The following ports need to be publicly accessible from anywhere (0.0.0.0/0). For a cloud server, please modify the inbound rules.
+Only the peer-to-peer and consensus ports need to be publicly accessible. The RPC, WebSocket, oracle, and arbiter RPC ports bind to `127.0.0.1` (or are firewall-closed) and must stay private. This differs from the upstream runner, which exposed RPC on `0.0.0.0`. See [SECURITY.md](../../SECURITY.md) for the full security model and port table.
 
-If you do not need all the chains, please find a required subset by the chain name.
+The `firewall` command opens the peer/consensus group for the active profile, and `harden` closes the private group. For a cloud server, mirror the same posture in the provider's inbound rules. If you do not need all the chains, find a required subset by the chain name.
 
-| Chain or Program Name | Protocol and Port Range | Purpose           |
-| --------------------- | ----------------------- | ----------------- |
-| ELA                   | TCP 20336               | ELA rpc           |
-| ELA                   | TCP 20338               | ELA P2P           |
-| ELA                   | TCP 20339               | ELA BPoS          |
-| ESC-bootnode          | UDP 20630               | ESC bootnode      |    
-| ESC-oracle            | TCP 20632               | ESC oracle        |
-| ESC                   | TCP 20636               | ESC rpc           |
-| ESC                   | TCP+UDP 20638           | ESC P2P           |
-| ESC                   | TCP 20639               | ESC BPoS          |
-| EID-bootnode          | UDP 20640               | EID bootnode      |
-| EID-oracle            | TCP 20642               | EID oracle        |
-| EID                   | TCP 20646               | EID rpc           |
-| EID                   | TCP+UDP 20648           | EID P2P           |
-| EID                   | TCP 20649               | EID BPoS          |
-| Arbiter               | TCP 20536               | Arbiter rpc       |
-| Arbiter               | TCP 20538               | Arbiter P2P       |
-| Carrier               | UDP 3478                | Carrier P2P       |
-| Carrier               | TCP 33445               | Carrier TCP Relay |
-| Carrier               | UDP 33445               | Carrier P2P       |
+Ports to open (peer-to-peer and consensus):
+
+| Chain or Program Name | Protocol and Port Range | Purpose       |
+| --------------------- | ----------------------- | ------------- |
+| ELA                   | TCP 20338               | ELA P2P       |
+| ELA                   | TCP 20339               | ELA BPoS      |
+| ESC                   | TCP+UDP 20638           | ESC P2P       |
+| ESC                   | TCP 20639               | ESC BPoS      |
+| EID                   | TCP+UDP 20648           | EID P2P       |
+| EID                   | TCP 20649               | EID BPoS      |
+| PG                    | TCP+UDP 20678           | PG P2P        |
+| PG                    | TCP 20679               | PG BPoS       |
+| Arbiter               | TCP 20538               | Arbiter P2P   |
+
+Ports to keep private (bound to `127.0.0.1` or firewall-closed, never exposed):
+
+| Chain or Program Name | Protocol and Port Range | Purpose       |
+| --------------------- | ----------------------- | ------------- |
+| ELA                   | TCP 20336               | ELA rpc       |
+| ESC-oracle            | TCP 20632               | ESC oracle    |
+| ESC                   | TCP 20636               | ESC rpc       |
+| EID-oracle            | TCP 20642               | EID oracle    |
+| EID                   | TCP 20646               | EID rpc       |
+| PG-oracle             | TCP 20672               | PG oracle     |
+| PG                    | TCP 20676               | PG rpc        |
+| Arbiter               | TCP 20536               | Arbiter rpc   |

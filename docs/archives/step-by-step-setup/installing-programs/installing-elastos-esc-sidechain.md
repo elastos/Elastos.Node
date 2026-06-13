@@ -30,3 +30,12 @@ INFO: esc keystore password file: /home/dev/.config/elastos/esc.txt
 INFO: esc miner address file: /home/dev/node/esc/data/miner_address.txt
 OK: esc initialized
 ```
+
+The reward (miner) address entered here should be a cold address you control, separate from the node's keystore. If a mining side chain is started without a cold reward address it still runs, but prints a prominent warning that block rewards credit the node's local hot account. You can set or change it later with:
+
+```bash
+$ ~/node/node.sh reward set 0xYOURCOLDADDRESS
+```
+
+The ESC JSON-RPC and WebSocket endpoints bind to `127.0.0.1` (localhost only) and the node does not unlock a signing account for RPC. For remote access use an SSH tunnel or VPN rather than exposing the RPC port. See [SECURITY.md](../../../../SECURITY.md) for details and the full port table.
+

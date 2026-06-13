@@ -26,3 +26,6 @@ Extracting elastos-eid-oracle-v0.1.3.2.tgz...
 ...
 OK: eid-oracle initialized
 ```
+
+The EID oracle is one of the cross-chain services in the `full` profile. It reaches the EID and ELA nodes over loopback, so its own service port is closed to the internet by the firewall (applied by `node.sh harden`, and automatically during migration and self-update). See [SECURITY.md](../../../../SECURITY.md) for the port table.
+

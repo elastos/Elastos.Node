@@ -26,3 +26,6 @@ INFO: eid keystore file: /home/ubuntu/node/eid/data/keystore/UTC--2022-05-23T08-
 INFO: eid keystore password file: /home/ubuntu/.config/elastos/eid.txt
 OK: eid initialized
 ```
+
+The EID JSON-RPC and WebSocket endpoints bind to `127.0.0.1` (localhost only) and the node does not unlock a signing account for RPC. For remote access use an SSH tunnel or VPN rather than exposing the RPC port. See [SECURITY.md](../../../../SECURITY.md) for details and the full port table.
+
