@@ -1223,6 +1223,293 @@ harden()
 }
 
 
+# ---------------------------------------------------------------------------
+# monitor: enroll this node with a read-only push monitor. The node reports its
+# own status OUTBOUND over HTTPS - it never shares an RPC password and never opens
+# an inbound port. Identity is the node's on-chain consensus public key, which the
+# monitor matches against the public producer / CR lists it already fetches.
+#
+#   monitor <https-url> | enable <url>   enroll and start reporting
+#   monitor report                       collect status and push once (run by cron)
+#   monitor status                       show enrollment state
+#   monitor disable | off                stop reporting and forget the monitor
+#
+# ~/.config/elastos/monitor.json (chmod 600) holds {url, token, seq}. The token is
+# a self-generated 256-bit secret; only its SHA-256 is ever sent to the monitor, so
+# a monitor breach cannot recover it. Pushes are rejected until the monitor admin
+# approves the enrollment (on-duty consensus nodes auto-approve via on-chain address
+# match). Re-running enroll is a safe no-op. Nothing here changes an RPC password or
+# restarts a chain.
+# ---------------------------------------------------------------------------
+MONITOR_CONFIG=~/.config/elastos/monitor.json
+MONITOR_SCHEMA=1
+MONITOR_CRON_TAG="monitor report"
+
+# monitor_sha256: hex SHA-256 of stdin (hashes the push token before it is sent).
+monitor_sha256()
+{
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | cut -d' ' -f1
+    else
+        shasum -a 256 | cut -d' ' -f1
+    fi
+}
+
+# monitor_pubkey: this node's ELA consensus public key, or empty when there is no
+# keystore (a plain full node has no on-chain identity to report).
+monitor_pubkey()
+{
+    [ -f ~/.config/elastos/ela.txt ] || return 0
+    ( cd "$SCRIPT_PATH/ela" 2>/dev/null && ela_client wallet account 2>/dev/null |
+        sed -n '3 s/^.* //p' )
+}
+
+# monitor_setup_type <pubkey>: classify the node from the public on-chain lists.
+# "producer" / "council" when the key is registered, "fullnode" when it is in neither
+# list, "unknown" when ELA cannot be reached (the admin classifies it instead).
+monitor_setup_type()
+{
+    local pub=$1 producers crs
+    [ -z "$pub" ] && { echo fullnode; return; }
+    producers=$(ela_jsonrpc listproducers state all 2>/dev/null)
+    [ -z "$producers" ] && { echo unknown; return; }
+    if echo "$producers" | jq -e --arg p "$pub" \
+            '.result.producers[]? | select(.nodepublickey == $p)' >/dev/null 2>&1; then
+        echo producer; return
+    fi
+    crs=$(ela_jsonrpc listcurrentcrs state all 2>/dev/null)
+    if echo "$crs" | jq -e --arg p "$pub" \
+            '.result.crmembersinfo[]? | select(.dpospublickey == $p)' >/dev/null 2>&1; then
+        echo council; return
+    fi
+    echo fullnode
+}
+
+# monitor_install_cron: add the once-a-minute push timer, idempotently.
+monitor_install_cron()
+{
+    crontab -l 2>/dev/null | grep -qF "$SCRIPT_NAME $MONITOR_CRON_TAG" && return 0
+    ( crontab -l 2>/dev/null
+      echo "* * * * * $SCRIPT_PATH/$SCRIPT_NAME monitor report" ) | crontab -
+}
+
+# monitor_remove_cron: drop the push timer, idempotently.
+monitor_remove_cron()
+{
+    crontab -l 2>/dev/null | grep -qF "$SCRIPT_NAME $MONITOR_CRON_TAG" || return 0
+    ( crontab -l 2>/dev/null | grep -vF "$SCRIPT_NAME $MONITOR_CRON_TAG" ) | crontab -
+}
+
+# monitor_enable <url> [--insecure]: enroll and start reporting.
+monitor_enable()
+{
+    local url=$1
+    if [ -z "$url" ]; then
+        echo_error "usage: $SCRIPT_NAME monitor <https-url>"
+        exit 1
+    fi
+    # accept a bare host/IP and assume https; refuse plain http unless --insecure
+    case "$url" in
+        https://*) ;;
+        http://*)  if [ "$2" != "--insecure" ]; then
+                       echo_error "refusing plain http - the token would be sniffable. Use https, or pass --insecure on a trusted LAN."
+                       exit 1
+                   fi ;;
+        *)         url="https://$url" ;;
+    esac
+    url=${url%/}
+
+    # idempotent: already enrolled to this url -> just make sure the timer exists
+    if [ -f "$MONITOR_CONFIG" ]; then
+        local cur=$(jq -r '.url // empty' "$MONITOR_CONFIG" 2>/dev/null)
+        if [ "$cur" == "$url" ]; then
+            monitor_install_cron
+            echo_ok "already monitoring -> $url"
+            echo "  run '$SCRIPT_NAME monitor status' to see the last report"
+            return 0
+        fi
+        echo_warn "this node already reports to $cur"
+        if noninteractive; then
+            echo_error "re-point needs confirmation - run interactively, or '$SCRIPT_NAME monitor disable' first"
+            exit 1
+        fi
+        local ANSWER
+        read -p "? switch to $url ? [y/N] " ANSWER
+        case "$ANSWER" in y|Y|yes) ;; *) echo "Aborted."; exit 1 ;; esac
+    fi
+
+    ui_bold "Monitor - enroll this node"; echo
+
+    # phase 0: make sure no RPC port is open to the internet (safe, never restarts)
+    harden_firewall
+    echo
+
+    local pub=$(monitor_pubkey)
+    local stype=$(monitor_setup_type "$pub")
+    local ip=$(extip)
+    if [ -z "$ip" ]; then
+        echo_error "could not determine this node's public IP (is the box online?)"
+        exit 1
+    fi
+
+    # self-minted 256-bit token; only its hash leaves the box
+    local token=$(openssl rand -hex 32)
+    local thash=$(printf %s "$token" | monitor_sha256)
+
+    local body=$(jq -n --argjson schema "$MONITOR_SCHEMA" --arg ip "$ip" \
+        --arg pub "$pub" --arg stype "$stype" --arg thash "$thash" \
+        --arg ver "$ELASTOS_NODE_VERSION" \
+        '{schema:$schema, publicIp:$ip,
+          dposPublicKey:(if $pub=="" then null else $pub end),
+          setupType:$stype, tokenHash:$thash, nodeVersion:$ver}')
+
+    local resp=$(curl -s --max-time 15 -X POST "$url/api/register" \
+        -H 'Content-Type: application/json' -d "$body" 2>/dev/null)
+    if [ -z "$resp" ]; then
+        echo_error "no response from $url/api/register - check the URL is correct and reachable"
+        exit 1
+    fi
+
+    mkdir -p  $(dirname $MONITOR_CONFIG)
+    chmod 700 $(dirname $MONITOR_CONFIG)
+    touch $MONITOR_CONFIG
+    chmod 600 $MONITOR_CONFIG
+    jq -n --arg url "$url" --arg token "$token" --argjson seq 0 \
+        '{url:$url, token:$token, seq:$seq}' > $MONITOR_CONFIG
+    chmod 600 $MONITOR_CONFIG
+
+    monitor_install_cron
+    echo_ok "enrolled with $url"
+    echo "  identity: ${stype}${pub:+ ($pub)}"
+    echo "  IP reported: $ip"
+    monitor_report
+    echo
+    case "$stype" in
+        producer|council)
+            echo "  on-duty consensus nodes are auto-approved; otherwise the monitor admin approves once." ;;
+        *)
+            echo "  the monitor admin approves this node once, then its status appears on the dashboard." ;;
+    esac
+}
+
+# monitor_report: collect this node's status and push it once. Run by cron; also
+# called at the end of enroll. Stays quiet unless run interactively.
+monitor_report()
+{
+    if [ ! -f "$MONITOR_CONFIG" ]; then
+        echo_error "not enrolled - run '$SCRIPT_NAME monitor <https-url>'"
+        return 1
+    fi
+    local url=$(jq -r '.url' "$MONITOR_CONFIG")
+    local token=$(jq -r '.token' "$MONITOR_CONFIG")
+    local seq=$(jq -r '.seq // 0' "$MONITOR_CONFIG")
+    seq=$((seq + 1))
+
+    local pub=$(monitor_pubkey)
+    local ip=$(extip)
+    local now=$(date +%s)
+
+    local chains=$(render_json_all 2>/dev/null)
+    echo "$chains" | jq . >/dev/null 2>&1 || chains='[]'
+
+    local envelope=$(jq -n --argjson schema "$MONITOR_SCHEMA" --arg ver "$ELASTOS_NODE_VERSION" \
+        --arg pub "$pub" --arg ip "$ip" --argjson ts "$now" --argjson seq "$seq" \
+        --argjson chains "$chains" \
+        '{schema:$schema, nodeVersion:$ver,
+          dposPublicKey:(if $pub=="" then null else $pub end),
+          publicIp:$ip, capturedAt:$ts, seq:$seq, chains:$chains}')
+
+    local code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+        -X POST "$url/api/status" \
+        -H 'Content-Type: application/json' \
+        -H "Authorization: Bearer $token" -d "$envelope" 2>/dev/null)
+
+    jq --argjson seq "$seq" --argjson ts "$now" --arg code "$code" \
+        '.seq=$seq | .lastReportAt=$ts | .lastCode=$code' "$MONITOR_CONFIG" \
+        > "$MONITOR_CONFIG.tmp" 2>/dev/null \
+        && mv "$MONITOR_CONFIG.tmp" "$MONITOR_CONFIG" && chmod 600 "$MONITOR_CONFIG"
+
+    if ! noninteractive; then
+        case "$code" in
+            2*)  echo_ok "report sent (accepted)" ;;
+            403) echo_warn "report sent - pending approval by the monitor admin" ;;
+            000|"") echo_error "could not reach $url" ;;
+            *)   echo_warn "report sent - monitor returned HTTP $code" ;;
+        esac
+    fi
+}
+
+# monitor_status: show whether this node is enrolled and when it last reported.
+monitor_status()
+{
+    if [ ! -f "$MONITOR_CONFIG" ]; then
+        echo "Monitoring: off (not enrolled)"
+        echo "  enroll with: $SCRIPT_NAME monitor <https-url>"
+        return 0
+    fi
+    local url=$(jq -r '.url' "$MONITOR_CONFIG")
+    local last=$(jq -r '.lastReportAt // empty' "$MONITOR_CONFIG")
+    local code=$(jq -r '.lastCode // empty' "$MONITOR_CONFIG")
+    echo "Monitoring: on"
+    echo "  monitor: $url"
+    if [ -n "$last" ]; then
+        local now=$(date +%s)
+        echo "  last report: $((now - last))s ago (HTTP ${code:-?})"
+    else
+        echo "  last report: never"
+    fi
+    case "$code" in
+        2*)  echo "  state: active - reports accepted" ;;
+        403) echo "  state: pending - waiting for the monitor admin to approve this node" ;;
+        "")  ;;
+        *)   echo "  state: error (HTTP $code) - check the monitor URL" ;;
+    esac
+    if crontab -l 2>/dev/null | grep -qF "$SCRIPT_NAME $MONITOR_CRON_TAG"; then
+        echo "  push timer: installed (every minute)"
+    else
+        echo "  push timer: MISSING - run '$SCRIPT_NAME monitor $url' to reinstall"
+    fi
+}
+
+# monitor_disable: stop reporting and forget the monitor. Does not touch RPC config.
+monitor_disable()
+{
+    if [ ! -f "$MONITOR_CONFIG" ]; then
+        echo_ok "monitoring already off"
+        monitor_remove_cron
+        return 0
+    fi
+    local url=$(jq -r '.url' "$MONITOR_CONFIG")
+    local token=$(jq -r '.token' "$MONITOR_CONFIG")
+    curl -s --max-time 10 -X POST "$url/api/status" \
+        -H 'Content-Type: application/json' \
+        -H "Authorization: Bearer $token" -d '{"disabling":true}' >/dev/null 2>&1
+    monitor_remove_cron
+    rm -f "$MONITOR_CONFIG"
+    echo_ok "monitoring disabled - token forgotten, push timer removed"
+    echo "  note: your RPC password is unchanged and no chain was restarted."
+}
+
+# monitor_cmd: dispatch the monitor subcommand. A bare host/IP/URL enrolls.
+monitor_cmd()
+{
+    local sub=$1
+    case "$sub" in
+        ""|status)               monitor_status ;;
+        report)                  monitor_report ;;
+        disable|off|stop)        monitor_disable ;;
+        enable)                  shift; monitor_enable "$@" ;;
+        -h|--help|help)
+            echo "usage: $SCRIPT_NAME monitor <https-url> | report | status | disable" ;;
+        https://*|http://*|*.*|*:*) monitor_enable "$@" ;;
+        *)
+            echo_error "unknown monitor subcommand: $sub"
+            echo "  usage: $SCRIPT_NAME monitor <https-url> | report | status | disable"
+            exit 1 ;;
+    esac
+}
+
+
 # setup: one-time host prep for a fresh Ubuntu box, then initialize the node.
 # Installs dependencies, adds swap, opens the firewall, enables autostart, runs init.
 # clean_orphaned_config: a deleted ~/node can leave ~/.config/elastos/<chain>.txt
@@ -6403,6 +6690,7 @@ usage()
     echo "  profile [set P]    choose what this node runs (mainchain | full)"
     echo "  firewall           open peer/consensus ports (RPC stays on 127.0.0.1)"
     echo "  harden             close public RPC ports + report any restart needed"
+    echo "  monitor <url>      report status to a read-only monitor (push; no RPC password, no open port)"
     echo "  reward [set 0x..]  cold miner reward address for the side chains"
     echo
     echo "MANAGE"
@@ -6500,6 +6788,9 @@ elif [ "$1" == "firewall" ]; then
 elif [ "$1" == "harden" ]; then
     harden
     exit
+elif [ "$1" == "monitor" ]; then
+    monitor_cmd "${@:2}"
+    exit
 elif [ "$1" == "set_path" ]; then
     set_path
     exit
@@ -6544,7 +6835,7 @@ else
        [ "$1" != "arbiter"    ]; then
         echo_error "unknown command or chain: $1"
         echo "  run '$SCRIPT_NAME help' for the full list"
-        did_you_mean "$1" "up down restart ps status summary health logs version setup init start stop update profile firewall reward uninstall ela esc eid pg arbiter"
+        did_you_mean "$1" "up down restart ps status summary health logs version setup init start stop update profile firewall harden monitor reward uninstall ela esc eid pg arbiter"
         exit 1
     fi
     CHAIN_NAME=$1
