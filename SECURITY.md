@@ -5,7 +5,7 @@
 Elastos Node for Ubuntu runs the Elastos chains with the following defaults:
 
 - **Loopback-only EVM RPC.** Each EVM side chain's JSON-RPC and WebSocket endpoints bind to `127.0.0.1`. They are reachable by the node's own oracle, arbiter, and CLI over loopback, but not from the network.
-- **Local-only services firewalled.** The ela RPC (also IP allow-listed by its config), the crosschain oracle ports, and the arbiter RPC are closed to the internet by the firewall, since none of them need public access. The `harden` command applies this, and `migrate` and `update_script` run it automatically.
+- **Local-only services firewalled.** The EVM RPC/WebSocket and the crosschain oracle ports are closed to the internet by the firewall, since they have no authentication and need no public access. The `harden` command applies this, and `migrate` and `update_script` run it automatically. The ELA RPC and arbiter RPC are authenticated (ELA by its config `WhiteIPList`, arbiter by an RPC user and password) and are left for the operator to expose, so a read-only monitor can reach them from an allow-listed IP.
 - **No remotely-spendable account.** EVM mining nodes do not unlock a signing account on startup. Block production uses the dedicated PBFT keystore; the EVM account is never unlocked for RPC, so there is no node-side `eth_sendTransaction` signing path.
 - **Reduced RPC surface.** The `personal`, `admin`, `db`, and `miner` namespaces are not exposed.
 - **Cold reward address warning.** A mining side chain without a configured cold reward address starts, but prints a prominent red warning at every start: block rewards then credit the node's local hot account. Configure a cold address with `node.sh reward set`.
@@ -49,14 +49,14 @@ Ports fall into groups by role, each with its own posture.
 |---|---|---|
 | ela `20338`/`20339`, esc `20638`/`20639`, eid `20648`/`20649`, pg `20678`/`20679`, arbiter `20538` | Peer-to-peer and consensus | **Open** (peers and consensus require them) |
 | esc `20636`/`20635`, eid `20646`/`20645`, pg `20676`/`20675` | EVM RPC / WebSocket | Bound to `127.0.0.1` once the chain is restarted (on this version); firewall-closed until then |
-| ela `20336` | Main-chain RPC | Restricted by the config IP allow-list (`WhiteIPList`) and firewall-closed |
-| oracle `20632`/`20642`/`20672`, arbiter RPC `20536` | Local-only services | Firewall-closed by `harden` (their bind is set in their own code, not in node.sh flags) |
+| ela `20336` (RPC), arbiter `20536` (RPC) | Authenticated management RPC | Gated by auth (ELA `WhiteIPList`, arbiter user/pass). NOT closed by `harden`, so a read-only monitor can reach them from an allow-listed IP |
+| oracle `20632`/`20642`/`20672` | Local-only services | Firewall-closed by `harden` (no authentication; reached over loopback) |
 
-The `firewall` command opens the peer/consensus group. The `harden` command closes everything in the other three groups, and is run automatically by `migrate` and `update_script`. Equivalent UFW rules:
+The `firewall` command opens the peer/consensus group. The `harden` command closes the EVM RPC/WebSocket and oracle groups (not the authenticated ELA/arbiter RPC), and is run automatically by `migrate` and `update_script`. Equivalent UFW rules:
 
 ```bash
 ufw allow 20338,20339,20538,20638,20639,20648,20649,20678,20679/tcp   # peer/consensus, keep open
-# everything else (RPC, WS, oracle, arbiter RPC) stays closed to the internet
+# EVM RPC/WS + oracle ports stay closed; the ELA/arbiter RPC are auth-gated, expose to your monitor IP only if needed
 ```
 
 ## Reporting a vulnerability
