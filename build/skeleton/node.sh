@@ -1236,9 +1236,9 @@ harden()
 #
 # ~/.config/elastos/monitor.json (chmod 600) holds {url, token, seq}. The token is
 # a self-generated 256-bit secret; only its SHA-256 is ever sent to the monitor, so
-# a monitor breach cannot recover it. Pushes are rejected until the monitor admin
-# approves the enrollment (on-duty consensus nodes auto-approve via on-chain address
-# match). Re-running enroll is a safe no-op. Nothing here changes an RPC password or
+# a monitor breach cannot recover it. Enrollment is automatic - the node is active
+# immediately and locked to this token, so nobody can later hijack its identity.
+# Re-running enroll is a safe no-op. Nothing here changes an RPC password or
 # restarts a chain.
 # ---------------------------------------------------------------------------
 MONITOR_CONFIG=~/.config/elastos/monitor.json
@@ -1363,10 +1363,19 @@ monitor_enable()
           dposPublicKey:(if $pub=="" then null else $pub end),
           setupType:$stype, tokenHash:$thash, nodeVersion:$ver}')
 
-    local resp=$(curl -s --max-time 15 -X POST "$url/api/register" \
+    local raw http resp
+    raw=$(curl -s -w '\n%{http_code}' --max-time 15 -X POST "$url/api/register" \
         -H 'Content-Type: application/json' -d "$body" 2>/dev/null)
-    if [ -z "$resp" ]; then
+    http=${raw##*$'\n'}
+    resp=${raw%$'\n'*}
+    if [ -z "$http" ] || [ "$http" = "000" ]; then
         echo_error "no response from $url/api/register - check the URL is correct and reachable"
+        exit 1
+    fi
+    if [ "$http" != "200" ]; then
+        # e.g. the identity is already enrolled to a different node (first-writer lock)
+        local emsg=$(printf '%s' "$resp" | jq -r '.error // empty' 2>/dev/null)
+        echo_error "monitor refused enrollment (HTTP $http)${emsg:+: $emsg}"
         exit 1
     fi
 
@@ -1384,12 +1393,7 @@ monitor_enable()
     echo "  IP reported: $ip"
     monitor_report
     echo
-    case "$stype" in
-        producer|council)
-            echo "  on-duty consensus nodes are auto-approved; otherwise the monitor admin approves once." ;;
-        *)
-            echo "  the monitor admin approves this node once, then its status appears on the dashboard." ;;
-    esac
+    echo "  reporting every minute - your node will appear on the monitor shortly."
 }
 
 # monitor_report: collect this node's status and push it once. Run by cron; also
@@ -1432,7 +1436,7 @@ monitor_report()
     if ! noninteractive; then
         case "$code" in
             2*)  echo_ok "report sent (accepted)" ;;
-            403) echo_warn "report sent - pending approval by the monitor admin" ;;
+            403) echo_warn "report sent - this node is not active (disabled on the monitor?)" ;;
             000|"") echo_error "could not reach $url" ;;
             *)   echo_warn "report sent - monitor returned HTTP $code" ;;
         esac
@@ -1460,7 +1464,7 @@ monitor_status()
     fi
     case "$code" in
         2*)  echo "  state: active - reports accepted" ;;
-        403) echo "  state: pending - waiting for the monitor admin to approve this node" ;;
+        403) echo "  state: not active - this node was disabled on the monitor" ;;
         "")  ;;
         *)   echo "  state: error (HTTP $code) - check the monitor URL" ;;
     esac
