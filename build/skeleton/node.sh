@@ -1636,10 +1636,10 @@ setup()
     echo "=== Elastos node setup (initialize chains) ==="
     profile_prompt_if_unset
     local prof; prof=$(get_profile)
-    echo "This initializes the '$prof' profile: downloads the chain binaries and creates"
-    echo "the keystores. It does NOT install packages, add swap, or change the firewall -"
-    echo "those are separate steps (see 'Next steps' below). Dependencies must already be"
-    echo "installed (check_env will tell you the apt-get line if any are missing)."
+    echo "This initializes the '$prof' profile: it downloads the chain binaries and creates"
+    echo "the keystores. Dependencies, swap, and the firewall are separate steps (see"
+    echo "'Next steps'). Dependencies must already be installed; check_env reports the exact"
+    echo "apt-get line for any that are missing."
     local ANSWER
     read -p "Proceed (Yes/No)? " ANSWER
     if [ "$ANSWER" != "Yes" ] && [ "$ANSWER" != "yes" ] && [ "$ANSWER" != "y" ]; then
@@ -1962,6 +1962,29 @@ all_start()
     done
 }
 
+# wait_stop <pid>: after a chain has been signalled, wait for it to exit (printing
+# dots), then escalate to SIGKILL if it is still alive after the grace period - so
+# `stop` can never hang forever on a process that ignores the signal. The grace
+# window is generous on purpose: a geth side chain can take a while to flush state on
+# shutdown, and a premature SIGKILL mid-flush can corrupt chaindata.
+STOP_GRACE=180
+wait_stop()
+{
+    local pid=$1 n=0
+    while ps -p $pid 1>/dev/null 2>&1; do
+        echo -n .
+        sleep 1
+        n=$((n + 1))
+        if [ $n -ge $STOP_GRACE ]; then
+            echo; echo_warn "still running after ${STOP_GRACE}s - sending SIGKILL"
+            kill -9 $pid 2>/dev/null
+            sleep 1
+            break
+        fi
+    done
+    echo
+}
+
 all_stop()
 {
     # stop in reverse start order for a clean shutdown
@@ -2139,11 +2162,7 @@ ela_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping ela..."
         kill $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     sync
     ela_status
@@ -3683,11 +3702,7 @@ esc_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping esc..."
         kill -s SIGINT $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     sync
     esc_status
@@ -3698,11 +3713,7 @@ eco_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping eco..."
         kill -s SIGINT $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     sync
     eco_status
@@ -3714,11 +3725,7 @@ pgp_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping pgp..."
         kill -s SIGINT $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     sync
     pgp_status
@@ -3730,11 +3737,7 @@ pg_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping pg..."
         kill -s SIGINT $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     sync
     pg_status
@@ -4546,38 +4549,48 @@ esc_init()
         return
     fi
 
+    # Resume support: .init is the single "initialized" marker. An interrupted init may
+    # have created the geth account (and esc.txt) but never reached .init. When the
+    # account already exists we ADOPT it (keystore left untouched); otherwise we clear a
+    # keystore-less leftover password file and create fresh.
     cd $SCRIPT_PATH/esc
     local ESC_NUM_ACCOUNTS=$(./esc --datadir "$SCRIPT_PATH/esc/data/" \
         --nousb --verbosity 0 account list | wc -l)
+    local ESC_ADOPT=
     if [ $ESC_NUM_ACCOUNTS -ge 1 ]; then
-        echo_error "esc keystore file exist"
-        return
+        if [ ! -f "$ESC_KEYSTORE_PASS_FILE" ]; then
+            echo_error "esc keystore exists but its password file $ESC_KEYSTORE_PASS_FILE is missing"
+            echo_error "refusing to touch the keystore - restore the password file or back up esc/data/keystore and re-run init"
+            return
+        fi
+        echo_warn "esc keystore already present - adopting it (resuming an interrupted init; keystore left untouched)"
+        ESC_ADOPT=1
+    elif [ -f "$ESC_KEYSTORE_PASS_FILE" ]; then
+        echo_warn "clearing partial esc init (password file with no keystore) and starting clean"
+        rm -f "$ESC_KEYSTORE_PASS_FILE"
     fi
 
-    if [ -f "$ESC_KEYSTORE_PASS_FILE" ]; then
-        echo_error "$ESC_KEYSTORE_PASS_FILE exist"
-        return
-    fi
+    if [ -z "$ESC_ADOPT" ]; then
+        echo "Creating esc keystore..."
+        gen_pass
+        if [ "$KEYSTORE_PASS" == "" ]; then
+            echo_error "empty password"
+            exit
+        fi
 
-    echo "Creating esc keystore..."
-    gen_pass
-    if [ "$KEYSTORE_PASS" == "" ]; then
-        echo_error "empty password"
-        exit
-    fi
+        echo "Saving esc keystore password..."
+        mkdir -p $(dirname $ESC_KEYSTORE_PASS_FILE)
+        chmod 700 $(dirname $ESC_KEYSTORE_PASS_FILE)
+        echo $KEYSTORE_PASS > $ESC_KEYSTORE_PASS_FILE
+        chmod 600 $ESC_KEYSTORE_PASS_FILE
 
-    echo "Saving esc keystore password..."
-    mkdir -p $(dirname $ESC_KEYSTORE_PASS_FILE)
-    chmod 700 $(dirname $ESC_KEYSTORE_PASS_FILE)
-    echo $KEYSTORE_PASS > $ESC_KEYSTORE_PASS_FILE
-    chmod 600 $ESC_KEYSTORE_PASS_FILE
-
-    cd ${SCRIPT_PATH}/esc
-    ./esc --datadir "$SCRIPT_PATH/esc/data/" --verbosity 0 account new \
-        --password "$ESC_KEYSTORE_PASS_FILE" >/dev/null
-    if [ "$?" != "0" ]; then
-        echo_error "failed to create esc keystore"
-        return
+        cd ${SCRIPT_PATH}/esc
+        ./esc --datadir "$SCRIPT_PATH/esc/data/" --verbosity 0 account new \
+            --password "$ESC_KEYSTORE_PASS_FILE" >/dev/null
+        if [ "$?" != "0" ]; then
+            echo_error "failed to create esc keystore"
+            return
+        fi
     fi
 
     echo "Checking esc keystore..."
@@ -4782,38 +4795,48 @@ pg_init()
         return
     fi
 
+    # Resume support: .init is the single "initialized" marker. An interrupted init may
+    # have created the geth account (and pg.txt) but never reached .init. When the
+    # account already exists we ADOPT it (keystore left untouched); otherwise we clear a
+    # keystore-less leftover password file and create fresh.
     cd $SCRIPT_PATH/pg
     local PG_NUM_ACCOUNTS=$(./pg --datadir "$SCRIPT_PATH/pg/data/" \
         --nousb --verbosity 0 account list | wc -l)
+    local PG_ADOPT=
     if [ $PG_NUM_ACCOUNTS -ge 1 ]; then
-        echo_error "pg keystore file exist"
-        return
+        if [ ! -f "$PG_KEYSTORE_PASS_FILE" ]; then
+            echo_error "pg keystore exists but its password file $PG_KEYSTORE_PASS_FILE is missing"
+            echo_error "refusing to touch the keystore - restore the password file or back up pg/data/keystore and re-run init"
+            return
+        fi
+        echo_warn "pg keystore already present - adopting it (resuming an interrupted init; keystore left untouched)"
+        PG_ADOPT=1
+    elif [ -f "$PG_KEYSTORE_PASS_FILE" ]; then
+        echo_warn "clearing partial pg init (password file with no keystore) and starting clean"
+        rm -f "$PG_KEYSTORE_PASS_FILE"
     fi
 
-    if [ -f "$PG_KEYSTORE_PASS_FILE" ]; then
-        echo_error "$PG_KEYSTORE_PASS_FILE exist"
-        return
-    fi
+    if [ -z "$PG_ADOPT" ]; then
+        echo "Creating pg keystore..."
+        gen_pass
+        if [ "$KEYSTORE_PASS" == "" ]; then
+            echo_error "empty password"
+            exit
+        fi
 
-    echo "Creating pg keystore..."
-    gen_pass
-    if [ "$KEYSTORE_PASS" == "" ]; then
-        echo_error "empty password"
-        exit
-    fi
+        echo "Saving pg keystore password..."
+        mkdir -p $(dirname $PG_KEYSTORE_PASS_FILE)
+        chmod 700 $(dirname $PG_KEYSTORE_PASS_FILE)
+        echo $KEYSTORE_PASS > $PG_KEYSTORE_PASS_FILE
+        chmod 600 $PG_KEYSTORE_PASS_FILE
 
-    echo "Saving pg keystore password..."
-    mkdir -p $(dirname $PG_KEYSTORE_PASS_FILE)
-    chmod 700 $(dirname $PG_KEYSTORE_PASS_FILE)
-    echo $KEYSTORE_PASS > $PG_KEYSTORE_PASS_FILE
-    chmod 600 $PG_KEYSTORE_PASS_FILE
-
-    cd ${SCRIPT_PATH}/pg
-    ./pg --datadir "$SCRIPT_PATH/pg/data/" --verbosity 0 account new \
-        --password "$PG_KEYSTORE_PASS_FILE" >/dev/null
-    if [ "$?" != "0" ]; then
-        echo_error "failed to create pg keystore"
-        return
+        cd ${SCRIPT_PATH}/pg
+        ./pg --datadir "$SCRIPT_PATH/pg/data/" --verbosity 0 account new \
+            --password "$PG_KEYSTORE_PASS_FILE" >/dev/null
+        if [ "$?" != "0" ]; then
+            echo_error "failed to create pg keystore"
+            return
+        fi
     fi
 
     echo "Checking pg keystore..."
@@ -5056,11 +5079,7 @@ esc-oracle_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping esc-oracle..."
         kill $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     esc-oracle_status
 }
@@ -5071,11 +5090,7 @@ eco-oracle_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping eco-oracle..."
         kill $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     eco-oracle_status
 }
@@ -5086,11 +5101,7 @@ pgp-oracle_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping pgp-oracle..."
         kill $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     pgp-oracle_status
 }
@@ -5101,11 +5112,7 @@ pg-oracle_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping pg-oracle..."
         kill $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     pg-oracle_status
 }
@@ -5648,11 +5655,7 @@ eid_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping eid..."
         kill -s SIGINT $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     sync
     eid_status
@@ -5858,38 +5861,48 @@ eid_init()
         return
     fi
 
+    # Resume support: .init is the single "initialized" marker. An interrupted init may
+    # have created the geth account (and eid.txt) but never reached .init. When the
+    # account already exists we ADOPT it (keystore left untouched); otherwise we clear a
+    # keystore-less leftover password file and create fresh.
     cd ${SCRIPT_PATH}/eid
     local EID_NUM_ACCOUNTS=$(./eid --datadir "$SCRIPT_PATH/eid/data/" \
         --nousb --verbosity 0 account list | wc -l)
+    local EID_ADOPT=
     if [ $EID_NUM_ACCOUNTS -ge 1 ]; then
-        echo_error "eid keystore file exist"
-        return
+        if [ ! -f "$EID_KEYSTORE_PASS_FILE" ]; then
+            echo_error "eid keystore exists but its password file $EID_KEYSTORE_PASS_FILE is missing"
+            echo_error "refusing to touch the keystore - restore the password file or back up eid/data/keystore and re-run init"
+            return
+        fi
+        echo_warn "eid keystore already present - adopting it (resuming an interrupted init; keystore left untouched)"
+        EID_ADOPT=1
+    elif [ -f "$EID_KEYSTORE_PASS_FILE" ]; then
+        echo_warn "clearing partial eid init (password file with no keystore) and starting clean"
+        rm -f "$EID_KEYSTORE_PASS_FILE"
     fi
 
-    if [ -f "$EID_KEYSTORE_PASS_FILE" ]; then
-        echo_error "$EID_KEYSTORE_PASS_FILE exist"
-        return
-    fi
+    if [ -z "$EID_ADOPT" ]; then
+        echo "Creating eid keystore..."
+        gen_pass
+        if [ "$KEYSTORE_PASS" == "" ]; then
+            echo_error "empty password"
+            exit
+        fi
 
-    echo "Creating eid keystore..."
-    gen_pass
-    if [ "$KEYSTORE_PASS" == "" ]; then
-        echo_error "empty password"
-        exit
-    fi
+        echo "Saving eid keystore password..."
+        mkdir -p $(dirname $EID_KEYSTORE_PASS_FILE)
+        chmod 700 $(dirname $EID_KEYSTORE_PASS_FILE)
+        echo $KEYSTORE_PASS > $EID_KEYSTORE_PASS_FILE
+        chmod 600 $EID_KEYSTORE_PASS_FILE
 
-    echo "Saving eid keystore password..."
-    mkdir -p $(dirname $EID_KEYSTORE_PASS_FILE)
-    chmod 700 $(dirname $EID_KEYSTORE_PASS_FILE)
-    echo $KEYSTORE_PASS > $EID_KEYSTORE_PASS_FILE
-    chmod 600 $EID_KEYSTORE_PASS_FILE
-
-    cd ${SCRIPT_PATH}/eid
-    ./eid --datadir "$SCRIPT_PATH/eid/data/" --verbosity 0 account new \
-        --password "$EID_KEYSTORE_PASS_FILE" >/dev/null
-    if [ "$?" != "0" ]; then
-        echo_error "failed to create eid keystore"
-        return
+        cd ${SCRIPT_PATH}/eid
+        ./eid --datadir "$SCRIPT_PATH/eid/data/" --verbosity 0 account new \
+            --password "$EID_KEYSTORE_PASS_FILE" >/dev/null
+        if [ "$?" != "0" ]; then
+            echo_error "failed to create eid keystore"
+            return
+        fi
     fi
 
     echo "Checking eid keystore..."
@@ -6021,11 +6034,7 @@ eid-oracle_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping eid-oracle..."
         kill $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     eid-oracle_status
 }
@@ -6199,7 +6208,7 @@ arbiter_start()
         else
             nohup ./arbiter 1>/dev/null 2>output &
         fi
-        echo "Waiting for ela, esc-oracle, eid-oracle, eco-oracle to start..."
+        echo "Waiting for ela, esc-oracle, eid-oracle, pg-oracle to start..."
         sleep 5
     done
 
@@ -6212,11 +6221,7 @@ arbiter_stop()
     if [ "$PID" != "" ]; then
         echo "Stopping arbiter..."
         kill $PID
-        while ps -p $PID 1>/dev/null; do
-            echo -n .
-            sleep 1
-        done
-        echo
+        wait_stop $PID
     fi
     sync
     arbiter_status
