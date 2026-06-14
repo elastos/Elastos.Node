@@ -1340,9 +1340,10 @@ monitor_enable()
 
     ui_bold "Monitor - enroll this node"; echo
 
-    # phase 0: make sure no RPC port is open to the internet (safe, never restarts)
-    harden_firewall
-    echo
+    # Enrolling only sets up OUTBOUND reporting; it must not touch the firewall.
+    # (Closing RPC ports is a deliberate, separate step: run 'node.sh harden'.)
+    # Doing it here would break any read-only monitor still polling this node's
+    # side-chain RPC over those ports.
 
     local pub=$(monitor_pubkey)
     local stype=$(monitor_setup_type "$pub")
