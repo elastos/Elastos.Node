@@ -24,7 +24,7 @@ The fastest way to install it on a fresh host is the one-liner, which also migra
 curl -fsSL https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/install.sh | bash
 ```
 
-Then run `node.sh setup` for a turnkey host preparation (dependencies, swap, firewall, autostart, then init).
+Install the dependencies, then run `node.sh setup` to initialize the chains. Opening the peer/consensus ports is a separate, SSH-safe step (`node.sh firewall`).
 
 node.sh supports:
 

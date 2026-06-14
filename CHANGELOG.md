@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file. Releases are tagged `vMAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Changed
+- **`setup` is now init-only.** It initializes the chains and no longer installs packages or touches the firewall. Install dependencies manually (`check_env` reports the exact `apt-get` line for any that are missing). Opening the peer/consensus ports is a separate, SSH-safe `firewall` command that detects the real SSH port (`sshd -T` and `$SSH_CONNECTION`) and asks before enabling `ufw`, so a node on a non-standard SSH port is never locked out. Swap headroom and autostart are the dedicated `swap` and `set_cron` commands.
+
+### Added
+- **`swap`** command — adds 16 GB of swap headroom, and recovers a leftover inactive `/swapfile` instead of skipping it.
+
+### Fixed
+- **`stop` no longer hangs** if a chain ignores `SIGTERM`: a bounded wait, then `SIGKILL` escalation.
+- **`init` is resumable** for `ela`/`esc`/`eid`/`pg`: an interrupted init that created the keystore but not the `.init` marker is adopted (the keystore is never overwritten) instead of bailing.
+- **`check_env`** reports every missing tool at once and exits non-zero.
+- `install.sh` fails closed if the published checksum cannot be fetched.
+- The arbiter startup message no longer references the decommissioned `eco-oracle`.
+- `node.sh` uses `sha256sum` (always present on Ubuntu) instead of `shasum`.
+
 ## v1.1.0 - First stable release
 
 Validated end to end on a live node: one-line migration, the read views, the per-chain hardening restart (rebinding RPC to `127.0.0.1` with `--unlock` and `personal` removed), the firewall hardening, and ECO removal. This release consolidates the `1.0.0-rc` series into a stable tag.
