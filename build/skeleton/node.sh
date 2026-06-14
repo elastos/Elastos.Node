@@ -5297,6 +5297,41 @@ pg-oracle_update()
     fi
 }
 
+esc-oracle_update()
+{
+    unset OPTIND
+    while getopts "ny" OPTION; do
+        case $OPTION in
+            n)
+                local NO_START_AFTER_UPDATE=1
+                ;;
+            y)
+                local YES_TO_ALL=1
+                ;;
+        esac
+    done
+
+    chain_prepare_stage esc-oracle '*.js'
+    if [ "$?" != "0" ]; then
+        return
+    fi
+
+    local PATH_STAGE=$SCRIPT_PATH/.node-upload/esc-oracle
+    local DIR_DEPLOY=$SCRIPT_PATH/esc-oracle
+
+    local PID=$(pgrep -fx 'node crosschain_oracle.js')
+    if [ $PID ]; then
+        esc-oracle_stop
+    fi
+
+    mkdir -p $DIR_DEPLOY
+    cp -v $PATH_STAGE/*.js $DIR_DEPLOY/
+
+    if [ $PID ] && [ "$NO_START_AFTER_UPDATE" == "" ]; then
+        esc-oracle_start
+    fi
+}
+
 esc-oracle_init()
 {
     if [ ! -f ${SCRIPT_PATH}/esc/.init ]; then
