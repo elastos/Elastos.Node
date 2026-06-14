@@ -6725,6 +6725,21 @@ SCRIPT_NAME=$(basename $BASH_SOURCE)
 SCRIPT_SHA1=$(shasum $BASH_SOURCE | cut -c1-7)
 
 set_env
+
+# Bootstrap for a fresh box: `setup` installs the base packages, but check_env and
+# load_config below need a few of them - chiefly jq - to run at all. Without this,
+# `node.sh setup` would exit at "cannot find jq" before it could install jq. So on
+# the setup command, install the base packages first. Idempotent: apt-get only does
+# work when something is actually missing, and setup's own install is a no-op after.
+case " $* " in
+    *" setup "*)
+        if [ "$(uname -s)" == "Linux" ] && ! command -v jq >/dev/null 2>&1; then
+            echo "Installing base packages (jq, lsof, curl, ...) needed before setup..."
+            sudo apt-get update
+            sudo apt-get install -y jq lsof apache2-utils curl openssl ufw
+        fi ;;
+esac
+
 check_env
 load_config
 
