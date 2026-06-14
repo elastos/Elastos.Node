@@ -1586,14 +1586,15 @@ setup()
 
     echo; echo_ok "setup complete"
     echo "Next steps:"
-    if [ "$prof" == "full" ]; then
-        echo "  1. set a COLD reward address for the side chains:"
-        echo "       node.sh reward set 0xYOURCOLDADDRESS"
-    fi
-    echo "  2. start:   node.sh up"
-    echo "  3. check:   node.sh status"
-    echo "  4. after full sync, get the 02/03... public key for Essentials:"
+    echo "  1. start:   node.sh up"
+    echo "  2. check:   node.sh status"
+    echo "  3. after full sync, get the 02/03... public key for Essentials:"
     echo "       node.sh ela status --verbose"
+    if [ "$prof" == "full" ]; then
+        echo
+        echo 'Side-chain reward addresses come from the "Miner Address" init prompts.'
+        echo 'To set or change one:  node.sh reward set 0x<your-cold-address>'
+    fi
 }
 
 # chain_restart <chain>: stop, wait for exit, start.
