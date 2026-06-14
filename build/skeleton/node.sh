@@ -361,7 +361,7 @@ update_script()
     # Integrity: if a published checksum exists, the download MUST match it.
     local WANT=$(curl -fsSL "$SHA_URL" 2>/dev/null | awk '{print $1}')
     if [ -n "$WANT" ]; then
-        local GOT=$(shasum -a 256 "$SCRIPT_TMP" 2>/dev/null | awk '{print $1}')
+        local GOT=$(sha256sum "$SCRIPT_TMP" 2>/dev/null | awk '{print $1}')
         if [ "$WANT" != "$GOT" ]; then
             echo_error "checksum mismatch - refusing to update (want $WANT, got $GOT)"
             rm -f "$SCRIPT_TMP"
@@ -2484,8 +2484,8 @@ EOF
         fi
 
         echo "Generating random userpass for ela RPC interface..."
-        local ELA_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
-        local ELA_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
+        local ELA_RPC_USER=$(openssl rand -base64 100 | sha256sum | head -c 32)
+        local ELA_RPC_PASS=$(openssl rand -base64 100 | sha256sum | head -c 32)
 
         echo "Updating ela config file..."
         jq ".Configuration.RpcConfiguration.User=\"$ELA_RPC_USER\" | \
@@ -5065,7 +5065,7 @@ pg-oracle_installed()
 esc-oracle_ver()
 {
     if [ -f $SCRIPT_PATH/esc-oracle/crosschain_oracle.js ]; then
-        echo "esc-oracle $(cat $SCRIPT_PATH/esc-oracle/*.js | shasum | cut -c 1-7)"
+        echo "esc-oracle $(cat $SCRIPT_PATH/esc-oracle/*.js | sha256sum | cut -c 1-7)"
     else
         echo "esc-oracle N/A"
     fi
@@ -5074,7 +5074,7 @@ esc-oracle_ver()
 eco-oracle_ver()
 {
     if [ -f $SCRIPT_PATH/eco-oracle/crosschain_eco.js ]; then
-        echo "eco-oracle $(cat $SCRIPT_PATH/eco-oracle/*.js | shasum | cut -c 1-7)"
+        echo "eco-oracle $(cat $SCRIPT_PATH/eco-oracle/*.js | sha256sum | cut -c 1-7)"
     else
         echo "eco-oracle N/A"
     fi
@@ -5083,7 +5083,7 @@ eco-oracle_ver()
 pgp-oracle_ver()
 {
     if [ -f $SCRIPT_PATH/pgp-oracle/crosschain_pgp.js ]; then
-        echo "pgp-oracle $(cat $SCRIPT_PATH/pgp-oracle/*.js | shasum | cut -c 1-7)"
+        echo "pgp-oracle $(cat $SCRIPT_PATH/pgp-oracle/*.js | sha256sum | cut -c 1-7)"
     else
         echo "pgp-oracle N/A"
     fi
@@ -5092,7 +5092,7 @@ pgp-oracle_ver()
 pg-oracle_ver()
 {
     if [ -f $SCRIPT_PATH/pg-oracle/crosschain_pg.js ]; then
-        echo "pg-oracle $(cat $SCRIPT_PATH/pg-oracle/*.js | shasum | cut -c 1-7)"
+        echo "pg-oracle $(cat $SCRIPT_PATH/pg-oracle/*.js | sha256sum | cut -c 1-7)"
     else
         echo "pg-oracle N/A"
     fi
@@ -5958,7 +5958,7 @@ eid-oracle_installed()
 eid-oracle_ver()
 {
     if [ -f $SCRIPT_PATH/eid-oracle/crosschain_eid.js ]; then
-        echo "eid-oracle $(cat $SCRIPT_PATH/eid-oracle/*.js | shasum | cut -c 1-7)"
+        echo "eid-oracle $(cat $SCRIPT_PATH/eid-oracle/*.js | sha256sum | cut -c 1-7)"
     else
         echo "eid-oracle N/A"
     fi
@@ -6665,8 +6665,8 @@ EOF
 
     # Arbiter Config: Arbiter RPC
     echo "Generating random userpass for arbiter RPC interface..."
-    local ARBITER_RPC_USER=$(openssl rand -base64 100 | shasum | head -c 32)
-    local ARBITER_RPC_PASS=$(openssl rand -base64 100 | shasum | head -c 32)
+    local ARBITER_RPC_USER=$(openssl rand -base64 100 | sha256sum | head -c 32)
+    local ARBITER_RPC_PASS=$(openssl rand -base64 100 | sha256sum | head -c 32)
 
     echo "Updating arbiter config file..."
     jq ".Configuration.MainNode.Rpc.User=\"$ELA_RPC_USER\"              | \
@@ -6757,7 +6757,7 @@ usage()
 #
 SCRIPT_PATH=$(cd "$(dirname "$(readlink -f "$BASH_SOURCE" 2>/dev/null || echo "$BASH_SOURCE")")" && pwd)
 SCRIPT_NAME=$(basename $BASH_SOURCE)
-SCRIPT_SHA1=$(shasum $BASH_SOURCE | cut -c1-7)
+SCRIPT_SHA1=$(sha256sum $BASH_SOURCE | cut -c1-7)
 
 set_env
 
