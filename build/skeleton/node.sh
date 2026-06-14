@@ -1654,8 +1654,8 @@ setup()
     echo "  - open the peer/consensus ports (detects your SSH port, asks first):"
     echo "       node.sh firewall"
     if [ "$prof" == "full" ]; then
-        echo "  - set a COLD reward address for the side chains:"
-        echo "       node.sh reward set 0xYOURCOLDADDRESS"
+        echo "  - side-chain reward addresses came from the \"Miner Address\" init prompts;"
+        echo "    to change one to a cold address:  node.sh reward set 0x<your-cold-address>"
     fi
     echo "  - enable autostart on reboot:  node.sh set_cron"
     echo "  - start:  node.sh start     then check:  node.sh status"
