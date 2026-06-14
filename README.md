@@ -56,7 +56,7 @@ curl -fsSL https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/s
 ## Quick start
 
 ```bash
-sudo apt-get install -y jq lsof apache2-utils curl openssl   # deps (you install these)
+sudo apt-get install -y jq lsof apache2-utils curl openssl   # dependencies
 
 ./node.sh setup       # pick the profile + download binaries + create the keystores
 ./node.sh swap        # optional: 16G swap headroom for the initial sync
@@ -66,7 +66,7 @@ sudo apt-get install -y jq lsof apache2-utils curl openssl   # deps (you install
 ./node.sh summary
 ```
 
-`setup` just initializes the chains — it does **not** install packages or touch the firewall. Install the dependencies yourself (above); `check_env` lists any that are missing with the exact `apt-get` line. `firewall` and `set_cron` use `sudo`; `swap` adds 16G of sync headroom. The RPC/WS ports always stay bound to `127.0.0.1`.
+`setup` initializes the chains; dependencies, swap, and the firewall are separate steps. Install the dependencies first (above) — `check_env` reports the exact `apt-get` line for any that are missing. `firewall` and `set_cron` use `sudo`; `swap` adds 16G of sync headroom. The RPC/WS ports always stay bound to `127.0.0.1`.
 
 Side chains that mine should be given a cold reward address. Without one they still start, but print a prominent red warning, because block rewards then credit the node's local hot account:
 
@@ -102,7 +102,7 @@ node.sh ela status
 
 | Command | Description |
 |---|---|
-| `setup` | Initialize the node (alias for `init`, with a guided next-steps summary). Does **not** install packages or touch the firewall — install deps yourself, and run `swap`/`firewall`/`set_cron` separately |
+| `setup` | Initialize the node (alias for `init`, with a guided next-steps summary). Dependencies, swap, and the firewall are separate steps — install deps first, then run `swap`/`firewall`/`set_cron` |
 | `init` | Pick the profile, download binaries, and create the keystores |
 | `swap` | (optional) Add 16 GB of swap headroom for the initial sync |
 | `start` / `up` | Start every chain in the active profile |
