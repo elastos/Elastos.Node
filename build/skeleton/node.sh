@@ -328,7 +328,19 @@ noninteractive() { [ ! -t 0 ]; }
 # profile_prompt_if_unset: ask main-chain-only vs full stack the first time.
 profile_prompt_if_unset()
 {
-    [ -n "$PROFILE_OVERRIDE" ] && return 0
+    # When --profile is supplied (PROFILE_OVERRIDE), persist that effective profile so
+    # init/setup and later start/status/health all act on the same chain set. Without
+    # this, `setup --profile mainchain` only inits ELA but leaves PROFILE_FILE unset, so
+    # a later bare `node.sh start` falls back to 'full' on uninitialized side chains.
+    if [ -n "$PROFILE_OVERRIDE" ]; then
+        case "$PROFILE_OVERRIDE" in
+            mainchain|full)
+                if [ "$(cat "$PROFILE_FILE" 2>/dev/null | tr -d '[:space:]')" != "$PROFILE_OVERRIDE" ]; then
+                    set_profile "$PROFILE_OVERRIDE" >/dev/null
+                fi ;;
+        esac
+        return 0
+    fi
     [ -f "$PROFILE_FILE" ]     && return 0
     echo "What will this node run?"
     echo "  [1] Main chain only        (ELA)"
@@ -463,22 +475,27 @@ check_env()
         echo_warn "it is better to run as a normal user without sudo permission"
     fi
 
+    # Collect every missing required tool in one pass, then exit non-zero with a
+    # single install command. Dependencies are installed manually by the operator
+    # (see README); node.sh does not install them. rotatelogs ships in apache2-utils.
+    local MISSING_TOOLS=
+    local MISSING_PKGS=
     if [ "$(which jq)" == "" ]; then
-        echo_error "cannot find jq (https://github.com/stedolan/jq)"
-        echo_info "sudo apt-get install -y jq"
-        exit
+        MISSING_TOOLS="$MISSING_TOOLS jq"
+        MISSING_PKGS="$MISSING_PKGS jq"
     fi
-
     if [ "$(which lsof)" == "" ]; then
-        echo_error "cannot find lsof"
-        echo_info "sudo apt-get install -y lsof"
-        exit
+        MISSING_TOOLS="$MISSING_TOOLS lsof"
+        MISSING_PKGS="$MISSING_PKGS lsof"
     fi
-
     if [ "$(which rotatelogs)" == "" ]; then
-        echo_error "cannot find rotatelogs"
-        echo_info "sudo apt-get install -y apache2-utils"
-        exit
+        MISSING_TOOLS="$MISSING_TOOLS rotatelogs"
+        MISSING_PKGS="$MISSING_PKGS apache2-utils"
+    fi
+    if [ -n "$MISSING_TOOLS" ]; then
+        echo_error "missing required tool(s):$MISSING_TOOLS"
+        echo_info "install them with: sudo apt-get install -y$MISSING_PKGS"
+        exit 1
     fi
 
     if [ "${BASH_ARGV[0]}" == "init" ]; then
@@ -627,6 +644,28 @@ set_cron()
     fi
 
     crontab -l 2>/dev/null
+}
+
+# swap: ensure 16G of active swap (sync headroom). Keys on ACTIVE swap, not file
+# existence, so a leftover-but-inactive /swapfile from a prior run is recovered
+# rather than skipped. Optional - run it on small-RAM boxes before the first sync.
+swap()
+{
+    if [ "$(swapon --show 2>/dev/null | wc -l)" -eq 0 ]; then
+        if [ ! -f /swapfile ]; then
+            sudo fallocate -l 16G /swapfile && sudo chmod 600 /swapfile
+        else
+            echo "found inactive /swapfile - activating it"
+            sudo chmod 600 /swapfile
+        fi
+        sudo mkswap /swapfile && sudo swapon /swapfile
+        grep -q '^/swapfile ' /etc/fstab 2>/dev/null || \
+            echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab >/dev/null
+        echo_ok "16G swap active"
+    else
+        echo "swap already active - nothing to do"
+        swapon --show
+    fi
 }
 
 extip()
@@ -1142,9 +1181,53 @@ firewall()
     if ! command -v ufw >/dev/null 2>&1; then
         echo_error "ufw not found (sudo apt-get install -y ufw)"; return 1
     fi
-    local prof p; prof=$(get_profile)
-    echo "Opening peer/consensus ports for profile '$prof' (RPC stays on 127.0.0.1)..."
-    sudo ufw allow 22/tcp    >/dev/null   # SSH
+    local prof p port ssh_ports= ANSWER
+    prof=$(get_profile)
+
+    # Detect the real SSH port(s) so enabling ufw can never lock out this session:
+    #   - sshd -T lists every 'Port' the daemon listens on (may be several, may be non-22)
+    #   - $SSH_CONNECTION's 4th field is the local port THIS session arrived on
+    # Fall back to 22 only when nothing is detected.
+    for port in $(sshd -T 2>/dev/null | awk '/^port /{print $2}') $(echo "$SSH_CONNECTION" | awk '{print $4}'); do
+        case " $ssh_ports " in *" $port "*) ;; *) [ -n "$port" ] && ssh_ports="$ssh_ports $port" ;; esac
+    done
+    ssh_ports=$(echo $ssh_ports)
+    [ -z "$ssh_ports" ] && ssh_ports=22
+
+    # Build the full list of rules (SSH first, then the profile's peer/consensus ports).
+    # RPC/WS are deliberately NOT opened - they bind to 127.0.0.1 and must stay private.
+    local cmds=
+    for port in $ssh_ports; do
+        cmds="${cmds:+$cmds\n}sudo ufw allow $port/tcp   # SSH"
+    done
+    cmds="$cmds\nsudo ufw allow 20338/tcp   # ELA P2P"
+    cmds="$cmds\nsudo ufw allow 20339/tcp   # ELA DPoS"
+    if [ "$prof" == "full" ]; then
+        for p in 20638 20648 20678; do    # EVM devp2p (tcp + udp discovery)
+            cmds="$cmds\nsudo ufw allow $p/tcp"
+            cmds="$cmds\nsudo ufw allow $p/udp"
+        done
+        for p in 20639 20649 20679; do    # EVM PBFT consensus
+            cmds="$cmds\nsudo ufw allow $p/tcp"
+        done
+    fi
+
+    echo "Firewall plan for profile '$prof' (RPC stays on 127.0.0.1):"
+    echo "  detected SSH port(s): $ssh_ports"
+    echo
+    echo -e "$cmds" | sed 's/^/  /'
+    echo "  sudo ufw --force enable"
+    echo
+    echo_warn "this enables the host firewall; only the ports above stay reachable"
+    read -p "Apply these rules and enable the firewall? (Yes/No) " ANSWER || { ANSWER=No; echo_warn "no input - not enabling the firewall"; }
+    case "$ANSWER" in
+        Yes|yes|y) ;;
+        *) echo "Skipped - firewall not enabled. Run the commands above by hand when ready."; return 0 ;;
+    esac
+
+    for port in $ssh_ports; do
+        sudo ufw allow $port/tcp >/dev/null   # SSH
+    done
     sudo ufw allow 20338/tcp >/dev/null   # ELA P2P
     sudo ufw allow 20339/tcp >/dev/null   # ELA DPoS
     if [ "$prof" == "full" ]; then
@@ -1157,7 +1240,7 @@ firewall()
         done
     fi
     sudo ufw --force enable >/dev/null
-    echo_ok "firewall configured"
+    echo_ok "firewall configured (SSH allowed on: $ssh_ports)"
     sudo ufw status verbose
 }
 
@@ -1518,6 +1601,16 @@ monitor_cmd()
 
 # setup: one-time host prep for a fresh Ubuntu box, then initialize the node.
 # Installs dependencies, adds swap, opens the firewall, enables autostart, runs init.
+# keystore_present <chain>: 0 if a real keystore exists for the chain, 1 otherwise.
+# ela keeps a single keystore.dat; esc/eid/pg keep an EVM account file under data/keystore.
+keystore_present()
+{
+    case "$1" in
+        ela) [ -f "$SCRIPT_PATH/ela/keystore.dat" ] ;;
+        *)   ls "$SCRIPT_PATH/$1/data/keystore/"UTC* >/dev/null 2>&1 ;;
+    esac
+}
+
 # clean_orphaned_config: a deleted ~/node can leave ~/.config/elastos/<chain>.txt
 # (keystore passwords) with no matching keystore, which makes init bail half-way and
 # leaves a broken half-install. Detect that split-brain and offer to clear it.
@@ -1525,12 +1618,12 @@ clean_orphaned_config()
 {
     local chain orphan= ANSWER
     for chain in ela esc eid pg; do
-        [ -f ~/.config/elastos/$chain.txt ] && [ ! -f "$SCRIPT_PATH/$chain/.init" ] && orphan="$orphan $chain"
+        [ -f ~/.config/elastos/$chain.txt ] && [ ! -f "$SCRIPT_PATH/$chain/.init" ] && ! keystore_present "$chain" && orphan="$orphan $chain"
     done
     [ -z "$orphan" ] && return 0
     echo
     echo_warn "leftover keystore passwords from a previous install (no matching keystore):$orphan"
-    echo "  these block init; the keystore they belonged to is already gone, so they are useless."
+    echo "  these block init and have no matching keystore on this host, so they are useless."
     read -p "Remove them so init can proceed? (Yes/No) " ANSWER || { ANSWER=No; echo_warn "no input - leaving password files in place (remove manually if truly orphaned)"; }
     case "$ANSWER" in
         Yes|yes|y) for chain in $orphan; do rm -f ~/.config/elastos/$chain.txt && echo_ok "removed $chain.txt"; done ;;
@@ -1540,59 +1633,33 @@ clean_orphaned_config()
 
 setup()
 {
-    echo "=== Elastos node setup ==="
+    echo "=== Elastos node setup (initialize chains) ==="
     profile_prompt_if_unset
     local prof; prof=$(get_profile)
-    echo "This will: install packages, add 16G swap, configure the firewall, enable"
-    echo "autostart, and initialize the '$prof' profile. It uses sudo."
+    echo "This initializes the '$prof' profile: downloads the chain binaries and creates"
+    echo "the keystores. It does NOT install packages, add swap, or change the firewall -"
+    echo "those are separate steps (see 'Next steps' below). Dependencies must already be"
+    echo "installed (check_env will tell you the apt-get line if any are missing)."
     local ANSWER
     read -p "Proceed (Yes/No)? " ANSWER
     if [ "$ANSWER" != "Yes" ] && [ "$ANSWER" != "yes" ] && [ "$ANSWER" != "y" ]; then
         echo "Aborted."; return 1
     fi
 
-    echo; echo "-- 1/5 dependencies --"
-    sudo apt-get update
-    sudo apt-get install -y jq lsof apache2-utils curl openssl ufw
-    [ "$prof" == "full" ] && sudo apt-get install -y nodejs npm make gcc
-
-    echo; echo "-- 2/5 swap (16G headroom for sync) --"
-    if [ "$(swapon --show 2>/dev/null | wc -l)" -eq 0 ] && [ ! -f /swapfile ]; then
-        sudo fallocate -l 16G /swapfile && sudo chmod 600 /swapfile
-        sudo mkswap /swapfile && sudo swapon /swapfile
-        grep -q '^/swapfile ' /etc/fstab 2>/dev/null || \
-            echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab >/dev/null
-        echo_ok "16G swap added"
-    else
-        echo "swap already present - skipping"
-    fi
-
-    echo; echo "-- 3/5 firewall --"
-    firewall
-
-    echo; echo "-- 4/5 autostart on reboot --"
-    ( crontab -l 2>/dev/null | grep -vE "node\.sh[[:space:]]+(start|compress_log)[[:space:]]*$"
-      echo "@reboot $SCRIPT_PATH/$SCRIPT_NAME start"
-      echo "*/10 * * * * $SCRIPT_PATH/$SCRIPT_NAME compress_log" ) | crontab -
-    echo_ok "autostart enabled (@reboot) + log compression every 10 minutes"
-    if printf '#!/bin/bash\nexec %s/%s "$@"\n' "$SCRIPT_PATH" "$SCRIPT_NAME" | sudo tee /usr/local/bin/node.sh >/dev/null 2>&1 && sudo chmod +x /usr/local/bin/node.sh 2>/dev/null; then
-        echo_ok "global command installed - run 'node.sh <command>' from anywhere"
-    else
-        echo_warn "could not install a global command; use $SCRIPT_PATH/$SCRIPT_NAME or ./node.sh"
-    fi
-
-    echo; echo "-- 5/5 initialize chains --"
     all_init
 
-    echo; echo_ok "setup complete"
+    echo; echo_ok "chains initialized ('$prof' profile)"
     echo "Next steps:"
+    echo "  - (optional) add 16G swap headroom for the initial sync:  node.sh swap"
+    echo "  - open the peer/consensus ports (detects your SSH port, asks first):"
+    echo "       node.sh firewall"
     if [ "$prof" == "full" ]; then
-        echo "  1. set a COLD reward address for the side chains:"
+        echo "  - set a COLD reward address for the side chains:"
         echo "       node.sh reward set 0xYOURCOLDADDRESS"
     fi
-    echo "  2. start:   node.sh up"
-    echo "  3. check:   node.sh status"
-    echo "  4. after full sync, get the 02/03... public key for Essentials:"
+    echo "  - enable autostart on reboot:  node.sh set_cron"
+    echo "  - start:  node.sh start     then check:  node.sh status"
+    echo "  - after full sync, get the 02/03... public key for Essentials:"
     echo "       node.sh ela status --verbose"
 }
 
@@ -2418,24 +2485,35 @@ ela_init()
         ela_update -y
     fi
 
+    # .init is the single source of truth for "already initialized". An init that
+    # was interrupted after config.json was written but before .init was touched
+    # used to wedge the chain forever (a re-run bailed on "config exists" and .init
+    # was never created). When .init is absent we instead REPAIR, preserving any
+    # real keystore at all costs.
+    local ELA_ADOPT_KEYSTORE=
     if [ -f ${SCRIPT_PATH}/ela/.init ]; then
         echo_error "ela has already been initialized"
         return
     fi
 
-    if [ -f $ELA_CONFIG ]; then
-        echo_error "$ELA_CONFIG exists"
-        return
-    fi
-
-    if [ -f $ELA_KEYSTORE_PASS_FILE ]; then
-        echo_error "$ELA_KEYSTORE_PASS_FILE exists"
-        return
-    fi
-
     if [ -f $ELA_KEYSTORE ]; then
-        echo_error "$ELA_KEYSTORE exists"
-        return
+        # A real keystore survived an interrupted init. Adopt it: we will keep the
+        # keystore untouched, (re)generate the config below if missing, and stamp
+        # .init at the end. The runtime password file is required to use it.
+        if [ ! -f $ELA_KEYSTORE_PASS_FILE ]; then
+            echo_error "$ELA_KEYSTORE exists but its password file $ELA_KEYSTORE_PASS_FILE is missing"
+            echo_error "refusing to touch the keystore - restore the password file or back up and remove the keystore, then re-run init"
+            return
+        fi
+        echo_warn "ela keystore already present - adopting it (resuming an interrupted init; keystore left untouched)"
+        ELA_ADOPT_KEYSTORE=1
+    else
+        # No keystore. Any config/tmp/password left over from a half-finished init
+        # is useless without a keystore, so clear it and start clean.
+        if [ -f $ELA_CONFIG ] || [ -f $ELA_CONFIG.tmp ] || [ -f $ELA_KEYSTORE_PASS_FILE ]; then
+            echo_warn "clearing partial ela init (config/password with no keystore) and starting clean"
+            rm -f $ELA_CONFIG $ELA_CONFIG.tmp $ELA_KEYSTORE_PASS_FILE
+        fi
     fi
 
     if [ ! -f $ELA_CONFIG ]; then
@@ -2496,25 +2574,31 @@ EOF
         fi
     fi
 
-    echo "Creating ela keystore..."
-    gen_pass
-    if [ "$KEYSTORE_PASS" == "" ]; then
-        echo_error "empty password"
-        exit
-    fi
-    cd ${SCRIPT_PATH}/ela/
-    ./ela-cli wallet create -p "$KEYSTORE_PASS" >/dev/null
-    if [ "$?" != "0" ]; then
-        echo_error "failed to create ela keystore"
-        return
-    fi
-    chmod 600 $ELA_KEYSTORE
+    if [ "$ELA_ADOPT_KEYSTORE" == "1" ]; then
+        echo "Adopting existing ela keystore (not regenerating)..."
+        cd ${SCRIPT_PATH}/ela/
+        KEYSTORE_PASS=$(cat $ELA_KEYSTORE_PASS_FILE)
+    else
+        echo "Creating ela keystore..."
+        gen_pass
+        if [ "$KEYSTORE_PASS" == "" ]; then
+            echo_error "empty password"
+            exit
+        fi
+        cd ${SCRIPT_PATH}/ela/
+        ./ela-cli wallet create -p "$KEYSTORE_PASS" >/dev/null
+        if [ "$?" != "0" ]; then
+            echo_error "failed to create ela keystore"
+            return
+        fi
+        chmod 600 $ELA_KEYSTORE
 
-    echo "Saving ela keystore password..."
-    mkdir -p $(dirname $ELA_KEYSTORE_PASS_FILE)
-    chmod 700 $(dirname $ELA_KEYSTORE_PASS_FILE)
-    echo $KEYSTORE_PASS > $ELA_KEYSTORE_PASS_FILE
-    chmod 600 $ELA_KEYSTORE_PASS_FILE
+        echo "Saving ela keystore password..."
+        mkdir -p $(dirname $ELA_KEYSTORE_PASS_FILE)
+        chmod 700 $(dirname $ELA_KEYSTORE_PASS_FILE)
+        echo $KEYSTORE_PASS > $ELA_KEYSTORE_PASS_FILE
+        chmod 600 $ELA_KEYSTORE_PASS_FILE
+    fi
 
     echo "Checking ela keystore..."
     ./ela-cli wallet account -p "$KEYSTORE_PASS"
@@ -6725,11 +6809,13 @@ usage()
     echo "  logs [chain] [-f]  tail a chain's log"
     echo "  health             exit-code health check (0 = all healthy; cron-friendly)"
     echo
-    echo "SETUP"
-    echo "  setup              prepare a fresh box + initialize (deps, swap, firewall, autostart)"
-    echo "  init               download binaries + create the keystore"
+    echo "SETUP   (install deps first: sudo apt-get install -y jq lsof apache2-utils curl openssl)"
+    echo "  init               initialize the node: download binaries + create keystores"
+    echo "  setup              alias for init, with a guided 'next steps' summary"
     echo "  profile [set P]    choose what this node runs (mainchain | full)"
-    echo "  firewall           open peer/consensus ports (RPC stays on 127.0.0.1)"
+    echo "  swap               (optional) add 16G swap headroom for the initial sync"
+    echo "  firewall           open peer/consensus ports - detects your SSH port, asks before enabling"
+    echo "  set_cron           enable autostart on reboot + log compression"
     echo "  harden             close public RPC ports + report any restart needed"
     echo "  monitor <url>      report status to a read-only monitor (push; no RPC password, no open port)"
     echo "  reward [set 0x..]  cold miner reward address for the side chains"
@@ -6747,7 +6833,7 @@ usage()
     echo
     echo "CHAINS       $(profile_chains 2>/dev/null || echo 'ela esc eid pg + oracles + arbiter')"
     echo "ALIASES      up=start   down=stop   ps=summary   rpc=jsonrpc   (kebab-case accepted)"
-    echo "MAINTAIN     set_cron   update_script   set_path"
+    echo "MAINTAIN     update_script   set_path"
     echo "FLAGS        --profile <mainchain|full>   --no-color"
     echo
     ui_dim "  deploy:$SCRIPT_PATH  sha:$SCRIPT_SHA1  network:$CHAIN_TYPE"; echo
@@ -6760,20 +6846,6 @@ SCRIPT_NAME=$(basename $BASH_SOURCE)
 SCRIPT_SHA1=$(sha256sum $BASH_SOURCE | cut -c1-7)
 
 set_env
-
-# Bootstrap for a fresh box: `setup` installs the base packages, but check_env and
-# load_config below need a few of them - chiefly jq - to run at all. Without this,
-# `node.sh setup` would exit at "cannot find jq" before it could install jq. So on
-# the setup command, install the base packages first. Idempotent: apt-get only does
-# work when something is actually missing, and setup's own install is a no-op after.
-case " $* " in
-    *" setup "*)
-        if [ "$(uname -s)" == "Linux" ] && ! command -v jq >/dev/null 2>&1; then
-            echo "Installing base packages (jq, lsof, curl, ...) needed before setup..."
-            sudo apt-get update
-            sudo apt-get install -y jq lsof apache2-utils curl openssl ufw
-        fi ;;
-esac
 
 check_env
 load_config
@@ -6853,6 +6925,9 @@ elif [ "$1" == "set_path" ]; then
 elif [ "$1" == "set_cron" ]; then
     set_cron
     exit
+elif [ "$1" == "swap" ]; then
+    swap
+    exit
 elif [ "$1" == "update_script" ] || [ "$1" == "script_update" ]; then
     update_script
     exit
@@ -6891,7 +6966,7 @@ else
        [ "$1" != "arbiter"    ]; then
         echo_error "unknown command or chain: $1"
         echo "  run '$SCRIPT_NAME help' for the full list"
-        did_you_mean "$1" "up down restart ps status summary health logs version setup init start stop update profile firewall harden monitor reward uninstall ela esc eid pg arbiter"
+        did_you_mean "$1" "up down restart ps status summary health logs version setup init swap start stop update profile firewall harden monitor set_cron reward uninstall ela esc eid pg arbiter"
         exit 1
     fi
     CHAIN_NAME=$1
