@@ -25,8 +25,8 @@ The decommissioned ECO and PGP side chains are excluded from all profiles and ar
 ## Requirements
 
 - Ubuntu (tested on 22.04 and 24.04)
-- `curl`, `jq`, and the packages installed automatically by `setup`
-- Open inbound peer-to-peer and consensus ports (handled by `setup` or the `firewall` command; see [SECURITY.md](SECURITY.md) for the port table)
+- `jq`, `lsof`, `apache2-utils`, `curl`, `openssl` — installed by you: `sudo apt-get install -y jq lsof apache2-utils curl openssl`
+- Open inbound peer-to-peer and consensus ports via the `firewall` command — it detects your SSH port and asks before enabling, so a non-22 session is never locked out (see [SECURITY.md](SECURITY.md) for the port table)
 
 ## Installation
 
@@ -38,7 +38,7 @@ curl -O https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skel
 chmod a+x node.sh
 ```
 
-Then continue with [Quick start](#quick-start) below (`./node.sh setup`). On a host that already runs a node, move it onto Elastos Node for Ubuntu instead — this preserves keystores and chain data and restarts nothing:
+Then continue with [Quick start](#quick-start) below. On a host that already runs a node, move it onto Elastos Node for Ubuntu instead — this preserves keystores and chain data and restarts nothing:
 
 ```bash
 ./node.sh migrate
@@ -56,21 +56,17 @@ curl -fsSL https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/s
 ## Quick start
 
 ```bash
-./node.sh setup      # dependencies + swap + firewall + autostart, then init
+sudo apt-get install -y jq lsof apache2-utils curl openssl   # deps (you install these)
+
+./node.sh setup       # pick the profile + download binaries + create the keystores
+./node.sh swap        # optional: 16G swap headroom for the initial sync
+./node.sh firewall    # open peer/consensus ports — detects your SSH port, asks before enabling; RPC stays on loopback
+./node.sh set_cron    # restart on reboot + log compression
 ./node.sh start
 ./node.sh summary
 ```
 
-`setup` prompts for the deployment profile (main chain only, or full stack) and uses `sudo` for system changes. It also installs a global `node.sh` wrapper in `/usr/local/bin`, so subsequent commands can be run from any directory.
-
-To perform the steps individually instead:
-
-```bash
-./node.sh profile set mainchain   # or: full
-./node.sh init                    # download binaries + create the keystore
-./node.sh firewall                # open peer/consensus ports (RPC stays on loopback)
-./node.sh start
-```
+`setup` just initializes the chains — it does **not** install packages or touch the firewall. Install the dependencies yourself (above); `check_env` lists any that are missing with the exact `apt-get` line. `firewall` and `set_cron` use `sudo`; `swap` adds 16G of sync headroom. The RPC/WS ports always stay bound to `127.0.0.1`.
 
 Side chains that mine should be given a cold reward address. Without one they still start, but print a prominent red warning, because block rewards then credit the node's local hot account:
 
@@ -106,8 +102,9 @@ node.sh ela status
 
 | Command | Description |
 |---|---|
-| `setup` | Prepare a fresh host: dependencies, 16 GB swap, firewall, autostart, then `init` |
-| `init` | Download binaries and create the keystore |
+| `setup` | Initialize the node (alias for `init`, with a guided next-steps summary). Does **not** install packages or touch the firewall — install deps yourself, and run `swap`/`firewall`/`set_cron` separately |
+| `init` | Pick the profile, download binaries, and create the keystores |
+| `swap` | (optional) Add 16 GB of swap headroom for the initial sync |
 | `start` / `up` | Start every chain in the active profile |
 | `stop` / `down` | Stop every chain in the active profile |
 | `restart` | Restart the profile's chains one at a time (excludes `ela` unless `--force` is given) |
@@ -118,7 +115,8 @@ node.sh ela status
 | `update` | Update chain binaries |
 | `update_script` | Update `node.sh` itself (checksum-verified) and re-close the firewall |
 | `profile [set <p>]` | Show or set the deployment profile |
-| `firewall` | Open the peer/consensus ports for the active profile |
+| `firewall` | Open the peer/consensus ports — detects your SSH port (`sshd -T` + `$SSH_CONNECTION`) and asks before enabling `ufw`; RPC stays on `127.0.0.1` |
+| `set_cron` | Enable @reboot autostart and 10-minute log compression |
 | `harden` | Close public access to the RPC, oracle, and arbiter ports; report any chain that still needs a restart |
 | `reward [set <0x..>]` | Show or set the cold mining reward address for all side chains |
 | `migrate [--dry-run]` | Move an existing installation (the original Elastos.Node runner or an earlier version) onto Elastos Node for Ubuntu |
@@ -210,7 +208,6 @@ Chain binaries are updated from the official Elastos distribution servers.
 | `~/node/<chain>/logs/` | Rotated log files |
 | `~/.config/elastos/` | Keystore passwords, profile, node configuration |
 | `~/.config/elastos/profile` | Active deployment profile |
-| `/usr/local/bin/node.sh` | Global wrapper installed by `setup` |
 
 ## Versioning
 
