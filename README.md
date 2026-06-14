@@ -30,29 +30,28 @@ The decommissioned ECO and PGP side chains are excluded from all profiles and ar
 
 ## Installation
 
-One command installs the script and, on a host that already runs a node, migrates it onto Elastos Node for Ubuntu. It verifies the published checksum and never touches keystores or chain data:
+Place the script by hand:
+
+```bash
+mkdir ~/node && cd ~/node
+curl -O https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/node.sh
+chmod a+x node.sh
+```
+
+Then continue with [Quick start](#quick-start) below (`./node.sh setup`). On a host that already runs a node, move it onto Elastos Node for Ubuntu instead — this preserves keystores and chain data and restarts nothing:
+
+```bash
+./node.sh migrate
+```
+
+<details>
+<summary>Or use the one-line installer (downloads + verifies the published checksum for you; runs <code>migrate</code> on an existing install)</summary>
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/install.sh | bash
 ```
 
-- On a **fresh host** it installs `node.sh` and points you to `node.sh setup`.
-- On an **existing node** (the original Elastos.Node runner or an earlier version) it backs up the old `node.sh`, swaps in the new script, and runs `migrate` (which restarts nothing).
-
-To review the installer before running it, download it first:
-
-```bash
-curl -fsSL -o install.sh https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/install.sh
-less install.sh && bash install.sh
-```
-
-Prefer to place the script by hand:
-
-```bash
-mkdir -p ~/node && cd ~/node
-curl -fsSLO https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/node.sh
-chmod +x node.sh
-```
+</details>
 
 ## Quick start
 
