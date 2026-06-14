@@ -35,9 +35,9 @@ Elastos Node for Ubuntu keeps the original data layout, binaries, daemons, and c
 
 | Area | Earlier Elastos.Node runner | Elastos Node for Ubuntu |
 |---|---|---|
-| Installation | Manual steps from the documentation: dependencies, swap, firewall, cron, then per-chain `init` | `setup`: one command for dependencies, swap, firewall, autostart, and `init` |
+| Installation | Manual steps from the documentation: dependencies, swap, firewall, cron, then per-chain `init` | Checksum-verified one-line installer; `setup` initializes the chains; `swap`, `firewall` (detects your SSH port and confirms before enabling), and `set_cron` are dedicated commands |
 | Deployment shape | Full stack only | `mainchain` and `full` profiles; `--profile` override per command |
-| Command style | `./node.sh <chain> <command>` | Unchanged, plus `up`, `down`, `restart`, `ps`, `logs [-f]`, `version`, `rpc`, and a global `node.sh` wrapper |
+| Command style | `./node.sh <chain> <command>` | Unchanged, plus `up`, `down`, `restart`, `ps`, `logs [-f]`, `version`, and `rpc` |
 | Fleet overview | Per-chain status blocks only | `summary` (one row per chain) and `health` (verdict with exit code) |
 | Machine output | None | `--json` on `summary` and `status`; `--no-color` and `NO_COLOR` support |
 | Log access | Locate the rotated log file manually | `logs [<chain>] [-f]` selects the most recent log |

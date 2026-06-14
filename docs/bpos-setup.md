@@ -17,10 +17,11 @@ After registering the BPoS node with Essentials, complete the BPoS node build wi
 
 ### ELA node setup
 
-1. Install `node.sh` with the one-liner. On a fresh host follow it with `node.sh setup` (dependencies, swap, firewall, autostart, then init):
+1. Install `node.sh` with the one-liner, then install the dependencies it needs:
 
    ```bash
    $ curl -fsSL https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/install.sh | bash
+   $ sudo apt-get install -y jq lsof apache2-utils curl openssl
    ```
 
 2. Select the `mainchain` profile so only the ELA node is installed and managed:
@@ -29,10 +30,11 @@ After registering the BPoS node with Essentials, complete the BPoS node build wi
    $ ~/node/node.sh profile set mainchain
    ```
 
-3. Initialize and start the node, then bind the nodepublickey using Essentials:
+3. Initialize the node, open the peer/consensus ports, and start it, then bind the nodepublickey using Essentials:
 
    ```bash
    $ ~/node/node.sh init
+   $ ~/node/node.sh firewall
    $ ~/node/node.sh start
    ```
 

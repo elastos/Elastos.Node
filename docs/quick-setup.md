@@ -8,10 +8,12 @@ The fastest path runs the installer. It downloads `node.sh`, verifies the publis
 $ curl -fsSL https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/install.sh | bash
 ```
 
-On a fresh host this installs `node.sh` and points you to `node.sh setup`, which is the turnkey path: it installs dependencies, adds swap, configures the firewall, enables autostart, and then runs `init`.
+On a fresh host this installs `node.sh` and prints the next steps. Install the dependencies, then `node.sh setup` initializes the chains; open the peer/consensus ports separately with `node.sh firewall`, which detects your SSH port and asks before enabling:
 
 ```bash
+$ sudo apt-get install -y jq lsof apache2-utils curl openssl
 $ ~/node/node.sh setup
+$ ~/node/node.sh firewall
 ```
 
 To place the script by hand instead, download it and make it executable:

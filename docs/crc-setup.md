@@ -16,10 +16,11 @@ After registering the CRC node with Essentials, complete the CRC node build with
 
 ### ELA node setup
 
-1. Install `node.sh` with the one-liner, then run `node.sh setup` on a fresh host (dependencies, swap, firewall, autostart, then init):
+1. Install `node.sh` with the one-liner and the dependencies, then run `node.sh setup` on a fresh host:
 
    ```bash
    $ curl -fsSL https://raw.githubusercontent.com/elastos/Elastos.Node/master/build/skeleton/install.sh | bash
+   $ sudo apt-get install -y jq lsof apache2-utils curl openssl
    $ ~/node/node.sh setup
    ```
 
@@ -29,11 +30,12 @@ After registering the CRC node with Essentials, complete the CRC node build with
    $ ~/node/node.sh profile set full
    ```
 
-   This installs all programs in one pass: ELA, ESC, EID, PG, the ESC/EID/PG oracles, and the arbiter. View more sample [programs](archives/step-by-step-setup/installing-programs).
+   This initializes all chains in one pass: ELA, ESC, EID, PG, the ESC/EID/PG oracles, and the arbiter. View more sample [programs](archives/step-by-step-setup/installing-programs).
 
-2. Start the node and bind the nodepublickey using Essentials:
+2. Open the peer/consensus ports, start the node, and bind the nodepublickey using Essentials:
 
    ```bash
+   $ ~/node/node.sh firewall
    $ ~/node/node.sh start
    ```
 
