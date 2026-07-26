@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Elastos Node for Ubuntu - node management for the Elastos main chain, side chains, oracles, and arbiter
-ELASTOS_NODE_VERSION="1.1.0"
+ELASTOS_NODE_VERSION="1.2.0"
 
 # Reset override flags so a value inherited from the environment cannot silently enable them.
 FORCE_ELA=
@@ -2146,6 +2146,7 @@ ela_usage()
     echo
     echo "  init            Install and configure $CHAIN_NAME_U"
     echo "  update          Update $CHAIN_NAME_U"
+    echo "  preflight       Report what the next start will do (read-only; run it first)"
     echo
     echo "  start           Start $CHAIN_NAME_U daemon"
     echo "  stop            Stop $CHAIN_NAME_U daemon"
@@ -2383,6 +2384,101 @@ ela_jsonrpc()
         -X POST --data "$DATA" \
         -u $ELA_RPC_USER:$ELA_RPC_PASS \
         http://127.0.0.1:$ELA_RPC_PORT | jq .
+}
+
+ela_preflight()
+{
+    # Read-only. Run BEFORE starting the node on recovery day: it reports what the
+    # next start will DO -- rewind, nothing, or refuse -- instead of making the
+    # operator start it and find out.
+    #
+    # The chain-state prediction is delegated to `ela-cli preflight`, which reads the
+    # block store through a read-only driver. It is NOT reimplemented here: a shell
+    # copy of "will this node rewind?" would drift from the code that actually
+    # decides. This function adds only what node.sh knows and the binary does not.
+    local DIR_ELA=$SCRIPT_PATH/ela
+    local CLI=$DIR_ELA/ela-cli
+    local DATA=$DIR_ELA/elastos
+
+    if [ ! -x "$CLI" ]; then
+        echo_error "ela-cli not found at $CLI"
+        echo "  run '$SCRIPT_NAME ela init' first"
+        return 1
+    fi
+
+    # `preflight` ships with the recovery release only. An older binary would fail
+    # with an opaque cli error, so say plainly what is wrong and how to fix it.
+    if ! "$CLI" preflight --help >/dev/null 2>&1; then
+        echo_error "this ela-cli has no 'preflight' command"
+        echo "  Your binary predates the recovery release, so it also cannot perform"
+        echo "  the recovery. Update it first, then run this again:"
+        echo
+        echo "    $SCRIPT_NAME ela update"
+        echo "    $SCRIPT_NAME ela preflight"
+        return 1
+    fi
+
+    if [ ! -d "$DATA/data" ]; then
+        echo_error "no chain store under $DATA"
+        echo "  expected $DATA/data -- has this node ever synced?"
+        return 2
+    fi
+
+    echo
+    echo "=============================================================================="
+    echo "ELA PRE-FLIGHT (read-only). Run this before '$SCRIPT_NAME ela start'."
+    echo "=============================================================================="
+
+    # 1. the node must be stopped: the store is locked while it runs.
+    #    Scoped to THIS store rather than to any ela on the host -- a box can run
+    #    more than one node, and a global pgrep would refuse to check a store that
+    #    is idle. ela-cli preflight has the final say (it exits 3 on a held lock).
+    local ABS_DATA=$(cd "$DATA" 2>/dev/null && pwd -P)
+    local HOLDER=
+    for _pid in $(pgrep -x ela 2>/dev/null); do
+        if ls -l /proc/$_pid/fd 2>/dev/null | grep -q " ${ABS_DATA}/"; then HOLDER=$_pid; break; fi
+        case "$(readlink -f /proc/$_pid/cwd 2>/dev/null)" in
+            "$ABS_DATA"|"$ABS_DATA"/*) HOLDER=$_pid; break ;;
+        esac
+    done
+    if [ -n "$HOLDER" ]; then
+        echo_error "ela is RUNNING (pid $HOLDER) on this chain store -- the store is locked"
+        echo "  stop it, then run this again:"
+        echo "    $SCRIPT_NAME ela stop && $SCRIPT_NAME ela preflight"
+        return 3
+    fi
+    echo_ok "no node is using this chain store"
+
+    # 2. the binary that will actually run
+    local VER=$(ela_ver 2>/dev/null)
+    echo_info "binary:   ${VER:-unknown}"
+    echo_info "sha256:   $(sha256sum "$DIR_ELA/ela" 2>/dev/null | cut -c1-64)"
+    echo "          Compare that against the published checksum for the release."
+
+    # 3. headroom for the rewind
+    local SZ_KB=$(du -sk "$DATA" 2>/dev/null | awk '{print $1}')
+    local AV_KB=$(df -Pk "$DATA" 2>/dev/null | awk 'NR==2{print $4}')
+    if [ -n "$SZ_KB" ] && [ -n "$AV_KB" ]; then
+        echo_info "disk:     store $((SZ_KB/1024/1024)) GiB, free $((AV_KB/1024/1024)) GiB"
+        [ "$AV_KB" -lt "$((SZ_KB/5))" ] && \
+            echo_warn "less than 20% of the store size is free"
+    fi
+
+    # 4. the prediction, from the node's own store
+    echo
+    "$CLI" preflight --datadir "$DATA" "$@"
+    local RC=$?
+
+    echo
+    case "$RC" in
+        0) echo_ok    "ready -- you can run '$SCRIPT_NAME ela start'" ;;
+        2) echo_error "no readable chain store" ;;
+        3) echo_error "the store is locked -- stop the node and run this again" ;;
+        4) echo_error "the node WILL REFUSE to start. Fix the cause above; do NOT start it yet." ;;
+        1) echo_error "configuration problem -- see above" ;;
+        *) echo_error "ela-cli preflight failed (exit $RC)" ;;
+    esac
+    return $RC
 }
 
 ela_status()
@@ -6955,6 +7051,9 @@ chain_help()
     echo "  start   stop   restart   status [--json]   health   logs [-f]"
     echo "  client   rpc   init   update   version"
     case "$chain" in
+        ela) echo "  preflight      what the next start will do (read-only) -- run before start" ;;
+    esac
+    case "$chain" in
         ela)
             echo "  send           transfer"
             echo "  governance:    register-bpos activate-bpos unregister-bpos vote-bpos"
@@ -7174,6 +7273,7 @@ else
          [ "$2" == "jsonrpc" ] || \
          [ "$2" == "update"  ] || [ "$2" == "upgrade" ] || \
          [ "$2" == "init"    ] || \
+         [ "$2" == "preflight" ] || \
          [ "$2" == "purge"   ] || \
          [ "$2" == "register_bpos"   ] || \
          [ "$2" == "activate_bpos"   ] || \
@@ -7195,7 +7295,7 @@ else
     else
         echo_error "unknown command: $2"
         echo "  run '$SCRIPT_NAME $CHAIN_NAME' to see $CHAIN_NAME commands"
-        did_you_mean "$2" "up down restart start stop status health logs init update client rpc jsonrpc send transfer version register_bpos activate_bpos vote_bpos stake_bpos claim_bpos"
+        did_you_mean "$2" "up down restart start stop status health logs init update preflight client rpc jsonrpc send transfer version register_bpos activate_bpos vote_bpos stake_bpos claim_bpos"
         exit 1
     fi
     # command aliases
