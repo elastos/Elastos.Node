@@ -1136,17 +1136,27 @@ chain_prepare_stage()
     # Integrity: if a published checksum exists the download MUST match it. Same
     # rule update_script already applies to node.sh itself. A missing .sha256 is
     # not fatal (none is published upstream today); a mismatched one always is.
-    local SHA_WANT=$(curl -fsSL --connect-timeout 15 --max-time 60 "$URL_LATEST.sha256" 2>/dev/null | awk '{print $1}')
+    # Only ENFORCE a value that is actually a digest. A .sha256 served as HTML, a
+    # soft 404, a BSD-tag line ("SHA256 (file) = ..."), or CRLF must not be
+    # treated as a hash: a false mismatch here would block the whole fleet's
+    # update. Extract the first 64-hex token, which matches every common format.
+    local SHA_RAW=$(curl -fsSL --connect-timeout 15 --max-time 60 "$URL_LATEST.sha256" 2>/dev/null | tr -d '\r')
+    local SHA_WANT=$(echo "$SHA_RAW" | grep -ioE '\b[0-9a-f]{64}\b' | head -n 1)
     if [ -n "$SHA_WANT" ]; then
         local SHA_GOT=$(sha256sum "$TGZ_LATEST" 2>/dev/null | awk '{print $1}')
-        if [ "$SHA_WANT" != "$SHA_GOT" ]; then
+        if [ -z "$SHA_GOT" ]; then
+            echo_warn "sha256sum unavailable - cannot verify $TGZ_LATEST"
+        elif [ "$SHA_WANT" != "$SHA_GOT" ]; then
             echo_error "checksum mismatch - refusing to install $TGZ_LATEST"
             echo "  want: $SHA_WANT"
             echo "  got:  $SHA_GOT"
             rm -f "$TGZ_LATEST"
             return 4
+        else
+            echo_ok "checksum verified"
         fi
-        echo_ok "checksum verified"
+    elif [ -n "$SHA_RAW" ]; then
+        echo_warn "no usable checksum at $URL_LATEST.sha256 - installing unverified"
     else
         echo_warn "no published checksum at $URL_LATEST.sha256 - installing unverified"
     fi
@@ -2155,14 +2165,21 @@ all_status()
 
 all_update()
 {
-    local chain failed= rc=0
+    local chain failed= declined= crc rc=0
     for chain in $(profile_chains); do
         "${chain}_installed" || continue
-        if ! "${chain}_update"; then
-            failed="$failed $chain"
-            rc=1
-        fi
+        "${chain}_update"; crc=$?
+        # 3 = the operator answered No at the prompt. That is a deliberate skip,
+        # not a failure, so it must not be reported as one.
+        case $crc in
+            0) ;;
+            3) declined="$declined $chain" ;;
+            *) failed="$failed $chain"; rc=1 ;;
+        esac
     done
+    if [ -n "$declined" ]; then
+        echo; echo_warn "not updated (canceled):$declined"
+    fi
     if [ -n "$failed" ]; then
         echo; echo_error "update FAILED for:$failed"
         echo "  those chains still run their previous binary"
@@ -7160,6 +7177,21 @@ chain_help()
     echo "  client   rpc   init   update   version"
     case "$chain" in
         ela) echo "  preflight      what the next start will do (read-only) -- run before start" ;;
+    esac
+    echo
+    echo "  update options:  -n  do not start the daemon after updating"
+    echo "                   -y  do not prompt for confirmation"
+    case "$chain" in
+        ela)
+            echo
+            echo "  To update and inspect BEFORE the daemon runs, use -n. Without it the"
+            echo "  daemon restarts as soon as the new binary is installed, and preflight"
+            echo "  cannot read a chain store that a running node has locked:"
+            echo "    $SCRIPT_NAME ela stop"
+            echo "    $SCRIPT_NAME ela update -n -y"
+            echo "    $SCRIPT_NAME ela preflight"
+            echo "    $SCRIPT_NAME ela start"
+            ;;
     esac
     case "$chain" in
         ela)
