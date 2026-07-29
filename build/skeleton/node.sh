@@ -998,6 +998,100 @@ get_elastos_ver_latest()
 #
 # common chain functions
 #
+# ela_consensus [on|off]: read or set EnableArbiter in the ela config.
+#
+# This is the DPoS CONSENSUS ROLE inside the ela daemon. It is NOT the separate
+# `node.sh arbiter` cross-chain relay service; that one is untouched by this
+# command and should not be stopped on account of it.
+#
+# Why this exists: a coordinated recovery requires starting once WITHOUT taking a
+# seat in consensus, verifying the node's state, and only then joining. A node
+# that joins holding the wrong chain state can stall the whole consensus set, so
+# the edit has to be reliable rather than a hand-typed jq line on a live node.
+#
+# The write is atomic and validated: the new document must parse before it
+# replaces the old one, the original is kept as a timestamped backup, and the
+# file mode is preserved because this config also holds the RPC credentials.
+ela_consensus()
+{
+    local action=$1
+    local cfg=$SCRIPT_PATH/ela/config.json
+    local key='.Configuration.DPoSConfiguration.EnableArbiter'
+
+    if [ ! -f "$cfg" ]; then
+        echo_error "no ela config at $cfg - run '$SCRIPT_NAME ela init' first"
+        return 1
+    fi
+    if ! jq -e . "$cfg" >/dev/null 2>&1; then
+        echo_error "$cfg is not valid JSON - refusing to touch it"
+        return 1
+    fi
+
+    local cur=$(jq -r "$key // false" "$cfg" 2>/dev/null)
+
+    case "$action" in
+        ""|status|show)
+            if [ "$cur" == "true" ]; then
+                echo "consensus role: $(ui_bold ENABLED)  (this node takes a seat in DPoS consensus)"
+            else
+                echo "consensus role: $(ui_bold DISABLED) (this node syncs only; it does not arbitrate)"
+            fi
+            echo "  set with:  $SCRIPT_NAME ela consensus off   |   $SCRIPT_NAME ela consensus on"
+            return 0
+            ;;
+        on|enable|true)   local want=true  ;;
+        off|disable|false) local want=false ;;
+        *)
+            echo_error "unknown option: $action"
+            echo "  usage: $SCRIPT_NAME ela consensus [status|on|off]"
+            return 1
+            ;;
+    esac
+
+    if [ "$cur" == "$want" ]; then
+        echo_ok "consensus role is already $( [ "$want" == "true" ] && echo ENABLED || echo DISABLED ) - nothing to do"
+        return 0
+    fi
+
+    local bk=$cfg.bak.$(date '+%F-%H%M%S')
+    if ! cp -p "$cfg" "$bk"; then
+        echo_error "could not back up $cfg - refusing to edit it"
+        return 1
+    fi
+
+    # write to a temp file, prove it parses AND that the key actually took, then
+    # move it into place. A half-written config would stop the node from starting.
+    if ! jq "$key = $want" "$cfg" > "$cfg.tmp" 2>/dev/null; then
+        echo_error "failed to set $key - the config was NOT changed"
+        rm -f "$cfg.tmp"
+        return 1
+    fi
+    if ! jq -e . "$cfg.tmp" >/dev/null 2>&1 || \
+       [ "$(jq -r "$key" "$cfg.tmp" 2>/dev/null)" != "$want" ]; then
+        echo_error "the rewritten config did not verify - the config was NOT changed"
+        rm -f "$cfg.tmp"
+        return 1
+    fi
+    chmod --reference="$cfg" "$cfg.tmp" 2>/dev/null || chmod 600 "$cfg.tmp"
+    if ! mv "$cfg.tmp" "$cfg"; then
+        echo_error "could not replace $cfg - the config was NOT changed"
+        rm -f "$cfg.tmp"
+        return 1
+    fi
+
+    echo_ok "consensus role $( [ "$want" == "true" ] && echo ENABLED || echo DISABLED )  (backup: $bk)"
+    echo
+    # `ela restart` deliberately refuses, so saying "restart" here would send the
+    # operator down a path that silently does nothing.
+    if chain_running ela 2>/dev/null; then
+        echo_warn "the running node is still using the OLD setting. This change is not live yet."
+        echo "  apply it with:  $SCRIPT_NAME ela stop && $SCRIPT_NAME ela start"
+    else
+        echo "  takes effect on the next  $SCRIPT_NAME ela start"
+    fi
+    return 0
+}
+
 # chain_binary <chain>: one line identifying the build this node runs, for fleet
 # verification. Read-only: it starts nothing and changes nothing.
 #
@@ -7206,7 +7300,11 @@ chain_help()
     echo "  start   stop   restart   status [--json]   health   logs [-f]"
     echo "  client   rpc   init   update   version   binary"
     case "$chain" in
-        ela) echo "  preflight      what the next start will do (read-only) -- run before start" ;;
+        ela)
+            echo "  preflight      what the next start will do (read-only) -- run before start"
+            echo "  consensus      show or set the DPoS consensus role: consensus [status|on|off]"
+            echo "                 (this is EnableArbiter in the ela daemon, NOT the arbiter relay service)"
+            ;;
     esac
     echo
     echo "  update options:  -n  do not start the daemon after updating"
@@ -7442,6 +7540,8 @@ else
          [ "$2" == "logs"    ] || \
          [ "$2" == "version" ] || \
          [ "$2" == "binary"  ] || \
+         [ "$2" == "consensus" ] || \
+         [ "$2" == "arbiter"   ] || \
          [ "$2" == "client"  ] || \
          [ "$2" == "jsonrpc" ] || \
          [ "$2" == "update"  ] || [ "$2" == "upgrade" ] || \
@@ -7489,6 +7589,14 @@ else
             *)                  render_status_one $CHAIN_NAME ;;
         esac
         exit
+    fi
+    if [ "$COMMAND" == "consensus" ] || [ "$COMMAND" == "arbiter" ]; then
+        if [ "$CHAIN_NAME" != "ela" ]; then
+            echo_error "consensus role applies to ela only"
+            exit 1
+        fi
+        ela_consensus "$3"
+        exit $?
     fi
     if [ "$COMMAND" == "binary" ]; then
         chain_binary $CHAIN_NAME
