@@ -998,6 +998,36 @@ get_elastos_ver_latest()
 #
 # common chain functions
 #
+# chain_binary <chain>: one line identifying the build this node runs, for fleet
+# verification. Read-only: it starts nothing and changes nothing.
+#
+# No digest is published for the chain releases, so there is no master value to
+# check a node against. The point is to compare nodes to EACH OTHER. Every node
+# in the fleet should print the same version and the same fingerprint; a node
+# whose line differs is running a different build, which is the condition that
+# splits or halts consensus after a coordinated upgrade.
+chain_binary()
+{
+    local chain=$1
+    local bin=$SCRIPT_PATH/$chain/$chain
+    local ver=$("${chain}_ver" 2>/dev/null)
+    local sha=-
+    [ -f "$bin" ] && sha=$(sha256sum "$bin" 2>/dev/null | cut -c1-16)
+    printf '%s | %-24s | %s\n' "$(hostname)" "${ver:-$chain N/A}" "$sha"
+}
+
+# all_binary: the same line for every installed chain in the profile. Collect it
+# from every node and confirm the lines agree before consensus restarts, and
+# again before any coordinated height gate.
+all_binary()
+{
+    local chain
+    for chain in $(profile_chains); do
+        "${chain}_installed" 2>/dev/null || continue
+        chain_binary "$chain"
+    done
+}
+
 # chain_stage_failed: report a failed or declined chain download/stage.
 #
 # chain_prepare_stage returns 0 on success, 3 when the operator declines the
@@ -7174,7 +7204,7 @@ chain_help()
     echo "Usage:  $SCRIPT_NAME $chain <command> [options]"
     echo
     echo "  start   stop   restart   status [--json]   health   logs [-f]"
-    echo "  client   rpc   init   update   version"
+    echo "  client   rpc   init   update   version   binary"
     case "$chain" in
         ela) echo "  preflight      what the next start will do (read-only) -- run before start" ;;
     esac
@@ -7241,6 +7271,7 @@ usage()
     echo "  migrate            move an existing install onto this tool (--dry-run | --apply)"
     echo "  uninstall          stop + remove the install (keystore backed up)"
     echo "  version | -v       tool + chain versions"
+    echo "  binary [chain]     one-line build fingerprint per chain, to compare across the fleet"
     echo
     echo "PER-CHAIN    $SCRIPT_NAME <chain> <command>"
     echo "  start stop restart status [--json] health logs [-f] client rpc init update version"
@@ -7350,6 +7381,7 @@ fi
 
 # chain commands
 if [ "$1" == "init"    ] || \
+   [ "$1" == "binary"  ] || \
    [ "$1" == "start"   ] || \
    [ "$1" == "stop"    ] || \
    [ "$1" == "status"  ] || \
@@ -7409,6 +7441,7 @@ else
          [ "$2" == "restart" ] || \
          [ "$2" == "logs"    ] || \
          [ "$2" == "version" ] || \
+         [ "$2" == "binary"  ] || \
          [ "$2" == "client"  ] || \
          [ "$2" == "jsonrpc" ] || \
          [ "$2" == "update"  ] || [ "$2" == "upgrade" ] || \
@@ -7456,6 +7489,10 @@ else
             *)                  render_status_one $CHAIN_NAME ;;
         esac
         exit
+    fi
+    if [ "$COMMAND" == "binary" ]; then
+        chain_binary $CHAIN_NAME
+        exit $?
     fi
     if [ "$COMMAND" == "health" ]; then
         render_health $CHAIN_NAME
