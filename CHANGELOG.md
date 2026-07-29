@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. Releases are tagged `vMAJOR.MINOR.PATCH`.
 
+## v1.2.2 - `ela consensus` actually applies the change
+
+### Fixed
+- **`ela consensus on|off` changed nothing and reported success.** The dispatcher does `shift 2` before the per-chain handlers, so the operator's `on`/`off` arrives in `$1`, but the handler read `$3`, which is empty by then. `ela_consensus` received an empty action, fell into its status branch, printed the current state and returned 0. Both directions were unreachable from the command line, and the output read as confirmation, so there was no way for an operator to notice. Every neighbouring handler in the same block already read `$1`; this was the only one that did not. Found by running the fork-day procedure end to end on a live mainnet council node.
+
+  This mattered because both uses of the command exist to protect consensus: disabling the role so a node can rewind without a seat, and re-enabling it once the rewind is verified. The v1.2.1 tests exercised `ela_consensus` directly rather than through the dispatcher, so they passed against the broken call site. The behaviour is now proven through the argument path, asserting the config file actually changed rather than that the command exited 0.
+
 ## v1.2.1 - The update path tells the truth
 
 ### Fixed

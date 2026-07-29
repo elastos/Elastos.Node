@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Elastos Node for Ubuntu - node management for the Elastos main chain, side chains, oracles, and arbiter
-ELASTOS_NODE_VERSION="1.2.1"
+ELASTOS_NODE_VERSION="1.2.2"
 
 # Reset override flags so a value inherited from the environment cannot silently enable them.
 FORCE_ELA=
@@ -7692,7 +7692,7 @@ else
             echo_error "consensus role applies to ela only"
             exit 1
         fi
-        ela_consensus "$3"
+        ela_consensus "$1"
         exit $?
     fi
     if [ "$COMMAND" == "binary" ]; then
