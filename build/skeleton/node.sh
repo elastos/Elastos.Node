@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Elastos Node for Ubuntu - node management for the Elastos main chain, side chains, oracles, and arbiter
-ELASTOS_NODE_VERSION="1.2.0"
+ELASTOS_NODE_VERSION="1.2.1"
 
 # Reset override flags so a value inherited from the environment cannot silently enable them.
 FORCE_ELA=
@@ -998,6 +998,237 @@ get_elastos_ver_latest()
 #
 # common chain functions
 #
+# ELA_ROLLBACK_TARGET: the height the v1.0.0 recovery rewinds to. Compiled into
+# the daemon as MainNetForcedRollbackHeight and pinned there, so it is a constant
+# for this network, not a tunable.
+ELA_ROLLBACK_TARGET=2260450
+
+# ela_rewound: can this node safely take a seat in consensus?
+#
+# Read-only, and unlike `ela preflight` it runs against a RUNNING node, which is
+# the state the operator is in after the first start.
+#
+# A node that joins consensus still holding pre-recovery state can stall the
+# whole consensus set, so this answers that one question directly instead of
+# leaving an operator to eyeball a version string, a height and a directory
+# listing and decide for themselves.
+#
+# Self-limiting by design: the checkpoint check only applies while the node sits
+# exactly at the rollback target. Once the recovered chain moves past it, files
+# named above the target are legitimate again and the check stops running.
+ela_rewound()
+{
+    local fail=0 warn=0
+    local ver height cpdir above
+
+    echo "Pre-consensus check for ela (read-only)"
+    echo
+
+    # 1. the binary that is running
+    ver=$(ela_ver 2>/dev/null)
+    if echo "$ver" | grep -q 'v1\.0\.0'; then
+        echo_ok "binary:      $ver"
+    elif echo "$ver" | grep -q 'N/A'; then
+        echo_error "binary:      not installed"
+        fail=1
+    else
+        echo_error "binary:      $ver  (expected v1.0.0 - this node cannot perform the recovery)"
+        fail=1
+    fi
+
+    # 2. where the chain store actually is
+    height=$(ela_height 2>/dev/null)
+    if [ -z "$height" ]; then
+        echo_error "height:      unavailable (is ela running? try '$SCRIPT_NAME ela status')"
+        fail=1
+    elif [ "$height" -eq "$ELA_ROLLBACK_TARGET" ]; then
+        echo_ok "height:      $height (parked exactly at the rollback target)"
+    elif [ "$height" -gt "$ELA_ROLLBACK_TARGET" ]; then
+        echo_ok "height:      $height (moved forward on the recovered chain)"
+    else
+        echo_error "height:      $height (BELOW the rollback target $ELA_ROLLBACK_TARGET - this node has not caught up)"
+        fail=1
+    fi
+
+    # 3. leftover tx-pool checkpoint above the target. Only meaningful while the
+    #    node is parked: past the target these names are written again normally.
+    cpdir=$SCRIPT_PATH/ela/elastos/data/checkpoints/cp_txPool
+    if [ -n "$height" ] && [ "$height" -eq "$ELA_ROLLBACK_TARGET" ] 2>/dev/null; then
+        if [ -d "$cpdir" ]; then
+            above=$(ls -1 "$cpdir" 2>/dev/null | sed -n 's/^\([0-9][0-9]*\)\.txpcp$/\1/p' |
+                    awk -v t="$ELA_ROLLBACK_TARGET" '$1 > t' | tr '\n' ' ')
+            if [ -n "$above" ]; then
+                echo_warn "checkpoint:  found above the target: $above"
+                echo "             the node has not purged them. Do NOT delete these by hand."
+                warn=1
+            else
+                echo_ok "checkpoint:  none above the target"
+            fi
+        else
+            echo_ok "checkpoint:  no cp_txPool directory"
+        fi
+    fi
+
+    echo
+    if [ "$fail" -ne 0 ]; then
+        echo_error "NOT READY - do not enable the consensus role on this node"
+        echo "  fix the failing item above, then run this again"
+        return 1
+    fi
+    if [ "$warn" -ne 0 ]; then
+        echo_warn "checks passed, but see the checkpoint warning above before enabling consensus"
+        return 1
+    fi
+    echo_ok "READY - this node can take a seat in consensus"
+    echo "  enable it with:  $SCRIPT_NAME ela consensus on"
+    echo "  then:            $SCRIPT_NAME ela stop && $SCRIPT_NAME ela start"
+    return 0
+}
+
+# ela_consensus [on|off]: read or set EnableArbiter in the ela config.
+#
+# This is the DPoS CONSENSUS ROLE inside the ela daemon. It is NOT the separate
+# `node.sh arbiter` cross-chain relay service; that one is untouched by this
+# command and should not be stopped on account of it.
+#
+# Why this exists: a coordinated recovery requires starting once WITHOUT taking a
+# seat in consensus, verifying the node's state, and only then joining. A node
+# that joins holding the wrong chain state can stall the whole consensus set, so
+# the edit has to be reliable rather than a hand-typed jq line on a live node.
+#
+# The write is atomic and validated: the new document must parse before it
+# replaces the old one, the original is kept as a timestamped backup, and the
+# file mode is preserved because this config also holds the RPC credentials.
+ela_consensus()
+{
+    local action=$1
+    local cfg=$SCRIPT_PATH/ela/config.json
+    local key='.Configuration.DPoSConfiguration.EnableArbiter'
+
+    if [ ! -f "$cfg" ]; then
+        echo_error "no ela config at $cfg - run '$SCRIPT_NAME ela init' first"
+        return 1
+    fi
+    if ! jq -e . "$cfg" >/dev/null 2>&1; then
+        echo_error "$cfg is not valid JSON - refusing to touch it"
+        return 1
+    fi
+
+    local cur=$(jq -r "$key // false" "$cfg" 2>/dev/null)
+
+    case "$action" in
+        ""|status|show)
+            if [ "$cur" == "true" ]; then
+                echo "consensus role: $(ui_bold ENABLED)  (this node takes a seat in DPoS consensus)"
+            else
+                echo "consensus role: $(ui_bold DISABLED) (this node syncs only; it does not arbitrate)"
+            fi
+            echo "  set with:  $SCRIPT_NAME ela consensus off   |   $SCRIPT_NAME ela consensus on"
+            return 0
+            ;;
+        on|enable|true)   local want=true  ;;
+        off|disable|false) local want=false ;;
+        *)
+            echo_error "unknown option: $action"
+            echo "  usage: $SCRIPT_NAME ela consensus [status|on|off]"
+            return 1
+            ;;
+    esac
+
+    if [ "$cur" == "$want" ]; then
+        echo_ok "consensus role is already $( [ "$want" == "true" ] && echo ENABLED || echo DISABLED ) - nothing to do"
+        return 0
+    fi
+
+    local bk=$cfg.bak.$(date '+%F-%H%M%S')
+    if ! cp -p "$cfg" "$bk"; then
+        echo_error "could not back up $cfg - refusing to edit it"
+        return 1
+    fi
+
+    # write to a temp file, prove it parses AND that the key actually took, then
+    # move it into place. A half-written config would stop the node from starting.
+    if ! jq "$key = $want" "$cfg" > "$cfg.tmp" 2>/dev/null; then
+        echo_error "failed to set $key - the config was NOT changed"
+        rm -f "$cfg.tmp"
+        return 1
+    fi
+    if ! jq -e . "$cfg.tmp" >/dev/null 2>&1 || \
+       [ "$(jq -r "$key" "$cfg.tmp" 2>/dev/null)" != "$want" ]; then
+        echo_error "the rewritten config did not verify - the config was NOT changed"
+        rm -f "$cfg.tmp"
+        return 1
+    fi
+    chmod --reference="$cfg" "$cfg.tmp" 2>/dev/null || chmod 600 "$cfg.tmp"
+    if ! mv "$cfg.tmp" "$cfg"; then
+        echo_error "could not replace $cfg - the config was NOT changed"
+        rm -f "$cfg.tmp"
+        return 1
+    fi
+
+    echo_ok "consensus role $( [ "$want" == "true" ] && echo ENABLED || echo DISABLED )  (backup: $bk)"
+    echo
+    # `ela restart` deliberately refuses, so saying "restart" here would send the
+    # operator down a path that silently does nothing.
+    if chain_running ela 2>/dev/null; then
+        echo_warn "the running node is still using the OLD setting. This change is not live yet."
+        echo "  apply it with:  $SCRIPT_NAME ela stop && $SCRIPT_NAME ela start"
+    else
+        echo "  takes effect on the next  $SCRIPT_NAME ela start"
+    fi
+    return 0
+}
+
+# chain_binary <chain>: one line identifying the build this node runs, for fleet
+# verification. Read-only: it starts nothing and changes nothing.
+#
+# No digest is published for the chain releases, so there is no master value to
+# check a node against. The point is to compare nodes to EACH OTHER. Every node
+# in the fleet should print the same version and the same fingerprint; a node
+# whose line differs is running a different build, which is the condition that
+# splits or halts consensus after a coordinated upgrade.
+chain_binary()
+{
+    local chain=$1
+    local bin=$SCRIPT_PATH/$chain/$chain
+    local ver=$("${chain}_ver" 2>/dev/null)
+    local sha=-
+    [ -f "$bin" ] && sha=$(sha256sum "$bin" 2>/dev/null | cut -c1-16)
+    printf '%s | %-24s | %s\n' "$(hostname)" "${ver:-$chain N/A}" "$sha"
+}
+
+# all_binary: the same line for every installed chain in the profile. Collect it
+# from every node and confirm the lines agree before consensus restarts, and
+# again before any coordinated height gate.
+all_binary()
+{
+    local chain
+    for chain in $(profile_chains); do
+        "${chain}_installed" 2>/dev/null || continue
+        chain_binary "$chain"
+    done
+}
+
+# chain_stage_failed: report a failed or declined chain download/stage.
+#
+# chain_prepare_stage returns 0 on success, 3 when the operator declines the
+# prompt, and 1/2/4/5 on real failures. Every caller used to test that status
+# with a bare `return` inside `if [ "$?" != "0" ]`, which returns the status of
+# the SUCCESSFUL test -- that is, 0. A failed update therefore reported success,
+# so a fleet-wide `node.sh ela update || echo FAILED` printed nothing while the
+# node kept running its previous binary.
+chain_stage_failed()
+{
+    local chain=$1 rc=$2
+    if [ "$rc" == "3" ]; then
+        echo_warn "$chain update canceled - the binary was NOT replaced"
+    else
+        echo_error "$chain update FAILED (rc=$rc) - the binary was NOT replaced"
+        echo "  this node is still running its previous $chain version"
+    fi
+    return $rc
+}
+
 chain_prepare_stage()
 {
     local CHAIN_NAME=$1
@@ -1103,12 +1334,43 @@ chain_prepare_stage()
     cd $PATH_STAGE
 
     echo "Downloading $URL_LATEST..."
-    curl -O -# $URL_LATEST
+    # -f is what makes the check below mean anything: without it curl writes the
+    # HTTP 404/503 body INTO the .tgz and still exits 0, so a stale or withdrawn
+    # artifact looks like a clean download. -L follows redirects. The timeouts
+    # stop a stalled mirror hanging an unattended fleet update indefinitely.
+    curl -fL -O -# --connect-timeout 30 --max-time 1800 --retry 3 --retry-delay 5 $URL_LATEST
     if [ "$?" != "0" ]; then
-        echo_error "curl failed"
+        echo_error "download failed: $URL_LATEST"
         return 4
     fi
-    # TODO: verify checksum
+
+    # Integrity: if a published checksum exists the download MUST match it. Same
+    # rule update_script already applies to node.sh itself. A missing .sha256 is
+    # not fatal (none is published upstream today); a mismatched one always is.
+    # Only ENFORCE a value that is actually a digest. A .sha256 served as HTML, a
+    # soft 404, a BSD-tag line ("SHA256 (file) = ..."), or CRLF must not be
+    # treated as a hash: a false mismatch here would block the whole fleet's
+    # update. Extract the first 64-hex token, which matches every common format.
+    local SHA_RAW=$(curl -fsSL --connect-timeout 15 --max-time 60 "$URL_LATEST.sha256" 2>/dev/null | tr -d '\r')
+    local SHA_WANT=$(echo "$SHA_RAW" | grep -ioE '\b[0-9a-f]{64}\b' | head -n 1)
+    if [ -n "$SHA_WANT" ]; then
+        local SHA_GOT=$(sha256sum "$TGZ_LATEST" 2>/dev/null | awk '{print $1}')
+        if [ -z "$SHA_GOT" ]; then
+            echo_warn "sha256sum unavailable - cannot verify $TGZ_LATEST"
+        elif [ "$SHA_WANT" != "$SHA_GOT" ]; then
+            echo_error "checksum mismatch - refusing to install $TGZ_LATEST"
+            echo "  want: $SHA_WANT"
+            echo "  got:  $SHA_GOT"
+            rm -f "$TGZ_LATEST"
+            return 4
+        else
+            echo_ok "checksum verified"
+        fi
+    elif [ -n "$SHA_RAW" ]; then
+        echo_warn "no usable checksum at $URL_LATEST.sha256 - installing unverified"
+    else
+        echo_warn "no published checksum at $URL_LATEST.sha256 - installing unverified"
+    fi
 
     tar --version | grep GNU 1>/dev/null
     if [ "$?" == "0" ]; then
@@ -1742,8 +2004,14 @@ chain_restart()
     local chain=$1 i
     # never restart ELA unless explicitly forced - it would interrupt council consensus
     if [ "$chain" == "ela" ] && [ "$FORCE_ELA" != "1" ]; then
-        echo_warn "ela restart refused: it would interrupt council consensus. Re-run with --force to include it."
-        return 0
+        echo_warn "ela restart refused: it would interrupt council consensus."
+        echo "  NOTHING was restarted, so any config change you just made is NOT live."
+        echo "  To apply it, stop and start explicitly:"
+        echo "    $SCRIPT_NAME ela stop && $SCRIPT_NAME ela start"
+        # 2 = deliberately skipped, distinct from 1 = a restart that failed.
+        # It used to return 0, so `ela restart` reported success having done
+        # nothing and an edited config was never applied.
+        return 2
     fi
     "${chain}_stop"
     for i in 1 2 3 4 5; do chain_running "$chain" || break; sleep 1; done
@@ -1753,10 +2021,12 @@ chain_restart()
 # all_restart: restart every chain in the active profile, one at a time.
 all_restart()
 {
-    local chain failed=
+    local chain failed= rc=0
     for chain in $(profile_chains); do
         "${chain}_installed" 2>/dev/null || continue
-        chain_restart "$chain" || failed="$failed $chain"
+        chain_restart "$chain"; rc=$?
+        # 2 means deliberately skipped (ela without --force), not a failure
+        [ $rc -eq 0 ] || [ $rc -eq 2 ] || failed="$failed $chain"
     done
     if [ -n "$failed" ]; then
         echo; echo_error "these chains did not restart:$failed"
@@ -1833,13 +2103,33 @@ uninstall_cmd()
     local ANSWER bk c
     ui_red "This stops all chains and DELETES the install + config."; echo
     echo "  removes: $SCRIPT_PATH/{ela,esc,eid,pg,*-oracle,arbiter,extern} and ~/.config/elastos"
-    echo "  the ELA keystore is backed up to ~/ first; chain DATA is gone."
+    echo "  all keystores AND their password files are backed up to ~/ first; chain DATA is gone."
     if noninteractive; then echo_error "uninstall needs an interactive terminal - refusing to delete unattended"; return 1; fi
     read -p "Type DELETE to confirm: " ANSWER
     if [ "$ANSWER" != "DELETE" ]; then echo "Aborted."; return 1; fi
-    if [ -f "$SCRIPT_PATH/ela/keystore.dat" ]; then
-        bk=~/keystore.dat.bak.$(date +%s)
-        cp -p "$SCRIPT_PATH/ela/keystore.dat" "$bk" && echo_ok "keystore backed up -> $bk"
+    # Back up EVERY credential this uninstall is about to destroy, and abort the
+    # whole operation if that backup fails. The rm -rf below deletes
+    # ~/.config/elastos, which holds the keystore PASSWORD files, and a keystore
+    # without its password cannot be opened; it also deletes the EVM chains'
+    # data/keystore directories outright. Backing up ela/keystore.dat alone
+    # produced an unopenable file and silently lost the sidechain identities.
+    # Same shape as eco_purge.
+    local ts=$(date '+%F-%H%M%S')
+    local bk=~/elastos-keystore-backup-$ts.tar.gz
+    local bkitems= c=
+    [ -f "$SCRIPT_PATH/ela/keystore.dat" ] && bkitems="$bkitems $SCRIPT_PATH/ela/keystore.dat"
+    for c in $EVM_CHAINS; do
+        [ -d "$SCRIPT_PATH/$c/data/keystore" ] && bkitems="$bkitems $SCRIPT_PATH/$c/data/keystore"
+    done
+    ls ~/.config/elastos/*.txt >/dev/null 2>&1 && bkitems="$bkitems $HOME/.config/elastos"
+    if [ -n "$bkitems" ]; then
+        if ! tar -czf "$bk" $bkitems 2>/dev/null; then
+            echo_error "keystore backup failed - NOT deleting anything"
+            rm -f "$bk"
+            return 1
+        fi
+        chmod 600 "$bk"
+        echo_ok "keystores AND passwords backed up: $bk"
     fi
     all_stop 2>/dev/null
     pkill -x ela 2>/dev/null; pkill -x arbiter 2>/dev/null
@@ -2086,10 +2376,26 @@ all_status()
 
 all_update()
 {
-    local chain
+    local chain failed= declined= crc rc=0
     for chain in $(profile_chains); do
-        "${chain}_installed" && "${chain}_update"
+        "${chain}_installed" || continue
+        "${chain}_update"; crc=$?
+        # 3 = the operator answered No at the prompt. That is a deliberate skip,
+        # not a failure, so it must not be reported as one.
+        case $crc in
+            0) ;;
+            3) declined="$declined $chain" ;;
+            *) failed="$failed $chain"; rc=1 ;;
+        esac
     done
+    if [ -n "$declined" ]; then
+        echo; echo_warn "not updated (canceled):$declined"
+    fi
+    if [ -n "$failed" ]; then
+        echo; echo_error "update FAILED for:$failed"
+        echo "  those chains still run their previous binary"
+    fi
+    return $rc
 }
 
 all_init()
@@ -2146,7 +2452,17 @@ ela_usage()
     echo
     echo "  init            Install and configure $CHAIN_NAME_U"
     echo "  update          Update $CHAIN_NAME_U"
+    echo "                    -n  do NOT start the daemon after updating"
+    echo "                    -y  do not prompt for confirmation"
     echo "  preflight       Report what the next start will do (read-only; run it first)"
+    echo
+    echo "  To update and inspect BEFORE the daemon runs, use -n. Without it the"
+    echo "  daemon is restarted the moment the new binary is installed, and"
+    echo "  preflight cannot read a store that a running node has locked:"
+    echo "    $SCRIPT_NAME ela stop"
+    echo "    $SCRIPT_NAME ela update -n -y"
+    echo "    $SCRIPT_NAME ela preflight"
+    echo "    $SCRIPT_NAME ela start"
     echo
     echo "  start           Start $CHAIN_NAME_U daemon"
     echo "  stop            Stop $CHAIN_NAME_U daemon"
@@ -2638,8 +2954,10 @@ ela_update()
     done
 
     chain_prepare_stage ela ela ela-cli
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed ela $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/ela
@@ -4539,8 +4857,10 @@ esc_update()
     done
 
     chain_prepare_stage esc esc
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed esc $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/esc
@@ -4632,8 +4952,10 @@ eco_update()
     done
 
     chain_prepare_stage eco eco
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed eco $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/eco
@@ -4667,8 +4989,10 @@ pgp_update()
     done
 
     chain_prepare_stage pgp pgp
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed pgp $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/pgp
@@ -4702,8 +5026,10 @@ pg_update()
     done
 
     chain_prepare_stage pg pg
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed pg $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/pg
@@ -5623,8 +5949,10 @@ pg-oracle_update()
     done
 
     chain_prepare_stage pg-oracle '*.js'
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed pg-oracle $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/pg-oracle
@@ -5658,8 +5986,10 @@ esc-oracle_update()
     done
 
     chain_prepare_stage esc-oracle '*.js'
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed esc-oracle $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/esc-oracle
@@ -6077,8 +6407,10 @@ eid_update()
     done
 
     chain_prepare_stage eid eid
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed eid $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/eid
@@ -6380,8 +6712,10 @@ eid-oracle_update()
     done
 
     chain_prepare_stage eid-oracle '*.js'
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed eid-oracle $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/eid-oracle
@@ -6699,8 +7033,10 @@ arbiter_update()
     done
 
     chain_prepare_stage arbiter arbiter
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed arbiter $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/arbiter
@@ -7049,9 +7385,29 @@ chain_help()
     echo "Usage:  $SCRIPT_NAME $chain <command> [options]"
     echo
     echo "  start   stop   restart   status [--json]   health   logs [-f]"
-    echo "  client   rpc   init   update   version"
+    echo "  client   rpc   init   update   version   binary"
     case "$chain" in
-        ela) echo "  preflight      what the next start will do (read-only) -- run before start" ;;
+        ela)
+            echo "  preflight      what the next start will do (read-only) -- run before start"
+            echo "  rewound        can this node safely join consensus? (read-only, run before 'consensus on')"
+            echo "  consensus      show or set the DPoS consensus role: consensus [status|on|off]"
+            echo "                 (this is EnableArbiter in the ela daemon, NOT the arbiter relay service)"
+            ;;
+    esac
+    echo
+    echo "  update options:  -n  do not start the daemon after updating"
+    echo "                   -y  do not prompt for confirmation"
+    case "$chain" in
+        ela)
+            echo
+            echo "  To update and inspect BEFORE the daemon runs, use -n. Without it the"
+            echo "  daemon restarts as soon as the new binary is installed, and preflight"
+            echo "  cannot read a chain store that a running node has locked:"
+            echo "    $SCRIPT_NAME ela stop"
+            echo "    $SCRIPT_NAME ela update -n -y"
+            echo "    $SCRIPT_NAME ela preflight"
+            echo "    $SCRIPT_NAME ela start"
+            ;;
     esac
     case "$chain" in
         ela)
@@ -7101,6 +7457,7 @@ usage()
     echo "  migrate            move an existing install onto this tool (--dry-run | --apply)"
     echo "  uninstall          stop + remove the install (keystore backed up)"
     echo "  version | -v       tool + chain versions"
+    echo "  binary [chain]     one-line build fingerprint per chain, to compare across the fleet"
     echo
     echo "PER-CHAIN    $SCRIPT_NAME <chain> <command>"
     echo "  start stop restart status [--json] health logs [-f] client rpc init update version"
@@ -7210,6 +7567,7 @@ fi
 
 # chain commands
 if [ "$1" == "init"    ] || \
+   [ "$1" == "binary"  ] || \
    [ "$1" == "start"   ] || \
    [ "$1" == "stop"    ] || \
    [ "$1" == "status"  ] || \
@@ -7269,6 +7627,10 @@ else
          [ "$2" == "restart" ] || \
          [ "$2" == "logs"    ] || \
          [ "$2" == "version" ] || \
+         [ "$2" == "binary"  ] || \
+         [ "$2" == "consensus" ] || \
+         [ "$2" == "rewound"   ] || \
+         [ "$2" == "arbiter"   ] || \
          [ "$2" == "client"  ] || \
          [ "$2" == "jsonrpc" ] || \
          [ "$2" == "update"  ] || [ "$2" == "upgrade" ] || \
@@ -7316,6 +7678,26 @@ else
             *)                  render_status_one $CHAIN_NAME ;;
         esac
         exit
+    fi
+    if [ "$COMMAND" == "rewound" ]; then
+        if [ "$CHAIN_NAME" != "ela" ]; then
+            echo_error "rewound applies to ela only"
+            exit 1
+        fi
+        ela_rewound
+        exit $?
+    fi
+    if [ "$COMMAND" == "consensus" ] || [ "$COMMAND" == "arbiter" ]; then
+        if [ "$CHAIN_NAME" != "ela" ]; then
+            echo_error "consensus role applies to ela only"
+            exit 1
+        fi
+        ela_consensus "$3"
+        exit $?
+    fi
+    if [ "$COMMAND" == "binary" ]; then
+        chain_binary $CHAIN_NAME
+        exit $?
     fi
     if [ "$COMMAND" == "health" ]; then
         render_health $CHAIN_NAME
