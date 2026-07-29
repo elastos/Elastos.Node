@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Elastos Node for Ubuntu - node management for the Elastos main chain, side chains, oracles, and arbiter
-ELASTOS_NODE_VERSION="1.2.0"
+ELASTOS_NODE_VERSION="1.2.1"
 
 # Reset override flags so a value inherited from the environment cannot silently enable them.
 FORCE_ELA=
@@ -998,6 +998,26 @@ get_elastos_ver_latest()
 #
 # common chain functions
 #
+# chain_stage_failed: report a failed or declined chain download/stage.
+#
+# chain_prepare_stage returns 0 on success, 3 when the operator declines the
+# prompt, and 1/2/4/5 on real failures. Every caller used to test that status
+# with a bare `return` inside `if [ "$?" != "0" ]`, which returns the status of
+# the SUCCESSFUL test -- that is, 0. A failed update therefore reported success,
+# so a fleet-wide `node.sh ela update || echo FAILED` printed nothing while the
+# node kept running its previous binary.
+chain_stage_failed()
+{
+    local chain=$1 rc=$2
+    if [ "$rc" == "3" ]; then
+        echo_warn "$chain update canceled - the binary was NOT replaced"
+    else
+        echo_error "$chain update FAILED (rc=$rc) - the binary was NOT replaced"
+        echo "  this node is still running its previous $chain version"
+    fi
+    return $rc
+}
+
 chain_prepare_stage()
 {
     local CHAIN_NAME=$1
@@ -1103,12 +1123,33 @@ chain_prepare_stage()
     cd $PATH_STAGE
 
     echo "Downloading $URL_LATEST..."
-    curl -O -# $URL_LATEST
+    # -f is what makes the check below mean anything: without it curl writes the
+    # HTTP 404/503 body INTO the .tgz and still exits 0, so a stale or withdrawn
+    # artifact looks like a clean download. -L follows redirects. The timeouts
+    # stop a stalled mirror hanging an unattended fleet update indefinitely.
+    curl -fL -O -# --connect-timeout 30 --max-time 1800 --retry 3 --retry-delay 5 $URL_LATEST
     if [ "$?" != "0" ]; then
-        echo_error "curl failed"
+        echo_error "download failed: $URL_LATEST"
         return 4
     fi
-    # TODO: verify checksum
+
+    # Integrity: if a published checksum exists the download MUST match it. Same
+    # rule update_script already applies to node.sh itself. A missing .sha256 is
+    # not fatal (none is published upstream today); a mismatched one always is.
+    local SHA_WANT=$(curl -fsSL --connect-timeout 15 --max-time 60 "$URL_LATEST.sha256" 2>/dev/null | awk '{print $1}')
+    if [ -n "$SHA_WANT" ]; then
+        local SHA_GOT=$(sha256sum "$TGZ_LATEST" 2>/dev/null | awk '{print $1}')
+        if [ "$SHA_WANT" != "$SHA_GOT" ]; then
+            echo_error "checksum mismatch - refusing to install $TGZ_LATEST"
+            echo "  want: $SHA_WANT"
+            echo "  got:  $SHA_GOT"
+            rm -f "$TGZ_LATEST"
+            return 4
+        fi
+        echo_ok "checksum verified"
+    else
+        echo_warn "no published checksum at $URL_LATEST.sha256 - installing unverified"
+    fi
 
     tar --version | grep GNU 1>/dev/null
     if [ "$?" == "0" ]; then
@@ -1742,8 +1783,14 @@ chain_restart()
     local chain=$1 i
     # never restart ELA unless explicitly forced - it would interrupt council consensus
     if [ "$chain" == "ela" ] && [ "$FORCE_ELA" != "1" ]; then
-        echo_warn "ela restart refused: it would interrupt council consensus. Re-run with --force to include it."
-        return 0
+        echo_warn "ela restart refused: it would interrupt council consensus."
+        echo "  NOTHING was restarted, so any config change you just made is NOT live."
+        echo "  To apply it, stop and start explicitly:"
+        echo "    $SCRIPT_NAME ela stop && $SCRIPT_NAME ela start"
+        # 2 = deliberately skipped, distinct from 1 = a restart that failed.
+        # It used to return 0, so `ela restart` reported success having done
+        # nothing and an edited config was never applied.
+        return 2
     fi
     "${chain}_stop"
     for i in 1 2 3 4 5; do chain_running "$chain" || break; sleep 1; done
@@ -1753,10 +1800,12 @@ chain_restart()
 # all_restart: restart every chain in the active profile, one at a time.
 all_restart()
 {
-    local chain failed=
+    local chain failed= rc=0
     for chain in $(profile_chains); do
         "${chain}_installed" 2>/dev/null || continue
-        chain_restart "$chain" || failed="$failed $chain"
+        chain_restart "$chain"; rc=$?
+        # 2 means deliberately skipped (ela without --force), not a failure
+        [ $rc -eq 0 ] || [ $rc -eq 2 ] || failed="$failed $chain"
     done
     if [ -n "$failed" ]; then
         echo; echo_error "these chains did not restart:$failed"
@@ -1833,13 +1882,33 @@ uninstall_cmd()
     local ANSWER bk c
     ui_red "This stops all chains and DELETES the install + config."; echo
     echo "  removes: $SCRIPT_PATH/{ela,esc,eid,pg,*-oracle,arbiter,extern} and ~/.config/elastos"
-    echo "  the ELA keystore is backed up to ~/ first; chain DATA is gone."
+    echo "  all keystores AND their password files are backed up to ~/ first; chain DATA is gone."
     if noninteractive; then echo_error "uninstall needs an interactive terminal - refusing to delete unattended"; return 1; fi
     read -p "Type DELETE to confirm: " ANSWER
     if [ "$ANSWER" != "DELETE" ]; then echo "Aborted."; return 1; fi
-    if [ -f "$SCRIPT_PATH/ela/keystore.dat" ]; then
-        bk=~/keystore.dat.bak.$(date +%s)
-        cp -p "$SCRIPT_PATH/ela/keystore.dat" "$bk" && echo_ok "keystore backed up -> $bk"
+    # Back up EVERY credential this uninstall is about to destroy, and abort the
+    # whole operation if that backup fails. The rm -rf below deletes
+    # ~/.config/elastos, which holds the keystore PASSWORD files, and a keystore
+    # without its password cannot be opened; it also deletes the EVM chains'
+    # data/keystore directories outright. Backing up ela/keystore.dat alone
+    # produced an unopenable file and silently lost the sidechain identities.
+    # Same shape as eco_purge.
+    local ts=$(date '+%F-%H%M%S')
+    local bk=~/elastos-keystore-backup-$ts.tar.gz
+    local bkitems= c=
+    [ -f "$SCRIPT_PATH/ela/keystore.dat" ] && bkitems="$bkitems $SCRIPT_PATH/ela/keystore.dat"
+    for c in $EVM_CHAINS; do
+        [ -d "$SCRIPT_PATH/$c/data/keystore" ] && bkitems="$bkitems $SCRIPT_PATH/$c/data/keystore"
+    done
+    ls ~/.config/elastos/*.txt >/dev/null 2>&1 && bkitems="$bkitems $HOME/.config/elastos"
+    if [ -n "$bkitems" ]; then
+        if ! tar -czf "$bk" $bkitems 2>/dev/null; then
+            echo_error "keystore backup failed - NOT deleting anything"
+            rm -f "$bk"
+            return 1
+        fi
+        chmod 600 "$bk"
+        echo_ok "keystores AND passwords backed up: $bk"
     fi
     all_stop 2>/dev/null
     pkill -x ela 2>/dev/null; pkill -x arbiter 2>/dev/null
@@ -2086,10 +2155,19 @@ all_status()
 
 all_update()
 {
-    local chain
+    local chain failed= rc=0
     for chain in $(profile_chains); do
-        "${chain}_installed" && "${chain}_update"
+        "${chain}_installed" || continue
+        if ! "${chain}_update"; then
+            failed="$failed $chain"
+            rc=1
+        fi
     done
+    if [ -n "$failed" ]; then
+        echo; echo_error "update FAILED for:$failed"
+        echo "  those chains still run their previous binary"
+    fi
+    return $rc
 }
 
 all_init()
@@ -2146,7 +2224,17 @@ ela_usage()
     echo
     echo "  init            Install and configure $CHAIN_NAME_U"
     echo "  update          Update $CHAIN_NAME_U"
+    echo "                    -n  do NOT start the daemon after updating"
+    echo "                    -y  do not prompt for confirmation"
     echo "  preflight       Report what the next start will do (read-only; run it first)"
+    echo
+    echo "  To update and inspect BEFORE the daemon runs, use -n. Without it the"
+    echo "  daemon is restarted the moment the new binary is installed, and"
+    echo "  preflight cannot read a store that a running node has locked:"
+    echo "    $SCRIPT_NAME ela stop"
+    echo "    $SCRIPT_NAME ela update -n -y"
+    echo "    $SCRIPT_NAME ela preflight"
+    echo "    $SCRIPT_NAME ela start"
     echo
     echo "  start           Start $CHAIN_NAME_U daemon"
     echo "  stop            Stop $CHAIN_NAME_U daemon"
@@ -2638,8 +2726,10 @@ ela_update()
     done
 
     chain_prepare_stage ela ela ela-cli
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed ela $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/ela
@@ -4539,8 +4629,10 @@ esc_update()
     done
 
     chain_prepare_stage esc esc
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed esc $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/esc
@@ -4632,8 +4724,10 @@ eco_update()
     done
 
     chain_prepare_stage eco eco
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed eco $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/eco
@@ -4667,8 +4761,10 @@ pgp_update()
     done
 
     chain_prepare_stage pgp pgp
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed pgp $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/pgp
@@ -4702,8 +4798,10 @@ pg_update()
     done
 
     chain_prepare_stage pg pg
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed pg $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/pg
@@ -5623,8 +5721,10 @@ pg-oracle_update()
     done
 
     chain_prepare_stage pg-oracle '*.js'
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed pg-oracle $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/pg-oracle
@@ -5658,8 +5758,10 @@ esc-oracle_update()
     done
 
     chain_prepare_stage esc-oracle '*.js'
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed esc-oracle $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/esc-oracle
@@ -6077,8 +6179,10 @@ eid_update()
     done
 
     chain_prepare_stage eid eid
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed eid $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/eid
@@ -6380,8 +6484,10 @@ eid-oracle_update()
     done
 
     chain_prepare_stage eid-oracle '*.js'
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed eid-oracle $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/eid-oracle
@@ -6699,8 +6805,10 @@ arbiter_update()
     done
 
     chain_prepare_stage arbiter arbiter
-    if [ "$?" != "0" ]; then
-        return
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        chain_stage_failed arbiter $rc
+        return $rc
     fi
 
     local PATH_STAGE=$SCRIPT_PATH/.node-upload/arbiter

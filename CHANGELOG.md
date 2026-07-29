@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file. Releases are tagged `vMAJOR.MINOR.PATCH`.
 
+## v1.2.1 - The update path tells the truth
+
+### Fixed
+- **A failed chain update no longer reports success.** Every `*_update` function checked `chain_prepare_stage` with a bare `return` inside `if [ "$?" != "0" ]`, which returns the status of the *successful test* rather than the failure, so a download, extract, or version-lookup failure exited 0 while the node kept running its previous binary. A fleet-wide `node.sh ela update || echo FAILED` therefore printed nothing for nodes that had not upgraded. All ten call sites now propagate the real exit code and state that the binary was not replaced; a decline at the prompt is reported as canceled rather than failed. `all_update` names the chains that failed and returns non-zero.
+- **Chain binary downloads detect HTTP errors.** `curl -O` was called without `-f`, so an HTTP 404 or 503 body was written into the `.tgz` and curl still exited 0, making the failure check on the following line unreachable. Downloads now use `curl -fL` with connect and transfer timeouts and retries, and verify a published `.sha256` when one is available (a mismatch refuses the install and removes the file).
+- **`uninstall` backs up every credential it deletes, and aborts if it cannot.** It archived `ela/keystore.dat` alone, then deleted `~/.config/elastos` (which holds the keystore password files) and the EVM chains' `data/keystore` directories in the same `rm -rf`, producing a backup that could not be opened and no sidechain identities at all. A failed copy only skipped a message and deletion continued. It now archives every keystore together with its password file into one `chmod 600` tarball and refuses to delete anything if that archive fails.
+- **`ela restart` no longer reports success when it did nothing.** The refusal that protects council consensus returned 0, so a configuration change applied that way was silently never live. It now returns 2 and prints the explicit `stop` then `start` sequence. `all_restart` treats that deliberate skip as a skip rather than a failure.
+
+### Changed
+- `ela update` help now documents `-n` (do not start the daemon after updating) and `-y`, and shows the `stop` / `update -n` / `preflight` / `start` sequence. `-n` already existed but was undocumented, and it is required in order to inspect a node with `ela preflight` before the daemon runs, because preflight cannot read a chain store that a running node has locked.
+
 ## Unreleased
 
 ### Changed
