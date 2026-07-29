@@ -998,6 +998,93 @@ get_elastos_ver_latest()
 #
 # common chain functions
 #
+# ELA_ROLLBACK_TARGET: the height the v1.0.0 recovery rewinds to. Compiled into
+# the daemon as MainNetForcedRollbackHeight and pinned there, so it is a constant
+# for this network, not a tunable.
+ELA_ROLLBACK_TARGET=2260450
+
+# ela_rewound: can this node safely take a seat in consensus?
+#
+# Read-only, and unlike `ela preflight` it runs against a RUNNING node, which is
+# the state the operator is in after the first start.
+#
+# A node that joins consensus still holding pre-recovery state can stall the
+# whole consensus set, so this answers that one question directly instead of
+# leaving an operator to eyeball a version string, a height and a directory
+# listing and decide for themselves.
+#
+# Self-limiting by design: the checkpoint check only applies while the node sits
+# exactly at the rollback target. Once the recovered chain moves past it, files
+# named above the target are legitimate again and the check stops running.
+ela_rewound()
+{
+    local fail=0 warn=0
+    local ver height cpdir above
+
+    echo "Pre-consensus check for ela (read-only)"
+    echo
+
+    # 1. the binary that is running
+    ver=$(ela_ver 2>/dev/null)
+    if echo "$ver" | grep -q 'v1\.0\.0'; then
+        echo_ok "binary:      $ver"
+    elif echo "$ver" | grep -q 'N/A'; then
+        echo_error "binary:      not installed"
+        fail=1
+    else
+        echo_error "binary:      $ver  (expected v1.0.0 - this node cannot perform the recovery)"
+        fail=1
+    fi
+
+    # 2. where the chain store actually is
+    height=$(ela_height 2>/dev/null)
+    if [ -z "$height" ]; then
+        echo_error "height:      unavailable (is ela running? try '$SCRIPT_NAME ela status')"
+        fail=1
+    elif [ "$height" -eq "$ELA_ROLLBACK_TARGET" ]; then
+        echo_ok "height:      $height (parked exactly at the rollback target)"
+    elif [ "$height" -gt "$ELA_ROLLBACK_TARGET" ]; then
+        echo_ok "height:      $height (moved forward on the recovered chain)"
+    else
+        echo_error "height:      $height (BELOW the rollback target $ELA_ROLLBACK_TARGET - this node has not caught up)"
+        fail=1
+    fi
+
+    # 3. leftover tx-pool checkpoint above the target. Only meaningful while the
+    #    node is parked: past the target these names are written again normally.
+    cpdir=$SCRIPT_PATH/ela/elastos/data/checkpoints/cp_txPool
+    if [ -n "$height" ] && [ "$height" -eq "$ELA_ROLLBACK_TARGET" ] 2>/dev/null; then
+        if [ -d "$cpdir" ]; then
+            above=$(ls -1 "$cpdir" 2>/dev/null | sed -n 's/^\([0-9][0-9]*\)\.txpcp$/\1/p' |
+                    awk -v t="$ELA_ROLLBACK_TARGET" '$1 > t' | tr '\n' ' ')
+            if [ -n "$above" ]; then
+                echo_warn "checkpoint:  found above the target: $above"
+                echo "             the node has not purged them. Do NOT delete these by hand."
+                warn=1
+            else
+                echo_ok "checkpoint:  none above the target"
+            fi
+        else
+            echo_ok "checkpoint:  no cp_txPool directory"
+        fi
+    fi
+
+    echo
+    if [ "$fail" -ne 0 ]; then
+        echo_error "NOT READY - do not enable the consensus role on this node"
+        echo "  fix the failing item above, then run this again"
+        return 1
+    fi
+    if [ "$warn" -ne 0 ]; then
+        echo_warn "checks passed, but see the checkpoint warning above before enabling consensus"
+        return 1
+    fi
+    echo_ok "READY - this node can take a seat in consensus"
+    echo "  enable it with:  $SCRIPT_NAME ela consensus on"
+    echo "  then:            $SCRIPT_NAME ela stop && $SCRIPT_NAME ela start"
+    return 0
+}
+
 # ela_consensus [on|off]: read or set EnableArbiter in the ela config.
 #
 # This is the DPoS CONSENSUS ROLE inside the ela daemon. It is NOT the separate
@@ -7302,6 +7389,7 @@ chain_help()
     case "$chain" in
         ela)
             echo "  preflight      what the next start will do (read-only) -- run before start"
+            echo "  rewound        can this node safely join consensus? (read-only, run before 'consensus on')"
             echo "  consensus      show or set the DPoS consensus role: consensus [status|on|off]"
             echo "                 (this is EnableArbiter in the ela daemon, NOT the arbiter relay service)"
             ;;
@@ -7541,6 +7629,7 @@ else
          [ "$2" == "version" ] || \
          [ "$2" == "binary"  ] || \
          [ "$2" == "consensus" ] || \
+         [ "$2" == "rewound"   ] || \
          [ "$2" == "arbiter"   ] || \
          [ "$2" == "client"  ] || \
          [ "$2" == "jsonrpc" ] || \
@@ -7589,6 +7678,14 @@ else
             *)                  render_status_one $CHAIN_NAME ;;
         esac
         exit
+    fi
+    if [ "$COMMAND" == "rewound" ]; then
+        if [ "$CHAIN_NAME" != "ela" ]; then
+            echo_error "rewound applies to ela only"
+            exit 1
+        fi
+        ela_rewound
+        exit $?
     fi
     if [ "$COMMAND" == "consensus" ] || [ "$COMMAND" == "arbiter" ]; then
         if [ "$CHAIN_NAME" != "ela" ]; then
