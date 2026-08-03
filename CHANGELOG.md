@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file. Releases are tagged `vMAJOR.MINOR.PATCH`.
 
+## v1.2.3 - `ela rewound` accepts any recovery build, not just v1.0.0
+
+### Fixed
+- **`ela rewound` rejected every build after v1.0.0.** The check matched the version string exactly, so a node correctly running v1.0.2 was told "expected v1.0.0 - this node cannot perform the recovery" and refused to report READY. Point releases after the recovery build are the normal case once the chain is running again. The check now accepts `ELA_MIN_RECOVERY_VERSION` (1.0.0) or later, comparing as version numbers rather than as strings via `sort -V`, so 1.0.2, 1.1.0 and 1.10.0 all pass while 0.9.9.6 and 0.9.9.7 are still refused. A prerelease build is accepted but called out, because `sort -V` is not semver-aware and orders a release candidate above its release.
+
 ## v1.2.2 - `ela consensus` actually applies the change
 
 ### Fixed

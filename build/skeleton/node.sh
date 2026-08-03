@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Elastos Node for Ubuntu - node management for the Elastos main chain, side chains, oracles, and arbiter
-ELASTOS_NODE_VERSION="1.2.2"
+ELASTOS_NODE_VERSION="1.2.3"
 
 # Reset override flags so a value inherited from the environment cannot silently enable them.
 FORCE_ELA=
@@ -998,6 +998,23 @@ get_elastos_ver_latest()
 #
 # common chain functions
 #
+# ELA_MIN_RECOVERY_VERSION: the lowest ela build that can perform the recovery.
+# Anything at or above this is accepted; point releases after it are expected and
+# must not be rejected.
+ELA_MIN_RECOVERY_VERSION=1.0.0
+
+# ver_at_least <have> <min>: true when <have> is >= <min>, comparing as version
+# numbers rather than as strings. Plain string compares get this wrong in both
+# directions: "1.0.2" < "1.0.0" is false but "0.9.9.6" > "1.0.0" is true, and
+# "1.10.0" sorts below "1.9.0". sort -V is coreutils and is present on every
+# supported Ubuntu.
+ver_at_least()
+{
+    local have=$1 min=$2
+    [ -n "$have" ] || return 1
+    [ "$(printf '%s\n%s\n' "$min" "$have" | sort -V | head -n 1)" == "$min" ]
+}
+
 # ELA_ROLLBACK_TARGET: the height the v1.0.0 recovery rewinds to. Compiled into
 # the daemon as MainNetForcedRollbackHeight and pinned there, so it is a constant
 # for this network, not a tunable.
@@ -1026,13 +1043,28 @@ ela_rewound()
 
     # 1. the binary that is running
     ver=$(ela_ver 2>/dev/null)
-    if echo "$ver" | grep -q 'v1\.0\.0'; then
-        echo_ok "binary:      $ver"
-    elif echo "$ver" | grep -q 'N/A'; then
+    # Accept the recovery release or ANY later one. Pinning to an exact string
+    # rejected every point release after it, which is the normal case once the
+    # chain is running again.
+    local vnum=$(echo "$ver" | sed -n 's/.*[vV]\([0-9][0-9.]*\).*/\1/p' | sed 's/\.$//')
+    if echo "$ver" | grep -q 'N/A'; then
         echo_error "binary:      not installed"
         fail=1
+    elif [ -z "$vnum" ]; then
+        echo_error "binary:      $ver  (cannot read a version number from this binary)"
+        fail=1
+    elif ver_at_least "$vnum" "$ELA_MIN_RECOVERY_VERSION"; then
+        echo_ok "binary:      $ver"
+        # sort -V is not semver-aware: it orders 1.0.0-rc.1 ABOVE 1.0.0, so a
+        # prerelease has to be called out separately. It is not treated as a
+        # failure, because a release candidate of the recovery build can still
+        # perform the recovery, but the operator should know they are on one.
+        case "$ver" in
+            *-rc*|*-RC*|*-beta*|*-alpha*|*-dev*)
+                echo_warn "             this is a PRERELEASE build - prefer the final release" ;;
+        esac
     else
-        echo_error "binary:      $ver  (expected v1.0.0 - this node cannot perform the recovery)"
+        echo_error "binary:      $ver  (needs v$ELA_MIN_RECOVERY_VERSION or later - this node cannot perform the recovery)"
         fail=1
     fi
 
