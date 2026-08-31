@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Elastos Node for Ubuntu - node management for the Elastos main chain, side chains, oracles, and arbiter
-ELASTOS_NODE_VERSION="1.2.3"
+ELASTOS_NODE_VERSION="1.2.4"
 
 # Reset override flags so a value inherited from the environment cannot silently enable them.
 FORCE_ELA=
@@ -170,6 +170,62 @@ ela_peers()  { local p; p=$(ela_client info getconnectioncount 2>/dev/null); [[ 
 chain_height() { case "$1" in ela) ela_height ;; esc|eco|pgp|pg|eid) evm_height "$1" ;; *) return 1 ;; esac; }
 chain_peers()  { case "$1" in ela) ela_peers  ;; esc|eco|pgp|pg|eid) evm_peers  "$1" ;; *) return 1 ;; esac; }
 chain_synced() { case "$1" in ela) ela_synced 2>/dev/null && echo synced || echo syncing ;; esc|eco|pgp|pg|eid) evm_syncing "$1" ;; *) return 1 ;; esac; }
+
+# evm_signer_address <chain>: the 0x-prefixed keystore account this chain signs
+# with, or nothing. Uses the first UTC* file: `cat UTC* | jq` concatenates every
+# keystore in the directory and yields garbage when there is more than one.
+# The format is validated, because an empty or malformed value passed to
+# --unlock makes geth Fatalf at boot and a working node would stop starting.
+evm_signer_address()
+{
+    local kf a
+    kf=$(ls "$SCRIPT_PATH/$1/data/keystore/"UTC* 2>/dev/null | head -1)
+    [ -n "$kf" ] || return 1
+    a=$(jq -r '.address // empty' "$kf" 2>/dev/null | tr -d '[:space:]')
+    echo "$a" | grep -qiE '^[0-9a-f]{40}$' || return 1
+    echo "0x$a"
+}
+
+# evm_unlock_opts <chain>: the flags this chain needs so its cross-chain relay
+# can sign, or nothing if there is no usable account.
+#
+# The relay submits deposits and failed-withdrawal refunds through this node's
+# OWN RPC, so the signing account has to be unlocked. --password alone does not
+# do it: geth's unlockAccounts() returns before it ever reads the password file
+# when --unlock is absent, so the account stays locked and both money paths stop
+# silently, at INFO/WARN, on a node that otherwise looks completely healthy.
+#
+# --allow-insecure-unlock is required alongside it: ExtRPCEnabled() is true
+# whenever --rpc or --ws is set and does NOT look at the bind address, so
+# --unlock on its own makes geth Fatalf at boot.
+#
+# This is NOT a rollback of the RPC hardening. That closed 0.0.0.0 and the
+# personal namespace, which is what was remotely exploitable, and both stay
+# closed. An unlocked account on a loopback bind with no personal namespace is
+# reachable only by local processes.
+#
+# TEMPORARY. Remove once ESC/EID sign with SignTxWithPassphrase, which never
+# populates ks.unlocked and needs no flags at all.
+evm_unlock_opts()
+{
+    local addr
+    addr=$(evm_signer_address "$1") || return 1
+    echo "--unlock $addr --allow-insecure-unlock"
+}
+
+# evm_rpc_exposed <cmdline>: true when a running chain exposes RPC dangerously.
+#
+# Tests the two things that were actually exploitable: an RPC bound to 0.0.0.0,
+# and the personal namespace. --unlock used to stand in for this, but the relay
+# now requires it, so using it as the signal reported every correctly configured
+# node as unhardened and made `migrate --apply` restart chains it could never
+# satisfy.
+evm_rpc_exposed()
+{
+    echo "$1" | grep -qE -- '0[.]0[.]0[.]0'          && return 0
+    echo "$1" | grep -qE -- '--rpcapi [^ ]*personal' && return 0
+    return 1
+}
 
 # evm_reward_status <chain> : cold | hot | unset  (hot = reward addr == local keystore acct)
 evm_reward_status()
@@ -1633,7 +1689,7 @@ harden()
         pid=$(pgrep -f "^\./$chain .*--rpc " 2>/dev/null | head -1)
         [ -z "$pid" ] && continue
         cmd=$(tr '\0' ' ' < /proc/$pid/cmdline 2>/dev/null)
-        if echo "$cmd" | grep -qE -- '0[.]0[.]0[.]0|--unlock '; then
+        if evm_rpc_exposed "$cmd"; then
             echo "  $(ui_yellow '!') $chain still bound to 0.0.0.0 - restart to rebind:  $SCRIPT_NAME $chain restart"
             exposed=1
         fi
@@ -1641,7 +1697,7 @@ harden()
     if [ -n "$exposed" ]; then
         echo
         echo "  The firewall change already blocks the internet. The restart is defense-in-depth"
-        echo "  (rebinds RPC to 127.0.0.1, drops --unlock/personal) - do it after each chain is synced."
+        echo "  (rebinds RPC to 127.0.0.1 and drops the personal namespace) - do it after each chain is synced."
     else
         echo_ok "all running EVM daemons are bound to 127.0.0.1"
     fi
@@ -2194,7 +2250,7 @@ migrate_apply()
         pid=$(pgrep -f "^\./$chain .*--rpc " 2>/dev/null | head -1)
         [ -z "$pid" ] && continue
         cmd=$(tr '\0' ' ' < /proc/$pid/cmdline 2>/dev/null)
-        echo "$cmd" | grep -qE -- '0[.]0[.]0[.]0|--unlock ' || { echo_ok "$chain already hardened"; continue; }
+        evm_rpc_exposed "$cmd" || { echo_ok "$chain already hardened"; continue; }
         [ "$chain" == "eco" ] && { echo "  $(ui_yellow '!') eco is decommissioned - left untouched; remove it with:  $SCRIPT_NAME eco purge"; continue; }
         stale="$stale $chain"
     done
@@ -2218,7 +2274,7 @@ migrate_apply()
             if chain_running "$chain"; then
                 pid=$(pgrep -f "^\./$chain .*--rpc " 2>/dev/null | head -1)
                 cmd=$(tr '\0' ' ' < /proc/$pid/cmdline 2>/dev/null)
-                echo "$cmd" | grep -qE -- '0[.]0[.]0[.]0|--unlock ' || { ok=1; break; }
+                evm_rpc_exposed "$cmd" || { ok=1; break; }
             fi
             sleep 2
         done
@@ -2307,7 +2363,7 @@ migrate()
         pid=$(pgrep -f "^\./$chain .*--rpc " 2>/dev/null | head -1)
         [ -z "$pid" ] && continue
         cmd=$(tr '\0' ' ' < /proc/$pid/cmdline 2>/dev/null)
-        if echo "$cmd" | grep -qE -- '0[.]0[.]0[.]0|--unlock '; then
+        if evm_rpc_exposed "$cmd"; then
             echo "  $(ui_yellow '!') $chain is on OLD flags (public RPC) - restart to harden"; stale="$stale $chain"
         else
             echo_ok "$chain already hardened (127.0.0.1)"
@@ -3969,6 +4025,14 @@ esc_start()
         warn_hot_miner esc
         if [ -f $SCRIPT_PATH/esc/data/miner_address.txt ]; then
             local ESC_OPTS="$ESC_OPTS --pbft.miner.address $SCRIPT_PATH/esc/data/miner_address.txt"
+        fi
+        # Without these the cross-chain relay cannot sign: deposits and
+        # failed-withdrawal refunds stop being submitted, silently.
+        local ESC_UNLOCK=$(evm_unlock_opts esc)
+        if [ -n "$ESC_UNLOCK" ]; then
+            local ESC_OPTS="$ESC_OPTS $ESC_UNLOCK"
+        else
+            echo_warn "esc: no usable keystore account - the cross-chain relay cannot sign"
         fi
         nohup $SHELL -c "./esc \
             $ESC_OPTS \
@@ -6230,6 +6294,14 @@ EOF
         warn_hot_miner eid
         if [ -f $SCRIPT_PATH/eid/data/miner_address.txt ]; then
             local EID_OPTS="$EID_OPTS --pbft.miner.address $SCRIPT_PATH/eid/data/miner_address.txt"
+        fi
+        # Without these the cross-chain relay cannot sign: deposits and
+        # failed-withdrawal refunds stop being submitted, silently.
+        local EID_UNLOCK=$(evm_unlock_opts eid)
+        if [ -n "$EID_UNLOCK" ]; then
+            local EID_OPTS="$EID_OPTS $EID_UNLOCK"
+        else
+            echo_warn "eid: no usable keystore account - the cross-chain relay cannot sign"
         fi
         nohup $SHELL -c "./eid \
             $EID_OPTS \
