@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file. Releases are tagged `vMAJOR.MINOR.PATCH`.
 
+## v1.2.4 - The cross-chain relay can sign again
+
+### Fixed
+- **ESC and EID could not submit cross-chain deposits or failed-withdrawal refunds.** Both chains were started with `--password` but without `--unlock`. geth's `unlockAccounts()` returns before it ever reads the password file when `--unlock` is absent, so the signing account stayed locked, every `eth_sendTransaction` from the relay returned `authentication needed: password or unlock`, and the queue cursor never advanced. Everything behind the first unsignable entry was stuck behind it. The failure was silent: logged at INFO and WARN on a node that was otherwise completely healthy, with no alert and no visible symptom. Confirmed on one node as 7 deposits and 8,226.44 ELA across 6 accounts, which drained and credited correctly once the account was unlocked.
+
+  Two money paths were affected, not one: the deposit relay and the failed-withdrawal refund path make the same call.
+
+  Both chains now derive their own keystore account at start time and pass `--unlock` with `--allow-insecure-unlock`. The address is read per node and per chain and is never hardcoded. It is validated as a 40-character hex address first, because an empty or malformed value makes geth exit at boot, and a node with no usable keystore starts normally with a warning rather than failing to start.
+
+  **This is not a rollback of the RPC hardening.** What was remotely exploitable was binding RPC to `0.0.0.0` together with the `personal` namespace, and both remain closed. An unlocked account behind a loopback bind with no `personal` namespace is reachable only by local processes. The flags are temporary and should be removed once ESC and EID sign with `SignTxWithPassphrase`, which never unlocks the account at all.
+
+- **`harden` and `migrate` reported correctly configured nodes as unhardened.** Both used the presence of `--unlock` as the signal, which is no longer a defect. `migrate --apply` would have restarted ESC and EID, waited for a flag it could never see disappear, then failed and aborted. The check now tests what was actually exploitable: an RPC bound to `0.0.0.0`, or the `personal` namespace in `--rpcapi`. An older un-hardened node carries both and is still detected.
+
 ## v1.2.3 - `ela rewound` accepts any recovery build, not just v1.0.0
 
 ### Fixed
